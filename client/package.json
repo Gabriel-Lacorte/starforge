@@ -1,0 +1,19 @@
+{
+    "name": "@starforge/client",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc -b && vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "@starforge/core": "*",
+        "preact": "^10.29.7"
+    },
+    "devDependencies": {
+        "@preact/preset-vite": "^2.10.6",
+        "@types/node": "^24.13.3",
+        "vite": "^8.2.0"
+    }
+}

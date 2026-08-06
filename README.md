@@ -8,6 +8,7 @@ A multiplayer pixel art & animation studio that runs entirely in the browser.
 
 - Crisp pixel rendering at every zoom level
 - DPR-aware so it stays sharp on retina displays and through browser zoom
+- 37 tests covering models, cell writes and command batching
 
 ## Run locally
 

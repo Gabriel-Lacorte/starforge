@@ -1,0 +1,111 @@
+:root {
+    color-scheme: dark;
+    --bg: #09090b;
+    --panel: #0d0d0f;
+    --line: #222227;
+    --text: #fafafa;
+    --dim: #aaacb1;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+}
+
+html,
+body,
+#app {
+    height: 100%;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font:
+        13px/1.4 system-ui,
+        sans-serif;
+    -webkit-font-smoothing: antialised;
+}
+
+.mono {
+    font-family: ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+
+    gap: 0.5rem;
+    height: 2.5rem;
+    padding: 0 0.75rem;
+
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+}
+
+.brand {
+    font-size: 0.75rem;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+}
+
+.tag {
+    color: var(--dim);
+    font-size: 0.8rem;
+}
+
+.meta {
+    margin-left: auto;
+    color: var(--dim);
+    font-size: 12px;
+}
+
+.editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.editor-canvas {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    display: block;
+    touch-action: none;
+}
+
+.statusbar {
+    display: flex;
+    align-items: center;
+
+    gap: 0.75rem;
+    height: 2rem;
+    padding: 0 0.75rem;
+
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+    color: var(--dim);
+    font-size: 12px;
+}
+
+.doc-title {
+    color: var(--text);
+}
+
+.hint {
+    margin-left: auto;
+}
+
+.zoom {
+    min-width: 5ch;
+    text-align: right;
+    color: var(--text);
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hexToRgba, rgba } from './color'
+import { rgbaToHex, hexToRgba, rgba, TRANSPARENT } from './color'
 
 describe('rgba', () => {
     it('packs channels', () => {
@@ -28,5 +28,17 @@ describe('hexToRgba', () => {
         for (const bad of ['ffd166', '#fff', '#ffd16', '#ggd166', '#ffd166801']) {
             expect(() => hexToRgba(bad)).toThrow(/invalid hex color/)
         }
+    })
+})
+
+describe('rgbaToHex', () => {
+    it('renders opaque colors as #rrggbb and round-trips hexToRgba', () => {
+        expect(rgbaToHex(hexToRgba('#ffd166'))).toBe('#ffd166')
+        expect(rgbaToHex(rgba(0, 0, 0))).toBe('#000000')
+    })
+
+    it('keeps the alpha digits when not opaque', () => {
+        expect(rgbaToHex(rgba(255, 209, 102, 0x80))).toBe('#ffd16680')
+        expect(rgbaToHex(TRANSPARENT)).toBe('#00000000')
     })
 })

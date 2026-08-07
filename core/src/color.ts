@@ -6,6 +6,11 @@ export function rgba(r: number, g: number, b: number, a = 0xff): RGBA {
     return (((r & 0xff) << 24) | ((g & 0xff) << 16) | ((b & 0xff) << 8) | (a & 0xff)) >>> 0
 }
 
+export function rgbaToHex(color: RGBA): string {
+    const hex = (color >>> 0).toString(16).padStart(8, '0')
+    return hex.endsWith('ff') ? `#${hex.slice(0, 6)}` : `#${hex}`
+}
+
 export function hexToRgba(hex: string): RGBA {
     if (!/^#(?:[0-9a-f]{6}|[0-9a-f]{8})$/i.test(hex)) {
         throw new Error(`invalid hex color: ${hex}`)

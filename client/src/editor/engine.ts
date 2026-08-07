@@ -1,166 +1,95 @@
-import type { Sprite } from '@starforge/core'
+import type { DocumentSession } from '../document/session'
+import { PreviewOverlay } from '../render/overlay'
 import { Renderer } from '../render/renderer'
-import { createView, fitSprite, panBy, stepZoom, type Zoom } from './view'
-
-export interface EditorEvents {
-    onZoom(zoom: Zoom): void
-}
+import { Viewport } from '../render/viewport'
+import { GestureController } from './gesture'
+import { EditorInput } from './input/EditorInput'
+import type { ReadoutStore } from './readout'
+import { SelectionController } from './selectionController'
+import type { EditorStore } from './store'
 
 export function startEditor(
     canvas: HTMLCanvasElement,
-    sprite: Sprite,
-    events: EditorEvents,
+    overlayCanvas: HTMLCanvasElement,
+    session: DocumentSession,
+    store: EditorStore,
+    readout: ReadoutStore,
 ): () => void {
-    const frameId = sprite.frames[0]?.id
-    if (!frameId) throw new Error('sprite has no frames')
+    const sprite = session.doc
 
-    const renderer = new Renderer(canvas)
-    const view = createView()
+    const layer = sprite.layers[0]?.id
+    const frame = sprite.frames[0]?.id
+    if (!layer || !frame) throw new Error('sprite has no layers or frames')
 
     let needsRender = true
     const invalidate = () => {
         needsRender = true
     }
 
-    /* --- sizing */
-    let dpr = window.devicePixelRatio
-    let fitted = false
+    const renderer = new Renderer(canvas)
+    const overlay = new PreviewOverlay(overlayCanvas, sprite.width, sprite.height)
+    const viewport = new Viewport(canvas, overlayCanvas, sprite.width, sprite.height, {
+        onResize: invalidate,
+        onFit: (zoom) => {
+            readout.patch({ zoom })
+        },
+    })
 
-    const resize = () => {
-        dpr = window.devicePixelRatio
+    const gestures = new GestureController({
+        sprite,
+        layer,
+        frame,
+        session,
+        renderer,
+        overlay,
+        store,
+        requestRender: invalidate,
+    })
 
-        const rect = canvas.getBoundingClientRect()
+    const selection = new SelectionController({
+        sprite,
+        layer,
+        frame,
+        session,
+        onChange: invalidate,
+        invalidate: (x, y, w, h) => {
+            renderer.invalidate(sprite, layer, frame, x, y, w, h)
+        },
+    })
 
-        const w = Math.max(1, Math.round(rect.width * dpr))
-        const h = Math.max(1, Math.round(rect.height * dpr))
-        if (canvas.width === w && canvas.height === h) return
-        canvas.width = w
-        canvas.height = h
-
-        if (!fitted && rect.width > 0) {
-            fitSprite(view, sprite.width, sprite.height, w, h)
-            fitted = true
-            events.onZoom(view.zoom)
-        }
-
+    const unsubscribe = session.subscribe((change) => {
+        if (change.kind !== 'pixels') return
+        const { x, y, w, h } = change.rect
+        renderer.invalidate(sprite, change.layer, change.frame, x, y, w, h)
         invalidate()
-    }
+    })
 
-    const observer = new ResizeObserver(resize)
-    observer.observe(canvas)
+    const input = new EditorInput({
+        canvas,
+        sprite,
+        layer,
+        frame,
+        viewport,
+        gestures,
+        selection,
+        store,
+        readout,
+        requestRender: invalidate,
+    })
 
-    /* browser zoom change dpr without necessarily resizing the element */
-    /* the media query must be rebuilt for each new ratio. */
-    let dprQuery: MediaQueryList | null = null
-    const onDprChange = () => {
-        resize()
-        watchDpr()
-    }
-    const watchDpr = () => {
-        dprQuery?.removeEventListener('change', onDprChange)
-        dprQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
-        dprQuery.addEventListener('change', onDprChange)
-    }
-    watchDpr()
-
-    /* --- input */
-    let panning = false
-    let spaceHeld = false
-
-    let lastX = 0
-    let lastY = 0
-
-    const updateCursor = () => {
-        canvas.style.cursor = panning ? 'grabbing' : spaceHeld ? 'grab' : 'crosshair'
-    }
-
-    const onPointerDown = (e: PointerEvent) => {
-        if (e.button !== 1 && !(e.button === 0 && spaceHeld)) return
-        e.preventDefault()
-
-        panning = true
-        lastX = e.clientX
-        lastY = e.clientY
-
-        canvas.setPointerCapture(e.pointerId)
-        updateCursor()
-    }
-
-    const onPointerMove = (e: PointerEvent) => {
-        if (!panning) return
-        panBy(view, (e.clientX - lastX) * dpr, (e.clientY - lastY) * dpr)
-
-        lastX = e.clientX
-        lastY = e.clientY
-
-        invalidate()
-    }
-
-    const onPointerEnd = () => {
-        if (!panning) return
-        panning = false
-        updateCursor()
-    }
-
-    const onWheel = (e: WheelEvent) => {
-        e.preventDefault()
-        if (e.deltaY === 0) return
-
-        stepZoom(view, e.deltaY < 0 ? 1 : -1, e.offsetX * dpr, e.offsetY * dpr)
-        events.onZoom(view.zoom)
-
-        invalidate()
-    }
-
-    const onKeyDown = (e: KeyboardEvent) => {
-        if (e.code !== 'Space' || e.repeat || isEditableTarget(e.target)) return
-        e.preventDefault()
-        spaceHeld = true
-        updateCursor()
-    }
-
-    const onKeyUp = (e: KeyboardEvent) => {
-        if (e.code !== 'Space') return
-        spaceHeld = false
-        updateCursor()
-    }
-
-    updateCursor()
-    canvas.addEventListener('pointerdown', onPointerDown)
-    canvas.addEventListener('pointermove', onPointerMove)
-    canvas.addEventListener('pointerup', onPointerEnd)
-    canvas.addEventListener('pointercancel', onPointerEnd)
-    canvas.addEventListener('wheel', onWheel, { passive: false })
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
-
-    /* --- render loop */
     let raf = requestAnimationFrame(function tick() {
         raf = requestAnimationFrame(tick)
+
         if (!needsRender) return
         needsRender = false
-        renderer.render(sprite, frameId, view)
+        renderer.render(sprite, frame, viewport.view)
+        overlay.render(viewport.view, selection)
     })
 
     return () => {
         cancelAnimationFrame(raf)
-        observer.disconnect()
-        dprQuery?.removeEventListener('change', onDprChange)
-        canvas.removeEventListener('pointerdown', onPointerDown)
-        canvas.removeEventListener('pointermove', onPointerMove)
-        canvas.removeEventListener('pointerup', onPointerEnd)
-        canvas.removeEventListener('pointercancel', onPointerEnd)
-        canvas.removeEventListener('wheel', onWheel)
-        window.removeEventListener('keydown', onKeyDown)
-        window.removeEventListener('keyup', onKeyUp)
+        unsubscribe()
+        input.dispose()
+        viewport.dispose()
     }
-}
-
-function isEditableTarget(target: EventTarget | null): boolean {
-    return (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement ||
-        (target instanceof HTMLElement && target.isContentEditable)
-    )
 }

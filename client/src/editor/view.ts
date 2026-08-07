@@ -17,26 +17,26 @@ export function createView(): View {
     return { panX: 0, panY: 0, zoom: 1 }
 }
 
-export function screenToSprite(view: View, sx: number, sy: number) {
+export function screenToSprite(view: View, sx: number, sy: number): { x: number; y: number } {
     return {
         x: Math.floor((sx - view.panX) / view.zoom),
         y: Math.floor((sy - view.panY) / view.zoom),
     }
 }
 
-export function spriteToScreen(view: View, x: number, y: number) {
+export function spriteToScreen(view: View, x: number, y: number): { x: number; y: number } {
     return {
         x: x * view.zoom + view.panX,
         y: y * view.zoom + view.panY,
     }
 }
 
-export function panBy(view: View, dx: number, dy: number) {
+export function panBy(view: View, dx: number, dy: number): void {
     view.panX += dx
     view.panY += dy
 }
 
-export function zoomAt(view: View, zoom: Zoom, cx: number, cy: number) {
+export function zoomAt(view: View, zoom: Zoom, cx: number, cy: number): void {
     const sx = (cx - view.panX) / view.zoom
     const sy = (cy - view.panY) / view.zoom
     view.zoom = zoom

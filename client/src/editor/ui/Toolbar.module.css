@@ -1,0 +1,140 @@
+.toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--line);
+}
+
+.toolBtn {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.toolBtn:hover {
+    background: var(--face-hi);
+}
+
+.toolBtn.active {
+    color: var(--accent);
+    background: var(--face-lo);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.toolKey {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    font-size: 8px;
+    line-height: 1;
+    color: var(--dim);
+}
+
+.toolBtn.active .toolKey {
+    color: var(--accent);
+}
+
+.sep {
+    width: 1px;
+    align-self: stretch;
+    margin: 2px 4px;
+    background: var(--line);
+    box-shadow: 1px 0 0 #ffffff10;
+}
+
+.textBtn {
+    height: 26px;
+    padding: 0 10px;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.textBtn:hover {
+    color: var(--accent);
+}
+
+.export {
+    margin-left: auto;
+}
+
+.opt {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--dim);
+}
+
+.stepper {
+    display: flex;
+    align-items: center;
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+}
+
+.stepper button {
+    font: inherit;
+    color: var(--text);
+    background: transparent;
+    border: 0;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.stepper button:hover {
+    color: var(--accent);
+}
+
+.stepper :global(.mono) {
+    min-width: 3ch;
+    text-align: center;
+    color: var(--text);
+}
+
+.num {
+    font: inherit;
+    width: 6ch;
+    padding: 2px 4px;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+    appearance: textfield;
+}
+
+.num::-webkit-inner-spin-button,
+.num::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+}
+
+.toolBtn:focus-visible,
+.num:focus-visible,
+.stepper button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}

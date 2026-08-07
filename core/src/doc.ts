@@ -48,7 +48,8 @@ export interface Cel {
 
 export interface Frame {
     id: string
-    duration: number /* display time in ms */
+    /* display time in ms */
+    duration: number
 }
 
 export interface Palette {

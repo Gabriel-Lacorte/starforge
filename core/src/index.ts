@@ -1,4 +1,7 @@
 export * from './color'
+export * from './cursor'
 export * from './doc'
+export * from './fill'
+export * from './geom'
 export * from './ops'
 export * from './undo'

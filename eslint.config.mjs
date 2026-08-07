@@ -25,9 +25,43 @@ export default defineConfig(
             '@typescript-eslint/consistent-type-imports': 'error',
             '@typescript-eslint/switch-exhaustiveness-check': 'error',
             '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+            '@typescript-eslint/no-non-null-assertion': 'off',
         },
     },
 
+    {
+        files: ['client/src/editor/ui/**'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    patterns: [
+                        {
+                            group: ['*/engine', '*/gesture', '**/render/*', '**/document/*'],
+                            message:
+                                'UI is declarative — it must not import the engine/render/document layer.',
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    {
+        files: ['client/src/render/**'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    patterns: [
+                        {
+                            group: ['**/ui/*'],
+                            message: 'The render layer must not import UI components.',
+                        },
+                    ],
+                },
+            ],
+        },
+    },
     {
         files: ['**/*.test.ts'],
         rules: {

@@ -6,9 +6,14 @@ A multiplayer pixel art & animation studio that runs entirely in the browser.
 
 ## Features (so far)
 
+- Pencil, eraser, line, rectangle and ellipse
+- Bucket with scanline flood fill with per-channel tolerance, contiguous or global mode
+- Undo/redo of whole gestures (`Ctrl+Z` / `Ctrl+Shift+Z` / `Ctrl+Y`)
+- Eyedropper (`Alt`+click)
+- Palette bar with the + a status bar reading out the pixel under the cursor
 - Crisp pixel rendering at every zoom level
-- DPR-aware so it stays sharp on retina displays and through browser zoom
-- 37 tests covering models, cell writes and command batching
+- 118 tests covering client and core
+
 
 ## Run locally
 
@@ -30,6 +35,6 @@ Monorepo with npm workspaces:
 The full design document lives at
 [docs/DESIGN.md](docs/DESIGN.md).
 
-## License & credits
+## License
 
 [MIT](LICENSE).

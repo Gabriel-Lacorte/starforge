@@ -1,0 +1,36 @@
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 34px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--line);
+}
+
+.mark {
+    image-rendering: pixelated;
+    width: 15px;
+    height: 13px;
+}
+
+.brand {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.tag {
+    color: var(--dim);
+}
+
+.tag::before {
+    content: '/';
+    margin-right: 8px;
+    color: var(--line);
+}

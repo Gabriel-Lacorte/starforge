@@ -2,10 +2,11 @@ import type { ComponentType, JSX } from 'preact'
 import type { ToolId } from '../store'
 
 const GRID = 22
+const MINI = 11
 
-function glyph(rows: string[]): JSX.Element {
-    let minX = GRID
-    let minY = GRID
+function glyph(rows: string[], grid = GRID, cls = 'tool-ico'): JSX.Element {
+    let minX = grid
+    let minY = grid
     let maxX = -1
     let maxY = -1
     for (let y = 0; y < rows.length; y++) {
@@ -18,8 +19,8 @@ function glyph(rows: string[]): JSX.Element {
             if (y > maxY) maxY = y
         }
     }
-    const ox = maxX < 0 ? 0 : Math.round((GRID - (maxX - minX + 1)) / 2) - minX
-    const oy = maxY < 0 ? 0 : Math.round((GRID - (maxY - minY + 1)) / 2) - minY
+    const ox = maxX < 0 ? 0 : Math.round((grid - (maxX - minX + 1)) / 2) - minX
+    const oy = maxY < 0 ? 0 : Math.round((grid - (maxY - minY + 1)) / 2) - minY
 
     const rects: JSX.Element[] = []
     for (let y = 0; y < rows.length; y++) {
@@ -38,8 +39,8 @@ function glyph(rows: string[]): JSX.Element {
     }
     return (
         <svg
-            class="tool-ico"
-            viewBox={`0 0 ${GRID} ${GRID}`}
+            class={cls}
+            viewBox={`0 0 ${grid} ${grid}`}
             fill="currentColor"
             shape-rendering="crispEdges"
             aria-hidden="true"
@@ -67,7 +68,6 @@ const PENCIL = [
     '......................',
 ]
 
-// Eraser: a leaning "\" rubber block with a few shavings of dust below it.
 const ERASER = [
     '...##########.........',
     '....##########........',
@@ -143,12 +143,12 @@ const BUCKET = [
     '...##############.....',
     '...#............#.....',
     '...##############.....',
-    '....#..........#......',
-    '....#..........#......',
-    '.....#........#.......',
-    '.....#........#.......',
-    '......#......#........',
-    '......########.......',
+    '....#...........#.....',
+    '....#...........#.....',
+    '.....#.........#......',
+    '.....#.........#......',
+    '......#.......#.......',
+    '......########......',
 ]
 
 const SELECT = [
@@ -182,3 +182,104 @@ export const TOOL_ICON: Record<ToolId, ComponentType> = {
     ellipse: Ellipse,
     bucket: Bucket,
 }
+
+const EYE_OPEN = [
+    '...#####...',
+    '.##.....##.',
+    '#....#....#',
+    '#...###...#',
+    '#....#....#',
+    '.##.....##.',
+    '...#####...',
+]
+
+const EYE_CLOSED = ['#.........#', '.##.....##.', '...#####...', '..#..#..#..', '.#...#...#.']
+
+const LOCKED = [
+    '...#####...',
+    '..##...##..',
+    '..#.....#..',
+    '.#########.',
+    '.#########.',
+    '.####.####.',
+    '.####.####.',
+    '.#########.',
+    '.#########.',
+]
+
+const UNLOCKED = [
+    '...#####...',
+    '..##...##..',
+    '........#..',
+    '.#########.',
+    '.#########.',
+    '.####.####.',
+    '.####.####.',
+    '.#########.',
+    '.#########.',
+]
+
+const PLUS = [
+    '....###....',
+    '....###....',
+    '....###....',
+    '.#########.',
+    '.#########.',
+    '.#########.',
+    '....###....',
+    '....###....',
+    '....###....',
+]
+
+const DUPLICATE = [
+    '.######....',
+    '.#....#....',
+    '.#....#....',
+    '.#..######.',
+    '.#..#....#.',
+    '.####....#.',
+    '....#....#.',
+    '....#....#.',
+    '....######.',
+]
+
+const TRASH = [
+    '....###....',
+    '.#########.',
+    '..#######..',
+    '..#.#.#.#..',
+    '..#.#.#.#..',
+    '..#.#.#.#..',
+    '..#.#.#.#..',
+    '..#######..',
+]
+
+const UP = [
+    '....###....',
+    '...#####...',
+    '..#######..',
+    '.#########.',
+    '....###....',
+    '....###....',
+    '....###....',
+]
+
+const DOWN = [
+    '....###....',
+    '....###....',
+    '....###....',
+    '.#########.',
+    '..#######..',
+    '...#####...',
+    '....###....',
+]
+
+export const EyeOpenIcon = () => glyph(EYE_OPEN, MINI, 'mini-ico')
+export const EyeClosedIcon = () => glyph(EYE_CLOSED, MINI, 'mini-ico')
+export const LockedIcon = () => glyph(LOCKED, MINI, 'mini-ico')
+export const UnlockedIcon = () => glyph(UNLOCKED, MINI, 'mini-ico')
+export const PlusIcon = () => glyph(PLUS, MINI, 'mini-ico')
+export const DuplicateIcon = () => glyph(DUPLICATE, MINI, 'mini-ico')
+export const TrashIcon = () => glyph(TRASH, MINI, 'mini-ico')
+export const UpIcon = () => glyph(UP, MINI, 'mini-ico')
+export const DownIcon = () => glyph(DOWN, MINI, 'mini-ico')

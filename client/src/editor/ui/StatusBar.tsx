@@ -1,6 +1,8 @@
 import { rgbaToHex, type Sprite } from '@starforge/core'
+import type { LayersController } from '../layers/layersController'
 import type { ReadoutStore } from '../readout'
 import type { EditorStore } from '../store'
+import { LockedIcon } from './icons'
 import { useStore } from './useStore'
 import styles from './StatusBar.module.css'
 
@@ -12,13 +14,18 @@ export function StatusBar({
     sprite,
     store,
     readout,
+    layers,
 }: {
     sprite: Sprite
     store: EditorStore
     readout: ReadoutStore
+    layers: LayersController
 }) {
+    useStore(layers)
     const state = useStore(store)
     const { zoom, hover } = useStore(readout)
+
+    const active = sprite.layers.find((l) => l.id === state.activeLayer)
 
     const hoverView: HoverView | null = hover
         ? (hover.color & 0xff) !== 0
@@ -66,6 +73,17 @@ export function StatusBar({
                     </span>
                 )}
             </span>
+
+            {active?.locked && (
+                <span
+                    class={`mono ${styles.locked}`}
+                    data-testid="status-locked"
+                    title={`"${active.name}" is locked`}
+                >
+                    <LockedIcon />
+                    locked
+                </span>
+            )}
 
             <span class={`mono ${styles.zoom}`} data-testid="zoom">
                 {zoom * 100}%

@@ -30,7 +30,7 @@
 }
 
 .tag::before {
-    content: '/';
+    content: '*';
     margin-right: 8px;
     color: var(--line);
 }

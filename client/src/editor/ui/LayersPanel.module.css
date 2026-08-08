@@ -1,0 +1,172 @@
+.panel {
+    width: 172px;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-left: 1px solid var(--line);
+}
+
+.header {
+    padding: 4px 8px;
+    color: var(--dim);
+    border-bottom: 1px solid var(--line);
+}
+
+.list {
+    list-style: none;
+    padding: 0;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--line);
+}
+
+.row.active {
+    background: var(--face);
+    box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.row.hidden .name,
+.row.hidden .thumb {
+    opacity: 0.4;
+}
+
+.thumb {
+    width: 24px;
+    height: 24px;
+    flex: none;
+    image-rendering: pixelated;
+    border: 1px solid var(--line);
+    /* Mini transparency checker under the cel pixels. */
+    background-color: var(--face);
+    background-image:
+        linear-gradient(45deg, var(--line) 25%, transparent 25% 75%, var(--line) 75%),
+        linear-gradient(45deg, var(--line) 25%, transparent 25% 75%, var(--line) 75%);
+    background-size: 8px 8px;
+    background-position:
+        0 0,
+        4px 4px;
+}
+
+.name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.nameInput {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    padding: 1px 3px;
+}
+
+.rowBtn {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 17px;
+    height: 17px;
+    padding: 0;
+    color: var(--dim);
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.rowBtn:hover {
+    color: var(--text);
+}
+
+.lockedBtn {
+    color: var(--accent);
+}
+
+.props {
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-top: 1px solid var(--line);
+}
+
+.prop {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.propName {
+    color: var(--dim);
+    width: 42px;
+    flex: none;
+}
+
+.prop input[type='range'] {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--accent);
+}
+
+.blend {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 2px;
+}
+
+.actions {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    border-top: 1px solid var(--line);
+}
+
+.actionBtn {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    height: 20px;
+    padding: 0;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.actionBtn:active {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.actionBtn:disabled {
+    color: var(--dim);
+    opacity: 0.5;
+    cursor: default;
+}
+
+.actionBtn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}

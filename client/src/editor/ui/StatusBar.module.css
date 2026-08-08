@@ -33,6 +33,13 @@
     margin-left: auto;
 }
 
+.locked {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--accent);
+}
+
 .zoom {
     min-width: 5ch;
     text-align: right;

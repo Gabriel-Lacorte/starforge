@@ -1,5 +1,6 @@
 export * from './color'
 export * from './cursor'
+export * from './layers'
 export * from './doc'
 export * from './fill'
 export * from './geom'

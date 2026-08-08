@@ -1,6 +1,16 @@
 export type BlendMode =
     'normal' | 'multiply' | 'screen' | 'overlay' | 'additive' | 'darken' | 'lighten'
 
+export const BLEND_MODES: readonly BlendMode[] = [
+    'normal',
+    'multiply',
+    'screen',
+    'overlay',
+    'darken',
+    'lighten',
+    'additive',
+]
+
 export interface Sprite {
     id: string
 
@@ -14,6 +24,7 @@ export interface Sprite {
     palette: Palette
 
     meta: SpriteMeta
+    revision: number
 }
 
 export interface SpriteMeta {
@@ -78,10 +89,10 @@ export const DEFAULT_PALETTE: Palette = {
         '#6ee7ff',
         '#b6f6ff',
         '#ffd166',
+        '#ffe564',
         '#fff3b0',
         '#ffffff',
         '#8892b0',
-        '#10101c',
     ],
 }
 
@@ -111,6 +122,7 @@ export function createSprite(init: SpriteInit): Sprite {
             createdAt: now,
             updatedAt: now,
         },
+        revision: 0,
     }
 }
 

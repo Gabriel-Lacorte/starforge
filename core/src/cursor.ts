@@ -43,6 +43,7 @@ export function openCursor(
         },
 
         set(x, y, color) {
+            if (layer.locked) return
             if (!inBounds(x, y)) return
 
             const after = color >>> 0

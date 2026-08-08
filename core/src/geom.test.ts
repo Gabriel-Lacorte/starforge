@@ -46,11 +46,16 @@ describe('plotLine', () => {
             expect(points[0]).toEqual([x0, y0])
             expect(points[points.length - 1]).toEqual([x1, y1])
             expect(new Set(points.map(([x, y]) => `${x},${y}`)).size).toBe(points.length)
-            for (let k = 1; k < points.length; k++) {
-                const dx = Math.abs(points[k]![0] - points[k - 1]![0])
-                const dy = Math.abs(points[k]![1] - points[k - 1]![1])
-                expect(Math.max(dx, dy)).toBe(1)
-            }
+
+            /* one assertion for the whole line: expect() inside the inner loop is
+               what made this file take seconds and flake against the 5s timeout */
+            const steps = points
+                .slice(1)
+                .map((p, k) =>
+                    Math.max(Math.abs(p[0] - points[k]![0]), Math.abs(p[1] - points[k]![1])),
+                )
+                .filter((step) => step !== 1)
+            expect({ line: [x0, y0, x1, y1], steps }).toEqual({ line: [x0, y0, x1, y1], steps: [] })
         }
     })
 
@@ -224,12 +229,17 @@ describe('brushCells', () => {
             const anchor = Math.floor((size - 1) / 2)
             const cells = brushCells(size)
             expect(cells.some((p) => p.x === 0 && p.y === 0)).toBe(true)
-            for (const p of cells) {
-                expect(p.x + anchor).toBeGreaterThanOrEqual(0)
-                expect(p.x + anchor).toBeLessThan(size)
-                expect(p.y + anchor).toBeGreaterThanOrEqual(0)
-                expect(p.y + anchor).toBeLessThan(size)
-            }
+
+            /* 64 sizes * up to 4096 cells * 4 expect() was ~360k assertions — seconds
+               of Vitest bookkeeping, and a flake against the 5s default timeout */
+            const outside = cells.filter(
+                (p) =>
+                    p.x + anchor < 0 ||
+                    p.x + anchor >= size ||
+                    p.y + anchor < 0 ||
+                    p.y + anchor >= size,
+            )
+            expect({ size, outside }).toEqual({ size, outside: [] })
         }
     })
 })

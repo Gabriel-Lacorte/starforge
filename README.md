@@ -1,6 +1,6 @@
 # Starforge
 
-[![CI](https://github.com/Gabriel-Lacorte/starforge/actions/workflows/ci.yml/badge.svg)](https://github.com/Gabriel-Lacorte/starforge/actions/workflows/ci.yml)
+[![Hit Count](https://hits.dwyl.com/Gabriel-Lacorte/starforge.svg)](https://hits.dwyl.com/Gabriel-Lacorte/starforge)
 
 A pixel art & animation studio that runs entirely in the browser. Open the page and draw.
 
@@ -8,27 +8,26 @@ A pixel art & animation studio that runs entirely in the browser. Open the page 
 
 ## Features
 
-**Drawing**: pencil, eraser, line, rectangle and ellipse (outline or filled),
+- **Drawing**: pencil, eraser, line, rectangle and ellipse (outline or filled),
 and a bucket with scanline flood fill, per-channel tolerance and a
 contiguous/global switch. Rectangular select with lift-and-move.
 
-**Layers**: add, duplicate, delete, reorder, rename. Per-layer opacity, seven
+- **Layers**: add, duplicate, delete, reorder, rename. Per-layer opacity, seven
 blend modes (normal, multiply, screen, overlay, darken, lighten, additive),
 visibility and lock.
 
-**History**: undo and redo of whole gestures _and_ of structural edits. Dragging
+- **History**: undo and redo of whole gestures _and_ of structural edits. Dragging
 the opacity slider is one undo step, not sixty. Deleting a layer costs no memory
 to undo, the entry keeps the detached layer itself instead of copying its pixels.
 
-**Rendering**: the frame is composited once into an offscreen canvas and blitted
+- **Rendering**: the frame is composited once into an offscreen canvas and blitted
 to the screen, and it only recomposites when something actually changed. Pixels
 stay crisp at every zoom level.
 
-**Export**: PNG of the current frame.
-
 Keyboard:
-`B` pencil * `E` eraser * `L` line * `U` rect/ellipse * `G` bucket *
-`M` select * `[` `]` brush size * `Space` pan * `Alt`+click eyedropper
+`B` pencil `E` eraser * `L` line
+`U` rect/ellipse * `G` bucket *`M` select
+`[` `]` brush size * `Space` pan * `Alt`+click eyedropper
 
 ## Run locally
 
@@ -58,10 +57,11 @@ will also run when multiplayer lands, so it cannot reach for the DOM.
 
 Shipped: canvas engine * the tool set above * layers.
 
-Next: palettes and symmetry * frames, timeline and onion skin * **a CRDT for
-real-time collaboration** (LWW per cell with Lamport clocks) *
-a GIF89a + LZW encoder * WebGL filters * IndexedDB autosave and
-crash recovery * a public gallery.
+Next: 
+* palettes and symmetry * frames
+* timeline and onion skin * a CRDT for real-time collaboration (LWW per cell with Lamport clocks)
+* a GIF89a + LZW encoder * WebGL filters * IndexedDB autosave
+* a public gallery?
 
 ## License
 

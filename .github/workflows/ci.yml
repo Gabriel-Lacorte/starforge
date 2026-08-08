@@ -1,0 +1,42 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    check:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+
+            - run: npm ci
+
+            - name: Format
+              run: npx prettier --check .
+
+            - name: Lint
+              if: '!cancelled()'
+              run: npx eslint .
+
+            - name: Types
+              if: '!cancelled()'
+              run: npm run -s lint:types
+
+            - name: Test
+              if: '!cancelled()'
+              run: npm test
+
+            - name: Build
+              if: '!cancelled()'
+              run: npm run build

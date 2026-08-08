@@ -66,3 +66,7 @@ crash recovery * a public gallery.
 ## License
 
 [MIT](LICENSE)
+
+The interface is set in [Silkscreen](https://github.com/googlefonts/silkscreen) by
+Jason Kottke, used under the SIL Open Font License
+([client/public/fonts/OFL.txt](client/public/fonts/OFL.txt)).

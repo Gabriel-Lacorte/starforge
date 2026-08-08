@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Command, createSprite, getCel, rgba, writePixel, type Sprite } from '@starforge/core'
-import { UndoStack } from './undoStack'
+import { StrokeRecord, UndoStack } from './undoStack'
 
 const RED = rgba(255, 0, 0)
 const GREEN = rgba(0, 255, 0)
@@ -33,11 +33,18 @@ function strokeAt(
     return command
 }
 
+function pushStroke(stack: UndoStack, command: Command): StrokeRecord | null {
+    const record = StrokeRecord.from(command)
+    if (record) stack.push(record)
+    return record
+}
+
 describe('UndoStack', () => {
     it('undo applies before colors, redo re-applies after, with the gesture rect', () => {
         const { sprite, layer, frame } = sprite32()
         const stack = new UndoStack()
-        const record = stack.push(
+        const record = pushStroke(
+            stack,
             strokeAt(
                 sprite,
                 layer,
@@ -52,29 +59,34 @@ describe('UndoStack', () => {
         expect(record).toMatchObject({ layer, frame, rect: { x: 2, y: 3, w: 4, h: 7 } })
 
         const undone = stack.undo(sprite)
-        expect(undone).toBe(record)
+        expect(undone).toEqual({ kind: 'pixels', layer, frame, rect: { x: 2, y: 3, w: 4, h: 7 } })
         const cel = getCel(sprite, layer, frame)!
         expect([...cel.pixels].every((b) => b === 0)).toBe(true)
 
-        expect(stack.redo(sprite)).toBe(record)
+        expect(stack.redo(sprite)).toEqual({
+            kind: 'pixels',
+            layer,
+            frame,
+            rect: { x: 2, y: 3, w: 4, h: 7 },
+        })
         expect(cel.pixels[(3 * 32 + 2) * 4]).toBe(255)
     })
 
-    it('ignores empty gestures — undo never collects no-ops', () => {
+    it('ignores empty gestures, StrokeRecord.from never packs a no-op', () => {
         const { sprite } = sprite32()
         const stack = new UndoStack()
-        expect(stack.push(new Command('nothing'))).toBeNull()
+        expect(StrokeRecord.from(new Command('nothing'))).toBeNull()
         expect(stack.undo(sprite)).toBeNull()
         expect(stack.redo(sprite)).toBeNull()
     })
 
-    it('a new gesture clears the redo stack', () => {
+    it('a new entry clears the redo stack', () => {
         const { sprite, layer, frame } = sprite32()
         const stack = new UndoStack()
-        stack.push(strokeAt(sprite, layer, frame, [[0, 0]], RED))
+        pushStroke(stack, strokeAt(sprite, layer, frame, [[0, 0]], RED))
         stack.undo(sprite)
         expect(stack.canRedo).toBe(true)
-        stack.push(strokeAt(sprite, layer, frame, [[1, 1]], GREEN))
+        pushStroke(stack, strokeAt(sprite, layer, frame, [[1, 1]], GREEN))
         expect(stack.canRedo).toBe(false)
         expect(stack.redo(sprite)).toBeNull()
     })
@@ -83,7 +95,7 @@ describe('UndoStack', () => {
         const { sprite, layer, frame } = sprite32()
         const stack = new UndoStack({ maxEntries: 3 })
         for (let i = 0; i < 5; i++) {
-            stack.push(strokeAt(sprite, layer, frame, [[i, 0]], RED))
+            pushStroke(stack, strokeAt(sprite, layer, frame, [[i, 0]], RED))
         }
         let undos = 0
         while (stack.undo(sprite)) undos++
@@ -97,11 +109,11 @@ describe('UndoStack', () => {
         const { sprite, layer, frame } = sprite32()
         const cells = (y: number): [number, number][] =>
             Array.from({ length: 10 }, (_, x) => [x, y])
-        const one = new UndoStack().push(strokeAt(sprite, layer, frame, cells(0), RED))!
+        const one = StrokeRecord.from(strokeAt(sprite, layer, frame, cells(0), RED))!
         const stack = new UndoStack({ maxBytes: one.bytes * 2 })
-        stack.push(strokeAt(sprite, layer, frame, cells(1), RED))
-        stack.push(strokeAt(sprite, layer, frame, cells(2), RED))
-        stack.push(strokeAt(sprite, layer, frame, cells(3), RED))
+        pushStroke(stack, strokeAt(sprite, layer, frame, cells(1), RED))
+        pushStroke(stack, strokeAt(sprite, layer, frame, cells(2), RED))
+        pushStroke(stack, strokeAt(sprite, layer, frame, cells(3), RED))
         let undos = 0
         while (stack.undo(sprite)) undos++
         expect(undos).toBe(2)
@@ -112,7 +124,8 @@ describe('UndoStack', () => {
         const { sprite, layer, frame } = sprite32()
         const stack = new UndoStack()
         const records = [0, 1, 2].map((y) =>
-            stack.push(
+            pushStroke(
+                stack,
                 strokeAt(
                     sprite,
                     layer,
@@ -132,11 +145,12 @@ describe('UndoStack', () => {
         expect(stack.bytes).toBe(total)
     })
 
-    it('frees the redo memory when a new gesture drops that future', () => {
+    it('frees the redo memory when a new entry drops that future', () => {
         const { sprite, layer, frame } = sprite32()
         const stack = new UndoStack()
         for (const y of [0, 1, 2])
-            stack.push(
+            pushStroke(
+                stack,
                 strokeAt(
                     sprite,
                     layer,
@@ -150,7 +164,7 @@ describe('UndoStack', () => {
             )
         while (stack.undo(sprite));
 
-        const fresh = stack.push(strokeAt(sprite, layer, frame, [[5, 5]], GREEN))!
+        const fresh = pushStroke(stack, strokeAt(sprite, layer, frame, [[5, 5]], GREEN))!
         expect(stack.canRedo).toBe(false)
         expect(stack.bytes).toBe(fresh.bytes)
     })
@@ -181,7 +195,8 @@ describe('UndoStack', () => {
                 )
                 if (write) command.record(write)
             }
-            if (stack.push(command)) pushed++
+            if (pushStroke(stack, command)) pushed++
+
             if (rng() < 0.15 && stack.undo(sprite)) {
                 pushed--
                 if (rng() < 0.5) {

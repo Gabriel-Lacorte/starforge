@@ -5,7 +5,7 @@ import { TOOL_ICON } from './icons'
 import { useStore } from './useStore'
 import styles from './Toolbar.module.css'
 
-export function Toolbar({ store }: { store: EditorStore }) {
+export function Toolbar({ store, onExport }: { store: EditorStore; onExport: () => void }) {
     const state = useStore(store)
     const brushTo = (size: number) => {
         store.patch({ brushSize: Math.max(1, Math.min(BRUSH_MAX_SIZE, size)) })
@@ -125,6 +125,18 @@ export function Toolbar({ store }: { store: EditorStore }) {
                     </label>
                 </>
             )}
+
+            <button
+                type="button"
+                class={`${styles.textBtn} ${styles.export}`}
+                title="Export the frame as a PNG"
+                onClick={(e) => {
+                    onExport()
+                    e.currentTarget.blur()
+                }}
+            >
+                Export PNG
+            </button>
         </div>
     )
 }

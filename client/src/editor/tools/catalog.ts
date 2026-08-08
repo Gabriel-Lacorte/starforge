@@ -7,8 +7,6 @@ export interface ToolSpec {
     readonly label: string
 
     readonly shortcut?: string
-
-    readonly badge?: string
     readonly options: readonly OptionGroup[]
 }
 

@@ -22,6 +22,10 @@ export default defineConfig(
         },
         rules: {
             eqeqeq: 'error',
+            '@typescript-eslint/no-confusing-void-expression': [
+                'error',
+                { ignoreVoidReturningFunctions: true },
+            ],
             '@typescript-eslint/consistent-type-imports': 'error',
             '@typescript-eslint/switch-exhaustiveness-check': 'error',
             '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],

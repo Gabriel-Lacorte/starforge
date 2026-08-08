@@ -2,8 +2,8 @@ import { BRUSH_MAX_SIZE, getPixel, inBounds, type Sprite } from '@starforge/core
 import type { Viewport } from '../../render/viewport'
 import type { GestureController } from '../gesture'
 import type { ReadoutStore } from '../readout'
-import type { SelectionController } from '../selectionController'
-import type { EditorStore } from '../store'
+import type { SelectionController } from '../selection/selectionController'
+import type { EditTarget, EditorStore } from '../store'
 import type { Mods } from '../tools'
 import { panBy, stepZoom } from '../view'
 import { brushStepForKey, toolForKey } from './keymap'
@@ -12,13 +12,14 @@ import { SelectionInput } from './selectionInput'
 export interface InputDeps {
     canvas: HTMLCanvasElement
     sprite: Sprite
-    layer: string
-    frame: string
+
+    target: () => EditTarget
     viewport: Viewport
     gestures: GestureController
     selection: SelectionController
     store: EditorStore
     readout: ReadoutStore
+
     requestRender: () => void
 }
 
@@ -32,6 +33,7 @@ export class EditorInput {
 
     #lastX = 0
     #lastY = 0
+
     #hoverX = 0
     #hoverY = -1
 
@@ -72,12 +74,24 @@ export class EditorInput {
         window.removeEventListener('keyup', this.#onKeyUp)
     }
 
+    syncCursor(): void {
+        this.#updateCursor()
+    }
+
     #updateCursor(): void {
         this.#deps.canvas.style.cursor = this.#panning
             ? 'grabbing'
             : this.#spaceHeld
               ? 'grab'
-              : 'crosshair'
+              : this.#activeLocked()
+                ? 'not-allowed'
+                : 'crosshair'
+    }
+
+    #activeLocked(): boolean {
+        const { sprite } = this.#deps
+        const id = this.#deps.target().layer
+        return sprite.layers.find((l) => l.id === id)?.locked ?? false
     }
 
     #mods(e: MouseEvent): Mods {
@@ -85,12 +99,14 @@ export class EditorInput {
     }
 
     #syncHover(): void {
-        const { readout, sprite, layer, frame } = this.#deps
+        const { readout, sprite } = this.#deps
         const prev = readout.state.hover
         if (!inBounds(sprite, this.#hoverX, this.#hoverY)) {
             if (prev) readout.patch({ hover: null })
             return
         }
+
+        const { layer, frame } = this.#deps.target()
         const color = getPixel(sprite, layer, frame, this.#hoverX, this.#hoverY)
         if (prev?.x === this.#hoverX && prev.y === this.#hoverY && prev.color === color) return
         readout.patch({ hover: { x: this.#hoverX, y: this.#hoverY, color } })
@@ -103,9 +119,11 @@ export class EditorInput {
     }
 
     #onPointerDown = (e: PointerEvent): void => {
-        const { canvas, viewport, gestures, store, sprite, layer, frame } = this.#deps
+        const { canvas, viewport, gestures, store, sprite } = this.#deps
+
         if (gestures.active || this.#panning || this.#selection.busy) return
         viewport.refreshRect()
+
         if (e.button === 1 || (e.button === 0 && this.#spaceHeld)) {
             e.preventDefault()
             this.#panning = true
@@ -120,11 +138,13 @@ export class EditorInput {
         const p = viewport.toSprite(e.clientX, e.clientY)
 
         if (e.altKey) {
+            const { layer, frame } = this.#deps.target()
             const color = getPixel(sprite, layer, frame, p.x, p.y)
             if ((color & 0xff) !== 0) store.patch({ color })
             this.#moveHover(p)
             return
         }
+
         const tool = store.state.tool
         if (tool === 'select') {
             this.#selection.pointerDown(e, p)
@@ -162,8 +182,7 @@ export class EditorInput {
             this.#moveHover(viewport.toSprite(e.clientX, e.clientY))
             return
         }
-
-        const coalesced = 'getCoalescedEvents' in e ? e.getCoalescedEvents() : []
+        const coalesced = e.getCoalescedEvents()
         const samples = coalesced.length > 0 ? coalesced : [e]
         const m = this.#mods(e)
         let sx = -1
@@ -234,6 +253,7 @@ export class EditorInput {
 
     #onKeyDown = (e: KeyboardEvent): void => {
         if (isEditableTarget(e.target)) return
+
         const { store, gestures } = this.#deps
         if (e.code === 'Space') {
             if (e.repeat) return
@@ -242,10 +262,12 @@ export class EditorInput {
             this.#updateCursor()
             return
         }
+
         if (this.#selection.keyDown(e)) {
             this.#syncHover()
             return
         }
+
         if ((e.ctrlKey || e.metaKey) && !e.altKey) {
             const key = e.key.toLowerCase()
             if (key === 'z') {
@@ -257,6 +279,7 @@ export class EditorInput {
                 gestures.history('redo')
                 this.#syncHover()
             }
+
             return
         }
         if (e.ctrlKey || e.metaKey || e.altKey) return
@@ -267,12 +290,14 @@ export class EditorInput {
             store.patch({ tool })
             return
         }
+
         const step = brushStepForKey(e.key)
         if (step) {
             const size = Math.max(1, Math.min(BRUSH_MAX_SIZE, store.state.brushSize + step))
             store.patch({ brushSize: size })
             return
         }
+
         if (key === 'escape') {
             gestures.abort()
             this.#syncHover()

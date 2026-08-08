@@ -1,5 +1,5 @@
 import type { Viewport } from '../../render/viewport'
-import type { SelectionController } from '../selectionController'
+import type { SelectionController } from '../selection/selectionController'
 import type { EditorStore } from '../store'
 
 export interface SelectionInputDeps {

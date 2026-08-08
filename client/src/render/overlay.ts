@@ -1,6 +1,6 @@
 import type { RGBA } from '@starforge/core'
 import type { View } from '../editor/view'
-import type { SelectionView } from '../editor/selection'
+import type { SelectionView } from '../editor/selection/region'
 
 interface Rect {
     x: number

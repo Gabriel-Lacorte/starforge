@@ -25,13 +25,19 @@ export class Store<T extends object> {
 
 export type ToolId = 'pencil' | 'eraser' | 'line' | 'rect' | 'ellipse' | 'bucket' | 'select'
 
+export interface EditTarget {
+    readonly layer: string
+    readonly frame: string
+}
+
 export interface EditorState {
     readonly tool: ToolId
-    readonly color: RGBA
+    readonly activeLayer: string
 
-    /** 1..64 */
+    readonly color: RGBA
+    /* 1..64 */
     readonly brushSize: number
-    /** rect/ellipse draw filled */
+    /* rect/ellipse draw filled */
     readonly shapeFill: boolean
 
     readonly fillTolerance: number
@@ -39,9 +45,10 @@ export interface EditorState {
 }
 
 export class EditorStore extends Store<EditorState> {
-    constructor() {
+    constructor(activeLayer: string) {
         super({
             tool: 'pencil',
+            activeLayer,
             color: hexToRgba('#ffffff'),
             brushSize: 1,
             shapeFill: false,

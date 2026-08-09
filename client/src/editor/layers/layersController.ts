@@ -1,4 +1,11 @@
-import { createLayer, getLayer, setLayerProp, type LayerProps, type Sprite } from '@starforge/core'
+import {
+    createLayer,
+    normalizeLayerName,
+    setLayerProp,
+    type Layer,
+    type LayerProps,
+    type Sprite,
+} from '@starforge/core'
 import type { DocumentSession } from '../../document/session'
 import {
     AddLayerEntry,
@@ -65,13 +72,15 @@ export class LayersController extends Store<{ doc: number }> {
     }
 
     remove(id: string): void {
-        if (this.#sprite.layers.length <= 1) return
+        if (this.#sprite.layers.length <= 1 || !this.#find(id)) return
 
         this.#guard()
         this.#session.apply(new RemoveLayerEntry(id))
     }
 
     duplicate(id: string): void {
+        if (!this.#find(id)) return
+
         this.#guard()
         const entry = new DuplicateLayerEntry(this.#sprite, id)
         this.#session.apply(entry)
@@ -81,7 +90,7 @@ export class LayersController extends Store<{ doc: number }> {
     moveUp(id: string): void {
         const index = this.#indexOf(id)
         const above = this.#sprite.layers[index + 1]
-        if (!above) return
+        if (index === -1 || !above) return
 
         this.#guard()
         this.#session.apply(new MoveLayerEntry(id, above.id))
@@ -89,7 +98,7 @@ export class LayersController extends Store<{ doc: number }> {
 
     moveDown(id: string): void {
         const index = this.#indexOf(id)
-        if (index === 0) return
+        if (index <= 0) return
 
         this.#guard()
         this.#session.apply(new MoveLayerEntry(id, this.#sprite.layers[index - 2]?.id ?? null))
@@ -103,39 +112,47 @@ export class LayersController extends Store<{ doc: number }> {
     }
 
     rename(id: string, name: string): void {
-        const trimmed = name.trim()
-        const before = getLayer(this.#sprite, id).name
-        if (!trimmed || trimmed === before) return
+        const layer = this.#find(id)
+        if (!layer) return
 
-        this.#session.apply(new SetLayerPropEntry(id, 'name', before, trimmed))
+        const next = normalizeLayerName(name)
+        if (!next || next === layer.name) return
+
+        this.#session.apply(new SetLayerPropEntry(id, 'name', layer.name, next))
     }
 
     toggleVisible(id: string): void {
-        const before = getLayer(this.#sprite, id).visible
-        this.#session.apply(new SetLayerPropEntry(id, 'visible', before, !before))
+        const layer = this.#find(id)
+        if (!layer) return
+
+        this.#session.apply(new SetLayerPropEntry(id, 'visible', layer.visible, !layer.visible))
     }
 
     toggleLocked(id: string): void {
+        const layer = this.#find(id)
+        if (!layer) return
+
         this.#guard()
-        const before = getLayer(this.#sprite, id).locked
-        this.#session.apply(new SetLayerPropEntry(id, 'locked', before, !before))
+        this.#session.apply(new SetLayerPropEntry(id, 'locked', layer.locked, !layer.locked))
     }
 
     setBlendMode(id: string, mode: LayerProps['blendMode']): void {
-        const before = getLayer(this.#sprite, id).blendMode
-        if (mode === before) return
+        const layer = this.#find(id)
+        if (!layer || mode === layer.blendMode) return
 
-        this.#session.apply(new SetLayerPropEntry(id, 'blendMode', before, mode))
+        this.#session.apply(new SetLayerPropEntry(id, 'blendMode', layer.blendMode, mode))
     }
 
     previewOpacity(id: string, value: number): void {
+        if (!this.#find(id) || !Number.isInteger(value) || value < 0 || value > 255) return
+
         if (setLayerProp(this.#sprite, id, 'opacity', value) !== null) {
             this.#session.notifyStructure()
         }
     }
 
     commitOpacity(id: string, before: number, value: number): void {
-        if (before === value) return
+        if (before === value || !this.#find(id)) return
         this.#session.apply(new SetLayerPropEntry(id, 'opacity', before, value))
     }
 
@@ -143,9 +160,16 @@ export class LayersController extends Store<{ doc: number }> {
         this.#beforeStructural?.()
     }
 
+    /**
+     * A row can outlive the layer it draws: an undo, or later a peer's delete,
+     * can land between render and click. Every entry point takes the id from
+     * that stale render, so a missing layer is a no-op rather than a crash.
+     */
+    #find(id: string): Layer | null {
+        return this.#sprite.layers.find((l) => l.id === id) ?? null
+    }
+
     #indexOf(id: string): number {
-        const index = this.#sprite.layers.findIndex((l) => l.id === id)
-        if (index === -1) throw new Error(`unknown layer: ${id}`)
-        return index
+        return this.#sprite.layers.findIndex((l) => l.id === id)
     }
 }

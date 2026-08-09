@@ -26,7 +26,36 @@
     --text: #e4e4e4;
     --dim: #9a9a9a;
     --accent: #ffcc33;
+    --accent-hi: #ffd75c;
     --accent-lo: #6b5316;
+
+    --edge-lit: #ffffff12;
+    --edge-gold: #ffffff88;
+    --edge-inset: #ffffff20;
+    --shadow-float: #00000055;
+    --scrim: #0a0a0acc;
+    --scrim-cast: #0a0a0a66;
+
+    /* WCAG 2.2 SC 2.5.8 */
+    --target: 24px;
+}
+
+@media (pointer: coarse) {
+    :root {
+        --target: 44px;
+    }
+}
+
+@media (pointer: coarse) and (max-width: 720px) {
+    :root {
+        --target: 36px;
+    }
+}
+
+@media (max-height: 480px) {
+    :root {
+        --target: 32px;
+    }
 }
 
 * {
@@ -61,7 +90,7 @@ textarea {
 
 .bar {
     background: var(--panel);
-    box-shadow: inset 0 1px 0 #ffffff12;
+    box-shadow: inset 0 1px 0 var(--edge-lit);
 }
 
 .mono {
@@ -72,6 +101,13 @@ textarea {
     width: 22px;
     height: 22px;
     display: block;
+}
+
+.mini-ico {
+    width: 11px;
+    height: 11px;
+    display: block;
+    flex: none;
 }
 
 .dim {
@@ -111,13 +147,19 @@ input[type='checkbox'] {
 }
 
 input[type='checkbox']:checked {
-    background: var(--accent);
+    background: var(--face-hi);
     box-shadow:
-        inset 1px 1px 0 #ffffff55,
-        inset -1px -1px 0 var(--accent-lo);
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
 }
 
 input[type='checkbox']:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
+}
+
+input[type='checkbox']:active {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
 }

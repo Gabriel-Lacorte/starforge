@@ -32,5 +32,27 @@
 .tag::before {
     content: '*';
     margin-right: 8px;
-    color: var(--line);
+    color: var(--face-hi);
+}
+
+@media (max-width: 720px) {
+    .topbar {
+        height: 30px;
+        padding: 0 8px;
+    }
+
+    .tag {
+        display: none;
+    }
+}
+
+@media (max-height: 480px) {
+    .topbar {
+        height: 26px;
+        padding: 0 8px;
+    }
+
+    .tag {
+        display: none;
+    }
 }

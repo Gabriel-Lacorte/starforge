@@ -3,11 +3,12 @@ import type { View } from '../editor/view'
 import { canvasBackend, Compositor } from './compositor'
 
 const BACKDROP = '#0c0c0c'
-const CHECKER_DARK = '#1e1e1e'
-const CHECKER_LIGHT = '#262626'
+const DOC_EDGE = '#5e5e5e'
+const CHECKER_DARK = '#2f2f2f'
+const CHECKER_LIGHT = '#3b3b3b'
 
 const CHECKER_SIZE = 8
-const GRID_COLOR = 'rgba(0, 0, 0, 0.25)'
+const GRID_COLOR = 'rgba(255, 255, 255, 0.10)'
 const GRID_MIN_ZOOM = 8
 
 export class Renderer {
@@ -50,6 +51,10 @@ export class Renderer {
         if (view.zoom >= GRID_MIN_ZOOM) {
             this.#drawGrid(sprite, view.zoom, panX, panY, cw, ch)
         }
+
+        ctx.strokeStyle = DOC_EDGE
+        ctx.lineWidth = 1
+        ctx.strokeRect(panX - 0.5, panY - 0.5, w + 1, h + 1)
     }
 
     invalidate(

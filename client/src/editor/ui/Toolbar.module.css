@@ -23,8 +23,10 @@
     cursor: pointer;
 }
 
-.toolBtn:hover {
-    background: var(--face-hi);
+.toolBtn:active {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
 }
 
 .toolBtn.active {
@@ -53,10 +55,13 @@
     align-self: stretch;
     margin: 2px 4px;
     background: var(--line);
-    box-shadow: 1px 0 0 #ffffff10;
+    box-shadow: 1px 0 0 var(--edge-lit);
 }
 
 .textBtn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     height: 26px;
     padding: 0 10px;
     color: var(--text);
@@ -68,18 +73,70 @@
     cursor: pointer;
 }
 
-.textBtn:hover {
-    color: var(--accent);
+.textBtn:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
 }
 
-.export {
+.textBtn:disabled {
+    color: var(--dim);
+    opacity: 0.5;
+    cursor: default;
+}
+
+.textBtn.on {
+    color: var(--text);
+    background: var(--face-lo);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.fileGroup {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     margin-left: auto;
+}
+
+.iconBtn {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.iconBtn:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.iconBtn:disabled {
+    color: var(--dim);
+    opacity: 0.5;
+    cursor: default;
+}
+
+.iconBtn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
 }
 
 .opt {
     display: flex;
     align-items: center;
     gap: 6px;
+    min-height: var(--target);
     color: var(--dim);
 }
 
@@ -98,12 +155,12 @@
     color: var(--text);
     background: transparent;
     border: 0;
-    width: 18px;
-    height: 18px;
+    width: var(--target);
+    height: var(--target);
     cursor: pointer;
 }
 
-.stepper button:hover {
+.stepper button:active {
     color: var(--accent);
 }
 
@@ -116,6 +173,7 @@
 .num {
     font: inherit;
     width: 6ch;
+    min-height: var(--target);
     padding: 2px 4px;
     color: var(--text);
     background: var(--bg);
@@ -132,9 +190,64 @@
     margin: 0;
 }
 
+@media (hover: hover) {
+    .toolBtn:hover {
+        background: var(--face-hi);
+    }
+
+    .toolBtn:hover .toolKey {
+        color: var(--text);
+    }
+
+    .textBtn:hover,
+    .iconBtn:hover:not(:disabled),
+    .stepper button:hover {
+        color: var(--accent);
+    }
+}
+
+@media (pointer: coarse) {
+    .toolBtn {
+        width: var(--target);
+        height: var(--target);
+    }
+
+    .textBtn,
+    .iconBtn {
+        min-height: var(--target);
+    }
+
+    .iconBtn {
+        width: var(--target);
+    }
+}
+
 .toolBtn:focus-visible,
+.textBtn:focus-visible,
 .num:focus-visible,
 .stepper button:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
+}
+
+@media (max-height: 480px) {
+    .toolbar {
+        gap: 3px;
+        padding: 3px 6px;
+    }
+}
+
+@media (max-width: 720px) {
+    .toolbar {
+        gap: 3px;
+        padding: 4px 6px;
+    }
+
+    .textBtn {
+        padding: 0 8px;
+    }
+
+    .wide {
+        display: none;
+    }
 }

@@ -1,9 +1,17 @@
-import { BLEND_MODES, type BlendMode, type Cel, type Layer, type Sprite } from '@starforge/core'
+import {
+    BLEND_MODES,
+    LAYER_NAME_MAX,
+    type BlendMode,
+    type Cel,
+    type Layer,
+    type Sprite,
+} from '@starforge/core'
 import type { ComponentChildren } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import type { LayersController } from '../layers/layersController'
 import type { EditorStore } from '../store'
 import {
+    CloseIcon,
     DownIcon,
     DuplicateIcon,
     EyeClosedIcon,
@@ -21,16 +29,30 @@ export function LayersPanel({
     sprite,
     store,
     layers,
+    onClose,
 }: {
     sprite: Sprite
     store: EditorStore
     layers: LayersController
+    onClose: () => void
 }) {
     useStore(layers)
     const state = useStore(store)
     const [editing, setEditing] = useState<string | null>(null)
 
-    const dragStart = useRef<number | null>(null)
+    const drag = useRef<{ layer: string; from: number } | null>(null)
+
+    useEffect(
+        () => () => {
+            const pending = drag.current
+            drag.current = null
+            if (!pending) return
+
+            const layer = sprite.layers.find((l) => l.id === pending.layer)
+            if (layer) layers.commitOpacity(pending.layer, pending.from, layer.opacity)
+        },
+        [sprite, layers],
+    )
 
     const frameId = sprite.frames[0]!.id
     const active = sprite.layers.find((l) => l.id === state.activeLayer)
@@ -42,8 +64,20 @@ export function LayersPanel({
     }
 
     return (
-        <aside class={`bar ${styles.panel}`} data-testid="layers-panel">
-            <header class={styles.header}>Layers</header>
+        <aside class={`bar ${styles.panel}`} id="layers-panel" data-testid="layers-panel">
+            <header class={styles.header}>
+                Layers
+                <button
+                    type="button"
+                    class={styles.close}
+                    title="Hide the layers panel"
+                    aria-label="Hide the layers panel"
+                    data-testid="layers-close"
+                    onClick={onClose}
+                >
+                    <CloseIcon />
+                </button>
+            </header>
 
             <ul class={styles.list}>
                 {rows.map((layer) => {
@@ -54,36 +88,53 @@ export function LayersPanel({
                             class={`${styles.row}${isActive ? ` ${styles.active}` : ''}${layer.visible ? '' : ` ${styles.hidden}`}`}
                             data-testid="layer-row"
                             data-layer-id={layer.id}
-                            aria-current={isActive}
-                            onClick={() => layers.setActive(layer.id)}
                         >
-                            <Thumb
-                                cel={layer.cels.get(frameId)}
-                                width={sprite.width}
-                                height={sprite.height}
-                            />
                             {editing === layer.id ? (
-                                <NameInput
-                                    initial={layer.name}
-                                    onSettle={(value) => {
-                                        commitRename(layer, value)
-                                    }}
-                                />
+                                <>
+                                    <Thumb
+                                        cel={layer.cels.get(frameId)}
+                                        width={sprite.width}
+                                        height={sprite.height}
+                                    />
+                                    <NameInput
+                                        initial={layer.name}
+                                        onSettle={(value) => {
+                                            commitRename(layer, value)
+                                        }}
+                                    />
+                                </>
                             ) : (
-                                <span
-                                    class={styles.name}
-                                    data-testid="layer-name"
-                                    title={`${layer.name} (double-click to rename)`}
+                                <button
+                                    type="button"
+                                    class={styles.select}
+                                    data-testid="layer-select"
+                                    aria-current={isActive}
+                                    title={`${layer.name} (F2 or double-click to rename)`}
+                                    onClick={() => layers.setActive(layer.id)}
                                     onDblClick={() => setEditing(layer.id)}
+                                    onKeyDown={(e) => {
+                                        if (e.key !== 'F2') return
+                                        e.preventDefault()
+                                        layers.setActive(layer.id)
+                                        setEditing(layer.id)
+                                    }}
                                 >
-                                    {layer.name}
-                                </span>
+                                    <Thumb
+                                        cel={layer.cels.get(frameId)}
+                                        width={sprite.width}
+                                        height={sprite.height}
+                                    />
+                                    <span class={styles.name} data-testid="layer-name" dir="auto">
+                                        {layer.name}
+                                    </span>
+                                </button>
                             )}
                             <button
                                 type="button"
                                 class={styles.rowBtn}
                                 data-testid="layer-eye"
                                 title={layer.visible ? 'Hide layer' : 'Show layer'}
+                                aria-label={`${layer.visible ? 'Hide' : 'Show'} layer "${layer.name}"`}
                                 aria-pressed={!layer.visible}
                                 onClick={(e) => {
                                     e.stopPropagation()
@@ -98,6 +149,7 @@ export function LayersPanel({
                                 class={`${styles.rowBtn}${layer.locked ? ` ${styles.lockedBtn}` : ''}`}
                                 data-testid="layer-lock"
                                 title={layer.locked ? 'Unlock layer' : 'Lock layer'}
+                                aria-label={`${layer.locked ? 'Unlock' : 'Lock'} layer "${layer.name}"`}
                                 aria-pressed={layer.locked}
                                 onClick={(e) => {
                                     e.stopPropagation()
@@ -123,13 +175,17 @@ export function LayersPanel({
                             value={active.opacity}
                             data-testid="layer-opacity"
                             onInput={(e) => {
-                                dragStart.current ??= active.opacity
+                                if (drag.current?.layer !== active.id) {
+                                    drag.current = { layer: active.id, from: active.opacity }
+                                }
                                 layers.previewOpacity(active.id, Number(e.currentTarget.value))
                             }}
                             onChange={(e) => {
                                 const value = Number(e.currentTarget.value)
-                                layers.commitOpacity(active.id, dragStart.current ?? value, value)
-                                dragStart.current = null
+                                const from =
+                                    drag.current?.layer === active.id ? drag.current.from : value
+                                drag.current = null
+                                layers.commitOpacity(active.id, from, value)
                                 e.currentTarget.blur()
                             }}
                         />
@@ -221,10 +277,18 @@ function NameInput({
             class={styles.nameInput}
             data-testid="layer-name-input"
             value={initial}
+            aria-label={`Rename layer "${initial}"`}
+            maxLength={LAYER_NAME_MAX}
+            dir="auto"
+            spellcheck={false}
+            autocomplete="off"
+            autocapitalize="off"
+            enterkeyhint="done"
             onBlur={(e) => {
                 onSettle(abandoned.current ? null : e.currentTarget.value)
             }}
             onKeyDown={(e) => {
+                e.stopPropagation()
                 if (e.key === 'Enter') e.currentTarget.blur()
                 else if (e.key === 'Escape') {
                     abandoned.current = true
@@ -286,8 +350,11 @@ function Thumb({ cel, width, height }: { cel: Cel | undefined; width: number; he
     useEffect(() => {
         const ctx = ref.current?.getContext('2d')
         if (!ctx) return
+        ctx.imageSmoothingEnabled = false
         ctx.clearRect(0, 0, THUMB_SIZE, THUMB_SIZE)
         if (!cel) return
+
+        if (cel.pixels.byteLength !== width * height * 4) return
 
         const src = scratchFor(width, height)
         if (!src) return

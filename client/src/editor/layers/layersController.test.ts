@@ -4,6 +4,7 @@ import {
     createSprite,
     getPixel,
     insertLayer,
+    LAYER_NAME_MAX,
     rgba,
     writePixel,
     type Sprite,
@@ -132,7 +133,7 @@ describe('LayersController: structure', () => {
     })
 })
 
-describe('LayersController — props', () => {
+describe('LayersController: props', () => {
     it('setProp + undo restores the previous value; two setProps are two undo steps', () => {
         const { sprite, mid, session, layers } = setup()
         layers.setBlendMode(mid, 'multiply')
@@ -214,5 +215,74 @@ describe('LayersController: active layer', () => {
         const { mid, layers, changes } = setup()
         layers.remove(mid)
         expect(changes).toEqual([{ kind: 'structure', removedLayerIndex: 1 }])
+    })
+})
+
+describe('LayersController: a layer that vanished under the row', () => {
+    /* undo, and later a peer's delete, can land between render and click. */
+    it('treats every entry point as a no-op instead of throwing', () => {
+        const { sprite, layers, changes } = setup()
+        const before = names(sprite)
+
+        expect(() => {
+            layers.rename('ghost', 'x')
+            layers.toggleVisible('ghost')
+            layers.toggleLocked('ghost')
+            layers.setBlendMode('ghost', 'multiply')
+            layers.previewOpacity('ghost', 10)
+            layers.commitOpacity('ghost', 255, 10)
+            layers.duplicate('ghost')
+            layers.remove('ghost')
+            layers.moveUp('ghost')
+            layers.moveDown('ghost')
+        }).not.toThrow()
+
+        expect(names(sprite)).toEqual(before)
+        expect(changes).toEqual([])
+    })
+
+    it('still edits the layer that is really there', () => {
+        const { sprite, mid, layers } = setup()
+        layers.rename(mid, 'renamed')
+        expect(names(sprite)).toEqual(['base', 'renamed', 'top'])
+    })
+})
+
+describe('LayersController: rename hardening', () => {
+    it('normalizes whitespace and refuses a blank name', () => {
+        const { sprite, mid, layers } = setup()
+
+        layers.rename(mid, '   spaced   out   ')
+        expect(names(sprite)).toEqual(['base', 'spaced out', 'top'])
+
+        layers.rename(mid, '    ')
+        expect(names(sprite)).toEqual(['base', 'spaced out', 'top'])
+    })
+
+    it('caps a pathological name so it cannot bloat the document or storage', () => {
+        const { sprite, mid, layers } = setup()
+        layers.rename(mid, 'y'.repeat(5000))
+
+        expect(sprite.layers[1]!.name).toHaveLength(LAYER_NAME_MAX)
+    })
+
+    it('does not record an undo step when the normalized name is unchanged', () => {
+        const { mid, layers, session, changes } = setup()
+        layers.rename(mid, 'mid')
+        layers.rename(mid, '  mid  ')
+
+        expect(changes).toEqual([])
+        expect(session.canUndo).toBe(false)
+    })
+
+    it('rejects an out-of-range opacity preview instead of throwing', () => {
+        const { sprite, mid, layers } = setup()
+        expect(() => {
+            layers.previewOpacity(mid, 999)
+            layers.previewOpacity(mid, -4)
+            layers.previewOpacity(mid, 1.5)
+        }).not.toThrow()
+
+        expect(sprite.layers[1]!.opacity).toBe(255)
     })
 })

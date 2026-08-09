@@ -22,6 +22,7 @@ export function PaletteBar({ palette, store }: { palette: Palette; store: Editor
                         class={`${styles.swatch}${state.color === swatch.rgba ? ` ${styles.active}` : ''}`}
                         style={{ background: swatch.hex }}
                         title={swatch.hex}
+                        aria-label={`Colour ${swatch.hex}`}
                         data-testid="swatch"
                         aria-pressed={state.color === swatch.rgba}
                         onClick={(e) => {

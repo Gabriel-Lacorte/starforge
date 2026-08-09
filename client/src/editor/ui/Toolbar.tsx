@@ -1,12 +1,32 @@
 import { BRUSH_MAX_SIZE } from '@starforge/core'
 import { TOOL_CATALOG, toolBadge, type OptionGroup } from '../tools/catalog'
+import type { ReadoutStore } from '../readout'
 import type { EditorStore } from '../store'
-import { TOOL_ICON } from './icons'
+import { FileIcon, KeysIcon, PanelIcon, RedoIcon, TOOL_ICON, UndoIcon } from './icons'
 import { useStore } from './useStore'
 import styles from './Toolbar.module.css'
 
-export function Toolbar({ store, onExport }: { store: EditorStore; onExport: () => void }) {
+export function Toolbar({
+    store,
+    readout,
+    layersOpen,
+    onNew,
+    onExport,
+    onToggleLayers,
+    onKeys,
+    onHistory,
+}: {
+    store: EditorStore
+    readout: ReadoutStore
+    layersOpen: boolean
+    onNew: () => void
+    onExport: () => void
+    onToggleLayers: () => void
+    onKeys: () => void
+    onHistory: (direction: 'undo' | 'redo') => void
+}) {
     const state = useStore(store)
+    const { canUndo, canRedo, exportState } = useStore(readout)
     const brushTo = (size: number) => {
         store.patch({ brushSize: Math.max(1, Math.min(BRUSH_MAX_SIZE, size)) })
     }
@@ -126,17 +146,91 @@ export function Toolbar({ store, onExport }: { store: EditorStore; onExport: () 
                 </>
             )}
 
-            <button
-                type="button"
-                class={`${styles.textBtn} ${styles.export}`}
-                title="Export the frame as a PNG"
-                onClick={(e) => {
-                    onExport()
-                    e.currentTarget.blur()
-                }}
-            >
-                Export PNG
-            </button>
+            <span class={styles.fileGroup}>
+                <button
+                    type="button"
+                    class={styles.iconBtn}
+                    title="Undo (Ctrl+Z)"
+                    aria-label="Undo"
+                    data-testid="undo"
+                    disabled={!canUndo}
+                    onClick={(e) => {
+                        onHistory('undo')
+                        e.currentTarget.blur()
+                    }}
+                >
+                    <UndoIcon />
+                </button>
+                <button
+                    type="button"
+                    class={styles.iconBtn}
+                    title="Redo (Ctrl+Shift+Z)"
+                    aria-label="Redo"
+                    data-testid="redo"
+                    disabled={!canRedo}
+                    onClick={(e) => {
+                        onHistory('redo')
+                        e.currentTarget.blur()
+                    }}
+                >
+                    <RedoIcon />
+                </button>
+                <span class={styles.sep} />
+                <button
+                    type="button"
+                    class={styles.textBtn}
+                    title="Start a new sprite at any size"
+                    data-testid="new-sprite"
+                    onClick={(e) => {
+                        onNew()
+                        e.currentTarget.blur()
+                    }}
+                >
+                    <FileIcon />
+                    New
+                </button>
+                <button
+                    type="button"
+                    class={styles.textBtn}
+                    title="Export as a PNG"
+                    data-testid="export-png"
+                    disabled={exportState === 'working'}
+                    onClick={(e) => {
+                        onExport()
+                        e.currentTarget.blur()
+                    }}
+                >
+                    <span class={styles.wide}>Export </span>PNG
+                </button>
+                <button
+                    type="button"
+                    class={styles.textBtn}
+                    title="Keys and gestures"
+                    data-testid="keys"
+                    onClick={(e) => {
+                        onKeys()
+                        e.currentTarget.blur()
+                    }}
+                >
+                    <KeysIcon />
+                    <span class={styles.wide}>Keys</span>
+                </button>
+                <button
+                    type="button"
+                    class={`${styles.textBtn}${layersOpen ? ` ${styles.on}` : ''}`}
+                    title={layersOpen ? 'Hide the layers panel' : 'Show the layers panel'}
+                    aria-expanded={layersOpen}
+                    aria-controls="layers-panel"
+                    data-testid="toggle-layers"
+                    onClick={(e) => {
+                        onToggleLayers()
+                        e.currentTarget.blur()
+                    }}
+                >
+                    <PanelIcon />
+                    <span class={styles.wide}>Layers</span>
+                </button>
+            </span>
         </div>
     )
 }

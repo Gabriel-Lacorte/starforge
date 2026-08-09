@@ -6,6 +6,7 @@
 }
 
 .workspace {
+    position: relative;
     flex: 1;
     display: flex;
     min-height: 0;
@@ -34,4 +35,21 @@
 
 .overlay {
     pointer-events: none;
+}
+
+.drawerScrim {
+    display: none;
+}
+
+@media (max-width: 720px), (max-height: 480px) {
+    .drawerScrim {
+        display: block;
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        padding: 0;
+        background: none;
+        border: 0;
+        cursor: pointer;
+    }
 }

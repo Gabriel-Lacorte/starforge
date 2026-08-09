@@ -1,0 +1,104 @@
+.crash {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    min-height: 0;
+    padding: 16px;
+    background: var(--bg);
+}
+
+.panel {
+    width: min(360px, 100%);
+    padding: 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+}
+
+.headline {
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.body {
+    margin-top: 8px;
+    color: var(--text);
+    line-height: 1.8;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.action {
+    min-height: var(--target);
+    padding: 0 12px;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.action:active {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.action:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.primary {
+    color: var(--bg);
+    background: var(--accent);
+    box-shadow:
+        inset 1px 1px 0 var(--edge-gold),
+        inset -1px -1px 0 var(--accent-lo);
+}
+
+.primary:active {
+    box-shadow:
+        inset 1px 1px 0 var(--accent-lo),
+        inset -1px -1px 0 var(--edge-gold);
+}
+
+.note {
+    margin-top: 10px;
+    color: var(--text);
+    line-height: 1.8;
+}
+
+.noteFailed {
+    color: var(--accent);
+}
+
+.detail {
+    margin-top: 12px;
+    padding-top: 8px;
+    color: var(--dim);
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+    border-top: 1px solid var(--line);
+}
+
+@media (hover: hover) {
+    .action:hover {
+        color: var(--accent);
+    }
+
+    .primary:hover {
+        color: var(--bg);
+        background: var(--accent-hi);
+    }
+}

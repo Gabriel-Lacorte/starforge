@@ -49,6 +49,23 @@ export function stepZoom(view: View, direction: 1 | -1, cx: number, cy: number):
     if (next !== undefined) zoomAt(view, next, cx, cy)
 }
 
+export function clampPan(
+    view: View,
+    spriteW: number,
+    spriteH: number,
+    viewportW: number,
+    viewportH: number,
+): void {
+    const w = spriteW * view.zoom
+    const h = spriteH * view.zoom
+
+    const keepX = Math.min(w, viewportW * 0.25)
+    const keepY = Math.min(h, viewportH * 0.25)
+
+    view.panX = Math.min(viewportW - keepX, Math.max(keepX - w, view.panX))
+    view.panY = Math.min(viewportH - keepY, Math.max(keepY - h, view.panY))
+}
+
 export function fitSprite(
     view: View,
     spriteW: number,

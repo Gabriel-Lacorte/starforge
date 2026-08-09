@@ -1,4 +1,4 @@
-import { createView, fitSprite, screenToSprite, type View } from '../editor/view'
+import { clampPan, createView, fitSprite, screenToSprite, type View } from '../editor/view'
 
 interface ViewportEvents {
     onResize: () => void
@@ -18,7 +18,7 @@ export class Viewport {
     readonly #observer: ResizeObserver
 
     #dpr = window.devicePixelRatio
-    #fitted = false
+    #adjusted = false
     #rectLeft = 0
     #rectTop = 0
 
@@ -53,12 +53,32 @@ export class Viewport {
         return this.#dpr
     }
 
+    markAdjusted(): void {
+        this.#adjusted = true
+    }
+
+    fit(): void {
+        this.#adjusted = false
+        fitSprite(this.view, this.#spriteW, this.#spriteH, this.#canvas.width, this.#canvas.height)
+    }
+
+    clampPan(): void {
+        clampPan(this.view, this.#spriteW, this.#spriteH, this.#canvas.width, this.#canvas.height)
+    }
+
     refreshRect(): void {
         if (!this.#rectDirty) return
         const rect = this.#canvas.getBoundingClientRect()
         this.#rectLeft = rect.left
         this.#rectTop = rect.top
         this.#rectDirty = false
+    }
+
+    toCanvas(clientX: number, clientY: number): { x: number; y: number } {
+        return {
+            x: (clientX - this.#rectLeft) * this.#dpr,
+            y: (clientY - this.#rectTop) * this.#dpr,
+        }
     }
 
     toSprite(clientX: number, clientY: number): { x: number; y: number } {
@@ -91,10 +111,12 @@ export class Viewport {
         this.#canvas.height = h
         this.#overlay.width = w
         this.#overlay.height = h
-        if (!this.#fitted && rect.width > 0) {
+
+        if (rect.width > 0 && !this.#adjusted) {
             fitSprite(this.view, this.#spriteW, this.#spriteH, w, h)
-            this.#fitted = true
             this.#events.onFit(this.view.zoom)
+        } else {
+            this.clampPan()
         }
 
         this.#events.onResize()

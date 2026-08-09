@@ -19,7 +19,7 @@
 }
 
 .pos {
-    min-width: 6ch;
+    min-width: 9ch;
     color: var(--text);
 }
 
@@ -29,10 +29,6 @@
     gap: 8px;
 }
 
-.hint {
-    margin-left: auto;
-}
-
 .locked {
     display: flex;
     align-items: center;
@@ -40,8 +36,101 @@
     color: var(--accent);
 }
 
+.save {
+    min-width: 9ch;
+    text-align: right;
+}
+
+.saveFailed {
+    color: var(--accent);
+}
+
 .zoom {
     min-width: 5ch;
     text-align: right;
     color: var(--text);
+}
+
+@media (max-width: 720px) {
+    .statusbar {
+        gap: 8px;
+        padding: 0 8px;
+    }
+
+    .docTitle,
+    .cursor {
+        display: none;
+    }
+
+    .save {
+        min-width: 0;
+    }
+
+    .zoom {
+        margin-left: auto;
+    }
+}
+
+@media (max-height: 480px) {
+    .statusbar {
+        height: 24px;
+        gap: 10px;
+    }
+}
+
+.zoomGroup {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+}
+
+.zoomBtn {
+    width: var(--target);
+    height: var(--target);
+    padding: 0;
+    font: inherit;
+    color: var(--text);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+}
+
+.zoomBtn:disabled {
+    color: var(--dim);
+    opacity: 0.5;
+    cursor: default;
+}
+
+.zoomBtn:active:not(:disabled) {
+    color: var(--accent);
+}
+
+.zoom {
+    min-width: 7ch;
+    height: var(--target);
+    padding: 0 4px;
+    font: inherit;
+    text-align: center;
+    color: var(--text);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+}
+
+.zoomBtn:focus-visible,
+.zoom:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+@media (hover: hover) {
+    .zoomBtn:hover:not(:disabled),
+    .zoom:hover {
+        color: var(--accent);
+    }
 }

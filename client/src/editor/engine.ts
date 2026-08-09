@@ -8,6 +8,14 @@ import type { LayersController } from './layers/layersController'
 import type { ReadoutStore } from './readout'
 import { SelectionController } from './selection/selectionController'
 import type { EditorStore, EditTarget } from './store'
+import { stepZoom } from './view'
+
+export interface EditorHandle {
+    dispose(): void
+    history(direction: 'undo' | 'redo'): void
+    zoom(direction: 1 | -1): void
+    fit(): void
+}
 
 export function startEditor(
     canvas: HTMLCanvasElement,
@@ -16,7 +24,7 @@ export function startEditor(
     store: EditorStore,
     readout: ReadoutStore,
     layers: LayersController,
-): () => void {
+): EditorHandle {
     const sprite = session.doc
 
     const layer = sprite.layers[0]?.id
@@ -75,12 +83,19 @@ export function startEditor(
         requestRender: invalidate,
     })
 
+    const syncHistory = () => {
+        const { canUndo, canRedo } = readout.state
+        if (canUndo === session.canUndo && canRedo === session.canRedo) return
+        readout.patch({ canUndo: session.canUndo, canRedo: session.canRedo })
+    }
+
     const unsubscribe = session.subscribe((change) => {
         if (change.kind === 'pixels') {
             const { x, y, w, h } = change.rect
             renderer.invalidate(sprite, change.layer, change.frame, x, y, w, h)
         }
         input.syncCursor()
+        syncHistory()
         invalidate()
     })
 
@@ -116,17 +131,38 @@ export function startEditor(
                 renderMs: lastRenderMs,
             }),
             benchCompose: (size?: number, layerCount?: number) => {
-                /* devtools helper: fire-and-forget is the point, the result prints itself */
+                /* devtools helper. fire-and-forget is the point, the result prints itself */
                 void import('../render/composeBench').then((m) => m.benchCompose(size, layerCount))
             },
         }
     }
 
-    return () => {
-        cancelAnimationFrame(raf)
-        unsubscribe()
-        unsubscribeStore()
-        input.dispose()
-        viewport.dispose()
+    return {
+        dispose() {
+            cancelAnimationFrame(raf)
+            unsubscribe()
+            unsubscribeStore()
+            input.dispose()
+            viewport.dispose()
+        },
+
+        history(direction) {
+            gestures.history(direction)
+            syncHistory()
+        },
+
+        zoom(direction) {
+            stepZoom(viewport.view, direction, canvas.width / 2, canvas.height / 2)
+            viewport.clampPan()
+            viewport.markAdjusted()
+            readout.patch({ zoom: viewport.view.zoom })
+            invalidate()
+        },
+
+        fit() {
+            viewport.fit()
+            readout.patch({ zoom: viewport.view.zoom })
+            invalidate()
+        },
     }
 }

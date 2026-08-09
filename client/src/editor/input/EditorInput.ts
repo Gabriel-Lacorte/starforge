@@ -34,6 +34,11 @@ export class EditorInput {
     #lastX = 0
     #lastY = 0
 
+    readonly #touches = new Map<number, { x: number; y: number }>()
+    #pinchDistance = 0
+    #pinchX = 0
+    #pinchY = 0
+
     #hoverX = 0
     #hoverY = -1
 
@@ -118,8 +123,69 @@ export class EditorInput {
         this.#syncHover()
     }
 
+    get #pinching(): boolean {
+        return this.#touches.size >= 2
+    }
+
+    #beginPinch(): void {
+        const [a, b] = [...this.#touches.values()]
+        if (!a || !b) return
+
+        this.#pinchDistance = Math.hypot(a.x - b.x, a.y - b.y)
+        this.#pinchX = (a.x + b.x) / 2
+        this.#pinchY = (a.y + b.y) / 2
+
+        this.#deps.gestures.abort()
+        this.#deps.selection.cancel()
+        this.#panning = false
+        this.#updateCursor()
+    }
+
+    #movePinch(): void {
+        const { viewport, readout } = this.#deps
+        const [a, b] = [...this.#touches.values()]
+        if (!a || !b) return
+
+        const distance = Math.hypot(a.x - b.x, a.y - b.y)
+        const midX = (a.x + b.x) / 2
+        const midY = (a.y + b.y) / 2
+
+        viewport.refreshRect()
+        const anchor = viewport.toCanvas(midX, midY)
+
+        const ratio = this.#pinchDistance === 0 ? 1 : distance / this.#pinchDistance
+        if (ratio > Math.SQRT2 || ratio < Math.SQRT1_2) {
+            stepZoom(viewport.view, ratio > 1 ? 1 : -1, anchor.x, anchor.y)
+            this.#pinchDistance = distance
+            readout.patch({ zoom: viewport.view.zoom })
+        }
+
+        panBy(
+            viewport.view,
+            (midX - this.#pinchX) * viewport.dpr,
+            (midY - this.#pinchY) * viewport.dpr,
+        )
+        this.#pinchX = midX
+        this.#pinchY = midY
+
+        viewport.clampPan()
+        viewport.markAdjusted()
+        this.#deps.requestRender()
+    }
+
     #onPointerDown = (e: PointerEvent): void => {
         const { canvas, viewport, gestures, store, sprite } = this.#deps
+
+        if (e.pointerType === 'touch') {
+            this.#touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
+            canvas.setPointerCapture(e.pointerId)
+
+            if (this.#pinching) {
+                e.preventDefault()
+                this.#beginPinch()
+                return
+            }
+        }
 
         if (gestures.active || this.#panning || this.#selection.busy) return
         viewport.refreshRect()
@@ -134,6 +200,7 @@ export class EditorInput {
             return
         }
         if (e.button !== 0) return
+
         e.preventDefault()
         const p = viewport.toSprite(e.clientX, e.clientY)
 
@@ -160,28 +227,44 @@ export class EditorInput {
 
     #onPointerMove = (e: PointerEvent): void => {
         const { viewport, gestures } = this.#deps
+
+        if (e.pointerType === 'touch' && this.#touches.has(e.pointerId)) {
+            this.#touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
+            if (this.#pinching) {
+                e.preventDefault()
+                this.#movePinch()
+                return
+            }
+        }
+        if (this.#pinching) return
+
         viewport.refreshRect()
         if (this.#selection.busy) {
             const p = viewport.toSprite(e.clientX, e.clientY)
             if (this.#selection.pointerMove(e, p)) this.#moveHover(p)
             return
         }
+
         if (this.#panning) {
             panBy(
                 viewport.view,
                 (e.clientX - this.#lastX) * viewport.dpr,
                 (e.clientY - this.#lastY) * viewport.dpr,
             )
+            viewport.clampPan()
+            viewport.markAdjusted()
             this.#lastX = e.clientX
             this.#lastY = e.clientY
             this.#deps.requestRender()
             this.#moveHover(viewport.toSprite(e.clientX, e.clientY))
             return
         }
+
         if (!gestures.active || e.pointerId !== this.#pointerId) {
             this.#moveHover(viewport.toSprite(e.clientX, e.clientY))
             return
         }
+
         const coalesced = e.getCoalescedEvents()
         const samples = coalesced.length > 0 ? coalesced : [e]
         const m = this.#mods(e)
@@ -200,17 +283,22 @@ export class EditorInput {
 
     #onPointerUp = (e: PointerEvent): void => {
         const { viewport, gestures } = this.#deps
+
+        if (this.#touches.delete(e.pointerId) && this.#touches.size > 0) return
+
         if (this.#panning) {
             this.#panning = false
             this.#updateCursor()
             return
         }
+
         if (this.#selection.busy) {
             viewport.refreshRect()
             const p = viewport.toSprite(e.clientX, e.clientY)
             if (this.#selection.pointerUp(e, p)) this.#moveHover(p)
             return
         }
+
         if (gestures.active && e.pointerId === this.#pointerId && e.button === 0) {
             viewport.refreshRect()
             const p = viewport.toSprite(e.clientX, e.clientY)
@@ -219,7 +307,9 @@ export class EditorInput {
         }
     }
 
-    #onPointerCancel = (): void => {
+    #onPointerCancel = (e: PointerEvent): void => {
+        if (this.#touches.delete(e.pointerId) && this.#touches.size > 0) return
+
         if (this.#panning) {
             this.#panning = false
             this.#updateCursor()
@@ -246,6 +336,8 @@ export class EditorInput {
             e.offsetX * viewport.dpr,
             e.offsetY * viewport.dpr,
         )
+        viewport.clampPan()
+        viewport.markAdjusted()
         readout.patch({ zoom: viewport.view.zoom })
         this.#deps.requestRender()
         this.#moveHover(viewport.toSprite(e.clientX, e.clientY))
@@ -256,6 +348,7 @@ export class EditorInput {
 
         const { store, gestures } = this.#deps
         if (e.code === 'Space') {
+            if (e.target instanceof HTMLButtonElement) return
             if (e.repeat) return
             e.preventDefault()
             this.#spaceHeld = true

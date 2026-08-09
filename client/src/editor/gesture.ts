@@ -58,10 +58,6 @@ export class GestureController {
         this.#host = this.#makeHost()
     }
 
-    /**
-     * The host is a plain object, so its getters see their own `this`, they close
-     * over these arrows instead, which capture the controller lexically.
-     */
     #makeHost(): ToolHost {
         const deps = this.#deps
         const target = () => this.#gestureTarget()

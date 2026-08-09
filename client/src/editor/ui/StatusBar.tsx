@@ -1,4 +1,6 @@
 import { rgbaToHex, type Sprite } from '@starforge/core'
+import { TOOL_CATALOG } from '../tools/catalog'
+import { ZOOM_LEVELS } from '../view'
 import type { LayersController } from '../layers/layersController'
 import type { ReadoutStore } from '../readout'
 import type { EditorStore } from '../store'
@@ -10,22 +12,49 @@ type HoverView =
     | { readonly pos: string; readonly empty: true }
     | { readonly pos: string; readonly empty: false; readonly hex: string }
 
+const ZOOM_MIN = ZOOM_LEVELS[0]
+const ZOOM_MAX = ZOOM_LEVELS[ZOOM_LEVELS.length - 1]!
+
+const SAVE_LABEL = {
+    pending: 'saving',
+    saved: 'saved',
+    failed: 'not saved',
+} as const
+
+const EXPORT_LABEL = {
+    working: 'exporting',
+    done: 'exported',
+    failed: 'export failed',
+} as const
+
+const EXPORT_TITLE = {
+    working: 'Building the PNG',
+    done: 'The PNG was written to your downloads',
+    failed: 'The browser could not write the PNG. Try a smaller sprite, or reload',
+} as const
+
 export function StatusBar({
     sprite,
     store,
     readout,
     layers,
+    onZoom,
+    onFit,
 }: {
     sprite: Sprite
     store: EditorStore
     readout: ReadoutStore
     layers: LayersController
+    onZoom: (direction: 1 | -1) => void
+    onFit: () => void
 }) {
     useStore(layers)
     const state = useStore(store)
-    const { zoom, hover } = useStore(readout)
+    const { zoom, hover, save, exportState } = useStore(readout)
 
     const active = sprite.layers.find((l) => l.id === state.activeLayer)
+    const hasBrush =
+        TOOL_CATALOG.find((tool) => tool.id === state.tool)?.options.includes('brush') ?? false
 
     const hoverView: HoverView | null = hover
         ? (hover.color & 0xff) !== 0
@@ -37,7 +66,7 @@ export function StatusBar({
         <footer class={`bar ${styles.statusbar}`}>
             <span class={styles.docTitle}>{sprite.meta.title}</span>
             <span class="mono">
-                {sprite.width}*{sprite.height}
+                {sprite.width}x{sprite.height}
             </span>
 
             <span class={styles.cursor} title="Pixel under the cursor">
@@ -67,7 +96,7 @@ export function StatusBar({
                 <span class="mono" data-testid="status-tool">
                     {state.tool}
                 </span>
-                {state.tool !== 'bucket' && (
+                {hasBrush && (
                     <span class="mono dim" data-testid="status-brush">
                         brush {state.brushSize}
                     </span>
@@ -85,8 +114,64 @@ export function StatusBar({
                 </span>
             )}
 
-            <span class={`mono ${styles.zoom}`} data-testid="zoom">
-                {zoom * 100}%
+            {exportState && (
+                <span
+                    class={`mono ${styles.save}${exportState === 'failed' ? ` ${styles.saveFailed}` : ''}`}
+                    data-testid="status-export"
+                    title={EXPORT_TITLE[exportState]}
+                    role="status"
+                >
+                    {EXPORT_LABEL[exportState]}
+                </span>
+            )}
+
+            {save && (
+                <span
+                    class={`mono ${styles.save}${save === 'failed' ? ` ${styles.saveFailed}` : ''}`}
+                    data-testid="status-save"
+                    role="status"
+                    title={
+                        save === 'failed'
+                            ? 'This browser refused to store the drawing. Export it before you leave'
+                            : 'Kept in this browser. It comes back when you reload'
+                    }
+                >
+                    {SAVE_LABEL[save]}
+                </span>
+            )}
+
+            <span class={styles.zoomGroup}>
+                <button
+                    type="button"
+                    class={styles.zoomBtn}
+                    title="Zoom out"
+                    aria-label="Zoom out"
+                    data-testid="zoom-out"
+                    disabled={zoom <= ZOOM_MIN}
+                    onClick={() => onZoom(-1)}
+                >
+                    -
+                </button>
+                <button
+                    type="button"
+                    class={`mono ${styles.zoom}`}
+                    title="Fit the document to the window"
+                    data-testid="zoom"
+                    onClick={onFit}
+                >
+                    {zoom * 100}%
+                </button>
+                <button
+                    type="button"
+                    class={styles.zoomBtn}
+                    title="Zoom in"
+                    aria-label="Zoom in"
+                    data-testid="zoom-in"
+                    disabled={zoom >= ZOOM_MAX}
+                    onClick={() => onZoom(1)}
+                >
+                    +
+                </button>
             </span>
         </footer>
     )

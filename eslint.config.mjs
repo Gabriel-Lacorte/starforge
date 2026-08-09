@@ -43,7 +43,7 @@ export default defineConfig(
                         {
                             group: ['*/engine', '*/gesture', '**/render/*', '**/document/*'],
                             message:
-                                'UI is declarative — it must not import the engine/render/document layer.',
+                                'UI is declarative and must not import the engine/render/document layer.',
                         },
                     ],
                 },

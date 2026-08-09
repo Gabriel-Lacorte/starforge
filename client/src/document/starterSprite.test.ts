@@ -21,14 +21,12 @@ describe('createStarterSprite', () => {
         ])
     })
 
-    /* A mode on the bottom layer is inert — the compositor forces source-over
-       there — so advertising one in the panel would be theatre. */
     it('never puts a blend mode where it cannot do anything', () => {
         const { sprite } = createStarterSprite()
         expect(sprite.layers[0]!.blendMode).toBe('normal')
     })
 
-    it('draws something on every layer — no empty rows in the panel', () => {
+    it('draws something on every layer, no empty rows in the panel', () => {
         const { sprite } = createStarterSprite()
         const frame = sprite.frames[0]!.id
         for (const layer of sprite.layers) {

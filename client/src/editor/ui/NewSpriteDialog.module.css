@@ -1,0 +1,189 @@
+.dialog {
+    width: min(280px, calc(100vw - 24px));
+    margin: auto;
+    padding: 0;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo),
+        0 8px 0 var(--shadow-float);
+}
+
+.dialog::backdrop {
+    background: var(--scrim);
+}
+
+.header {
+    padding: 5px 10px;
+    color: var(--dim);
+    border-bottom: 1px solid var(--line);
+}
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+}
+
+.presets {
+    display: flex;
+    gap: 4px;
+}
+
+.preset {
+    flex: 1;
+    height: var(--target);
+    padding: 0;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.preset:active {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.preset.on {
+    color: var(--accent);
+    background: var(--face-lo);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.sizes {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.size {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--dim);
+}
+
+.size input {
+    font: inherit;
+    width: 7ch;
+    min-height: var(--target);
+    padding: 3px 4px;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+    appearance: textfield;
+}
+
+.size input::-webkit-inner-spin-button,
+.size input::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+}
+
+.warn {
+    color: var(--text);
+    line-height: 1.7;
+}
+
+.warn b {
+    color: var(--text);
+    font-weight: 700;
+}
+
+.invalid {
+    color: var(--accent);
+    line-height: 1.7;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--line);
+}
+
+.action {
+    height: 24px;
+    padding: 0 12px;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.action:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.action:disabled {
+    color: var(--dim);
+    opacity: 0.5;
+    cursor: default;
+}
+
+.primary {
+    color: var(--bg);
+    background: var(--accent);
+    box-shadow:
+        inset 1px 1px 0 var(--edge-gold),
+        inset -1px -1px 0 var(--accent-lo);
+}
+
+.primary:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--accent-lo),
+        inset -1px -1px 0 var(--edge-gold);
+}
+
+.preset:focus-visible,
+.action:focus-visible,
+.size input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+@media (hover: hover) {
+    .preset:hover {
+        background: var(--face-hi);
+    }
+
+    .action:hover:not(:disabled) {
+        color: var(--accent);
+    }
+
+    .primary:hover:not(:disabled) {
+        color: var(--bg);
+        background: var(--accent-hi);
+    }
+}
+
+@media (pointer: coarse) {
+    .action {
+        height: var(--target);
+    }
+}
+
+.titleField input {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+}

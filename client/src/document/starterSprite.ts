@@ -35,13 +35,6 @@ interface LayerSpec {
     paint: (cursor: CelCursor) => void
 }
 
-/**
- * Bottom to top — the order the compositor walks them in.
- *
- * `Glow` stays `normal` even though a glow "wants" to be additive: the bottom
- * visible layer always composites source-over onto an empty frame, so any other
- * mode there would read in the panel while changing nothing on screen.
- */
 const LAYERS: LayerSpec[] = [
     { name: 'Glow', props: { opacity: 190 }, paint: paintGlow },
     { name: 'Star', paint: paintStar },

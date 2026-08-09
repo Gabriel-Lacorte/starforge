@@ -47,8 +47,6 @@ describe('plotLine', () => {
             expect(points[points.length - 1]).toEqual([x1, y1])
             expect(new Set(points.map(([x, y]) => `${x},${y}`)).size).toBe(points.length)
 
-            /* one assertion for the whole line: expect() inside the inner loop is
-               what made this file take seconds and flake against the 5s timeout */
             const steps = points
                 .slice(1)
                 .map((p, k) =>
@@ -230,8 +228,6 @@ describe('brushCells', () => {
             const cells = brushCells(size)
             expect(cells.some((p) => p.x === 0 && p.y === 0)).toBe(true)
 
-            /* 64 sizes * up to 4096 cells * 4 expect() was ~360k assertions — seconds
-               of Vitest bookkeeping, and a flake against the 5s default timeout */
             const outside = cells.filter(
                 (p) =>
                     p.x + anchor < 0 ||

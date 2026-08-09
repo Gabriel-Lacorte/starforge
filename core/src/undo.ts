@@ -7,18 +7,12 @@ interface CellDelta {
     after: RGBA
 }
 
-/**
- * represents one gesture as a batch of cell writes against a single (layer, frame).
- *
- * cells are keyed numerically and repeted cells allocate nothing, optimizing every brush drag.
- * writes the same sell collapse into first-`before` + last-`after`, so undo/redo cost O(cells touched).
- */
 export class Command {
     readonly label: string
 
     #layer: string | null = null
     #frame: string | null = null
-    /* y*SPRITE_MAX_SIZE+x is collision free */
+
     readonly #cells = new Map<number, CellDelta>()
 
     constructor(label: string) {

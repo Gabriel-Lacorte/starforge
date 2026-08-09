@@ -6,7 +6,9 @@ import { getPixel, writePixel, type CellWrite } from './ops'
 import {
     cloneLayer,
     insertLayer,
+    LAYER_NAME_MAX,
     moveLayer,
+    normalizeLayerName,
     removeLayer,
     restoreLayer,
     setLayerProp,
@@ -214,5 +216,46 @@ describe('revision', () => {
         expect(sprite.revision).toBe(before)
         setLayerProp(sprite, sprite.layers[0]!.id, 'opacity', 10)
         expect(sprite.revision).toBe(before + 1)
+    })
+})
+
+describe('normalizeLayerName', () => {
+    it('trims and collapses runs of whitespace', () => {
+        expect(normalizeLayerName('  sky   line  ')).toBe('sky line')
+    })
+
+    it('replaces a control character with a space, then collapses', () => {
+        expect(normalizeLayerName('sky\u0007line')).toBe('sky line')
+        expect(normalizeLayerName('sky\u007fline')).toBe('sky line')
+        expect(normalizeLayerName('a\u0000b')).toBe('a b')
+        expect(normalizeLayerName('trailing\u0001')).toBe('trailing')
+    })
+
+    it('flattens a pasted multi-line name onto one line', () => {
+        expect(normalizeLayerName('sky\nline\r\nthree')).toBe('sky line three')
+    })
+
+    it('caps the name at the model limit', () => {
+        expect(normalizeLayerName('x'.repeat(LAYER_NAME_MAX + 40))).toHaveLength(LAYER_NAME_MAX)
+    })
+
+    it('counts grapheme clusters, so a family emoji is never split', () => {
+        const star = '\u{1f31f}'
+        expect(normalizeLayerName(star.repeat(LAYER_NAME_MAX + 10))).toBe(
+            star.repeat(LAYER_NAME_MAX),
+        )
+
+        const family = '\u{1f468}\u200d\u{1f469}\u200d\u{1f467}'
+        const capped = normalizeLayerName(family.repeat(LAYER_NAME_MAX + 6))
+        expect(capped).toBe(family.repeat(LAYER_NAME_MAX))
+        expect(JSON.parse(JSON.stringify(capped))).toBe(capped)
+    })
+
+    it('returns empty for a name that is only whitespace', () => {
+        expect(normalizeLayerName('   \t \n ')).toBe('')
+    })
+
+    it('leaves an ordinary name untouched', () => {
+        expect(normalizeLayerName('Sparkles')).toBe('Sparkles')
     })
 })

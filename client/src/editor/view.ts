@@ -1,12 +1,6 @@
 export const ZOOM_LEVELS = [1, 2, 4, 8, 16, 32] as const
 export type Zoom = (typeof ZOOM_LEVELS)[number]
 
-/**
- * viewport in device pixels.
- *
- * `pan` stays fractional here and is rounded once per frame by the renderer,
- * since fractional pan on screen causes seams between grid cells.
- */
 export interface View {
     panX: number
     panY: number

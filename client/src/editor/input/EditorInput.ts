@@ -1,13 +1,24 @@
-import { BRUSH_MAX_SIZE, getPixel, inBounds, type Sprite } from '@starforge/core'
+import {
+    BRUSH_MAX_SIZE,
+    getPixel,
+    inBounds,
+    type Sprite,
+    type TransformKind,
+} from '@starforge/core'
 import type { Viewport } from '../../render/viewport'
+import type { PlaybackController } from '../frames/playbackController'
 import type { GestureController } from '../gesture'
 import type { ReadoutStore } from '../readout'
 import type { SelectionController } from '../selection/selectionController'
-import type { EditTarget, EditorStore } from '../store'
+import type { TransformController } from '../transform/transformController'
+import type { EditTarget } from '../../document/session'
+import type { EditorStore } from '../store'
 import type { Mods } from '../tools'
 import { panBy, stepZoom } from '../view'
+import { isGestureTool } from '../tools/registry'
 import { brushStepForKey, toolForKey } from './keymap'
 import { SelectionInput } from './selectionInput'
+import { WheelZoom } from './wheelZoom'
 
 export interface InputDeps {
     canvas: HTMLCanvasElement
@@ -17,8 +28,10 @@ export interface InputDeps {
     viewport: Viewport
     gestures: GestureController
     selection: SelectionController
+    transforms: TransformController
     store: EditorStore
     readout: ReadoutStore
+    playback: PlaybackController
 
     requestRender: () => void
 }
@@ -29,6 +42,7 @@ export class EditorInput {
 
     #spaceHeld = false
     #panning = false
+    readonly #wheel = new WheelZoom()
     #pointerId = -1
 
     #lastX = 0
@@ -79,8 +93,9 @@ export class EditorInput {
         window.removeEventListener('keyup', this.#onKeyUp)
     }
 
-    syncCursor(): void {
+    sync(): void {
         this.#updateCursor()
+        this.#syncHover()
     }
 
     #updateCursor(): void {
@@ -99,6 +114,13 @@ export class EditorInput {
         return sprite.layers.find((l) => l.id === id)?.locked ?? false
     }
 
+    #sample(p: { x: number; y: number }): void {
+        const { sprite, store } = this.#deps
+        const { layer, frame } = this.#deps.target()
+        const color = getPixel(sprite, layer, frame, p.x, p.y)
+        if ((color & 0xff) !== 0) store.pickColor(color)
+    }
+
     #mods(e: MouseEvent): Mods {
         return { shift: e.shiftKey, alt: e.altKey, ctrl: e.ctrlKey || e.metaKey }
     }
@@ -111,8 +133,13 @@ export class EditorInput {
             return
         }
 
-        const { layer, frame } = this.#deps.target()
-        const color = getPixel(sprite, layer, frame, this.#hoverX, this.#hoverY)
+        const color = getPixel(
+            sprite,
+            this.#deps.target().layer,
+            this.#deps.playback.frame,
+            this.#hoverX,
+            this.#hoverY,
+        )
         if (prev?.x === this.#hoverX && prev.y === this.#hoverY && prev.color === color) return
         readout.patch({ hover: { x: this.#hoverX, y: this.#hoverY, color } })
     }
@@ -174,7 +201,7 @@ export class EditorInput {
     }
 
     #onPointerDown = (e: PointerEvent): void => {
-        const { canvas, viewport, gestures, store, sprite } = this.#deps
+        const { canvas, viewport, gestures, store } = this.#deps
 
         if (e.pointerType === 'touch') {
             this.#touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
@@ -202,19 +229,20 @@ export class EditorInput {
         if (e.button !== 0) return
 
         e.preventDefault()
+        this.#deps.playback.pause()
         const p = viewport.toSprite(e.clientX, e.clientY)
 
-        if (e.altKey) {
-            const { layer, frame } = this.#deps.target()
-            const color = getPixel(sprite, layer, frame, p.x, p.y)
-            if ((color & 0xff) !== 0) store.patch({ color })
+        const tool = store.state.tool
+        if (!isGestureTool(tool)) {
+            if (this.#selection.shape) this.#selection.pointerDown(e, p)
+            else this.#sample(p)
             this.#moveHover(p)
+
             return
         }
 
-        const tool = store.state.tool
-        if (tool === 'select') {
-            this.#selection.pointerDown(e, p)
+        if (e.altKey) {
+            this.#sample(p)
             this.#moveHover(p)
             return
         }
@@ -329,17 +357,16 @@ export class EditorInput {
         const { viewport, readout } = this.#deps
         e.preventDefault()
         if (e.deltaY === 0) return
-        viewport.refreshRect()
-        stepZoom(
-            viewport.view,
-            e.deltaY < 0 ? 1 : -1,
-            e.offsetX * viewport.dpr,
-            e.offsetY * viewport.dpr,
-        )
-        viewport.clampPan()
-        viewport.markAdjusted()
-        readout.patch({ zoom: viewport.view.zoom })
-        this.#deps.requestRender()
+
+        const direction = this.#wheel.step(e.deltaY, e.deltaMode)
+        if (direction !== 0) {
+            viewport.refreshRect()
+            stepZoom(viewport.view, direction, e.offsetX * viewport.dpr, e.offsetY * viewport.dpr)
+            viewport.clampPan()
+            viewport.markAdjusted()
+            readout.patch({ zoom: viewport.view.zoom })
+            this.#deps.requestRender()
+        }
         this.#moveHover(viewport.toSprite(e.clientX, e.clientY))
     }
 
@@ -358,6 +385,13 @@ export class EditorInput {
 
         if (this.#selection.keyDown(e)) {
             this.#syncHover()
+            return
+        }
+
+        if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+            if (e.target instanceof HTMLButtonElement || e.repeat) return
+            e.preventDefault()
+            this.#deps.playback.toggle()
             return
         }
 
@@ -384,6 +418,24 @@ export class EditorInput {
             return
         }
 
+        if (e.shiftKey) {
+            const kind = TRANSFORM_KEYS[key]
+            if (kind) {
+                e.preventDefault()
+                this.#deps.transforms.apply(kind)
+                return
+            }
+        }
+
+        if (key === 'x') {
+            store.swapColors()
+            return
+        }
+        if (key === 'd') {
+            store.resetColors()
+            return
+        }
+
         const step = brushStepForKey(e.key)
         if (step) {
             const size = Math.max(1, Math.min(BRUSH_MAX_SIZE, store.state.brushSize + step))
@@ -406,6 +458,13 @@ export class EditorInput {
     #onContextMenu = (e: Event): void => {
         e.preventDefault()
     }
+}
+
+const TRANSFORM_KEYS: Readonly<Record<string, TransformKind | undefined>> = {
+    h: 'flip-h',
+    v: 'flip-v',
+    r: 'rotate-cw',
+    l: 'rotate-ccw',
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

@@ -46,26 +46,37 @@ interface FrameEntry<TImage> {
     dirty: DirtyRect | null
 }
 
+export const DEFAULT_FRAME_CACHE = 24
+
 export class Compositor<TImage> {
     readonly #backend: CompositorBackend<TImage>
     readonly #frames = new Map<string, FrameEntry<TImage>>()
-    readonly stats = { recompositions: 0 }
+    readonly #limit: number
+    readonly stats = { recompositions: 0, evictions: 0 }
 
-    constructor(backend: CompositorBackend<TImage>) {
+    constructor(backend: CompositorBackend<TImage>, limit = DEFAULT_FRAME_CACHE) {
         this.#backend = backend
+        this.#limit = Math.max(1, limit)
+    }
+
+    get cached(): number {
+        return this.#frames.size
     }
 
     get(sprite: Sprite, frameId: string): TImage {
         let entry = this.#frames.get(frameId)
-        if (!entry) {
+        if (entry) {
+            this.#frames.delete(frameId)
+        } else {
             entry = {
                 surface: this.#backend.createComposite(sprite.width, sprite.height),
                 revision: -1,
                 celSum: -1,
                 dirty: null,
             }
-            this.#frames.set(frameId, entry)
         }
+        this.#frames.set(frameId, entry)
+        this.#evict()
 
         let celSum = 0
         for (const layer of sprite.layers) {
@@ -120,6 +131,16 @@ export class Compositor<TImage> {
         d.y = Math.min(d.y, y)
         d.w = x2 - d.x
         d.h = y2 - d.y
+    }
+
+    #evict(): void {
+        while (this.#frames.size > this.#limit) {
+            const oldest = this.#frames.keys().next()
+            if (oldest.done) return
+
+            this.#frames.delete(oldest.value)
+            this.stats.evictions++
+        }
     }
 
     #compose(sprite: Sprite, frameId: string, entry: FrameEntry<TImage>, rect: DirtyRect): void {

@@ -1,4 +1,4 @@
-import type { RGBA } from '@starforge/core'
+import { maskOutline, type RGBA, type SelectionMask } from '@starforge/core'
 import type { View } from '../editor/view'
 import type { SelectionView } from '../editor/selection/region'
 
@@ -25,6 +25,9 @@ export class PreviewOverlay {
     #floatTile: HTMLCanvasElement | null = null
     #floatTileFor: Uint32Array | null = null
 
+    #antsPath: Path2D | null = null
+    #antsFor: SelectionMask | null = null
+
     constructor(canvas: HTMLCanvasElement, spriteW: number, spriteH: number) {
         const ctx = canvas.getContext('2d')
         if (!ctx) throw new Error('2d context unavailable')
@@ -43,7 +46,6 @@ export class PreviewOverlay {
         this.#image = new ImageData(spriteW, spriteH)
     }
 
-    /* replace the preview with `cells` (packed y*width+x) in `color`. */
     setCells(cells: Iterable<number>, color: RGBA): void {
         const data = this.#image.data
         const prev = this.#painted
@@ -96,9 +98,8 @@ export class PreviewOverlay {
         this.setCells([], 0)
     }
 
-    /* called once per editor frame, after the main renderer */
     render(view: View, selection?: SelectionView | null): void {
-        const hasSelection = !!selection?.rect
+        const hasSelection = !!selection?.mask
         if (!this.#painted && !hasSelection && !this.#onScreen) return
 
         const ctx = this.#ctx
@@ -120,38 +121,54 @@ export class PreviewOverlay {
     }
 
     #paintSelection(view: View, sel: SelectionView): void {
-        const rect = sel.rect!
+        const mask = sel.mask!
         const ctx = this.#ctx
 
         const panX = Math.round(view.panX)
         const panY = Math.round(view.panY)
+        const rect = sel.floatRect
 
-        const left = panX + (rect.x + sel.offsetX) * view.zoom
-        const top = panY + (rect.y + sel.offsetY) * view.zoom
-
-        const w = rect.w * view.zoom
-        const h = rect.h * view.zoom
-
-        if (sel.floatBuffer) {
+        if (sel.floatBuffer && rect) {
             ctx.imageSmoothingEnabled = false
             ctx.drawImage(
                 this.#floatTileForBuffer(sel.floatBuffer, rect.w, rect.h),
-                left,
-                top,
-                w,
-                h,
+                panX + (rect.x + sel.offsetX) * view.zoom,
+                panY + (rect.y + sel.offsetY) * view.zoom,
+                rect.w * view.zoom,
+                rect.h * view.zoom,
             )
         }
 
-        ctx.setTransform(1, 0, 0, 1, 0, 0)
-        ctx.lineWidth = 1
+        ctx.setTransform(
+            view.zoom,
+            0,
+            0,
+            view.zoom,
+            panX + sel.offsetX * view.zoom,
+            panY + sel.offsetY * view.zoom,
+        )
+        const ants = this.#antsFor === mask ? this.#antsPath! : this.#buildAnts(mask)
+        ctx.lineWidth = 1 / view.zoom
+        ctx.setLineDash([])
         ctx.strokeStyle = '#000'
-        ctx.setLineDash([])
-        ctx.strokeRect(left + 0.5, top + 0.5, w - 1, h - 1)
+        ctx.stroke(ants)
         ctx.strokeStyle = '#fff'
-        ctx.setLineDash([2, 2])
-        ctx.strokeRect(left + 0.5, top + 0.5, w - 1, h - 1)
+        ctx.setLineDash([2 / view.zoom, 2 / view.zoom])
+        ctx.stroke(ants)
         ctx.setLineDash([])
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+    }
+
+    #buildAnts(mask: SelectionMask): Path2D {
+        const path = new Path2D()
+        for (const edge of maskOutline(mask)) {
+            path.moveTo(edge.x1, edge.y1)
+            path.lineTo(edge.x2, edge.y2)
+        }
+
+        this.#antsPath = path
+        this.#antsFor = mask
+        return path
     }
 
     #floatTileForBuffer(buffer: Uint32Array, tw: number, th: number): HTMLCanvasElement {

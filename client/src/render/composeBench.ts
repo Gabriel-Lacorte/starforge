@@ -11,7 +11,12 @@ export interface ComposeBenchResult {
 
 const median = (xs: number[]): number => [...xs].sort((a, b) => a - b)[xs.length >> 1] ?? 0
 
-export function benchCompose(size = 256, layerCount = 8, runs = 20): ComposeBenchResult {
+export function benchCompose(
+    size = 256,
+    layerCount = 8,
+    runs = 20,
+    batch = 50,
+): ComposeBenchResult {
     const sprite = createSprite({ width: size, height: size })
     const frame = sprite.frames[0]!.id
 
@@ -34,23 +39,29 @@ export function benchCompose(size = 256, layerCount = 8, runs = 20): ComposeBenc
 
     const full: number[] = []
     for (let i = 0; i < runs; i++) {
-        sprite.revision++
         const t0 = performance.now()
-        fence(compositor.get(sprite, frame))
-        full.push(performance.now() - t0)
+        for (let b = 0; b < batch; b++) {
+            sprite.revision++
+            fence(compositor.get(sprite, frame))
+        }
+        full.push((performance.now() - t0) / batch)
     }
 
     const dirty: number[] = []
     const cursor = openCursor(sprite, sprite.layers[0]!.id, frame)
+    let step = 0
 
     for (let i = 0; i < runs; i++) {
-        const ox = (i * 31) % (size - 16)
-        for (let k = 0; k < 16; k++) cursor.set(ox + k, (ox + k * 3) % 16, i % 2 ? 0xffffffff : 0)
-        compositor.invalidateCel(sprite, sprite.layers[0]!.id, frame, ox, 0, 16, 16)
-
         const t0 = performance.now()
-        fence(compositor.get(sprite, frame))
-        dirty.push(performance.now() - t0)
+        for (let b = 0; b < batch; b++, step++) {
+            const ox = (step * 31) % (size - 16)
+            for (let k = 0; k < 16; k++) {
+                cursor.set(ox + k, (ox + k * 3) % 16, step % 2 ? 0xffffffff : 0)
+            }
+            compositor.invalidateCel(sprite, sprite.layers[0]!.id, frame, ox, 0, 16, 16)
+            fence(compositor.get(sprite, frame))
+        }
+        dirty.push((performance.now() - t0) / batch)
     }
 
     return { size, layers: layerCount, fullMs: median(full), dirtyMs: median(dirty) }

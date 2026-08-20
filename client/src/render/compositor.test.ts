@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
     BLEND_MODES,
+    createFrame,
     createLayer,
     createSprite,
     insertLayer,
@@ -148,8 +149,6 @@ class FakeContext implements CompositeContext<FakeImage> {
                     out = cs.map((c, k) => c + cb[k]! * (1 - as))
                     ao = as + ab * (1 - as)
                 } else if (isSeparableBlend(op)) {
-                    /* separable blend mode over source-over compositing (w3c) */
-                    /* Cs' = (1 - αb)*Cs + αb*B(Cb, Cs); co = αs·Cs' + cb*(1 - αs) */
                     out = cs.map((c, k) => {
                         const Cs = c / as
                         const Cb = ab > 0 ? cb[k]! / ab : 0
@@ -201,7 +200,7 @@ class FakeBackend implements CompositorBackend<FakeImage> {
     }
 
     invalidateCel(): void {
-        /* the fake rebuilds every cel image on demand, so there is no cache to invalidate */
+        /* */
     }
 }
 
@@ -227,6 +226,23 @@ function setup(): {
 }
 
 describe('Compositor: image', () => {
+    it('composes the frame it was asked for, with no bleed from its neighbour', () => {
+        const { sprite, frame, bottom, compositor } = setup()
+        const second = createFrame()
+        sprite.frames.push(second)
+
+        writePixel(sprite, bottom, frame, 0, 0, RED)
+        writePixel(sprite, bottom, second.id, 1, 0, BLUE)
+
+        const first = compositor.get(sprite, frame)
+        expect(first.pixel(0, 0)).toEqual([255, 0, 0, 255])
+        expect(first.pixel(1, 0)).toEqual([0, 0, 0, 0])
+
+        const other = compositor.get(sprite, second.id)
+        expect(other.pixel(0, 0)).toEqual([0, 0, 0, 0])
+        expect(other.pixel(1, 0)).toEqual([0, 0, 255, 255])
+    })
+
     it('stacks opaque layers bottom-to-top: the top layer wins where it paints', () => {
         const { sprite, frame, bottom, top, compositor } = setup()
         writePixel(sprite, bottom, frame, 0, 0, RED)
@@ -402,5 +418,42 @@ describe('Compositor: cel offset', () => {
         const image = compositor.get(sprite, frame)
         expect(image.pixel(3, 2)).toEqual([255, 0, 0, 255])
         expect(image.pixel(0, 0)).toEqual([0, 0, 0, 0])
+    })
+})
+
+describe('Compositor: bounded cache', () => {
+    it('keeps the frames recently shown and lets the oldest go', () => {
+        const { sprite, bottom, frame } = setup()
+        const compositor = new Compositor(new FakeBackend(), 3)
+        const ids = [frame, ...['b', 'c', 'd'].map((id) => createFrame(100, id).id)]
+        for (const id of ['b', 'c', 'd']) sprite.frames.push(createFrame(100, id))
+        writePixel(sprite, bottom, frame, 0, 0, RED)
+
+        for (const id of ids) compositor.get(sprite, id)
+
+        expect(compositor.cached).toBe(3)
+        expect(compositor.stats.evictions).toBe(1)
+    })
+
+    it('showing a frame again keeps it, so a loop does not thrash', () => {
+        const { sprite, frame } = setup()
+        const compositor = new Compositor(new FakeBackend(), 2)
+        for (const id of ['b', 'c']) sprite.frames.push(createFrame(100, id))
+
+        for (let pass = 0; pass < 8; pass++) {
+            compositor.get(sprite, frame)
+            compositor.get(sprite, 'b')
+        }
+
+        expect(compositor.stats.evictions).toBe(0)
+        expect(compositor.cached).toBe(2)
+    })
+
+    it('never drops below one frame, whatever limit it is handed', () => {
+        const { sprite, frame } = setup()
+        const compositor = new Compositor(new FakeBackend(), 0)
+
+        compositor.get(sprite, frame)
+        expect(compositor.cached).toBe(1)
     })
 })

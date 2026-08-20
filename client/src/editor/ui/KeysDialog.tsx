@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'preact/hooks'
+import { TOOL_CATALOG, toolBadge } from '../tools/catalog'
 import styles from './KeysDialog.module.css'
 
 interface Binding {
@@ -11,18 +12,29 @@ interface Group {
     readonly rows: readonly Binding[]
 }
 
+/**
+ * Read off the catalogue rather than kept by hand: the toolbar badges come from
+ * the same source, so the two cannot drift apart again.
+ */
+function toolRows(): readonly Binding[] {
+    const byKey = new Map<string, string[]>()
+    for (const tool of TOOL_CATALOG) {
+        const key = toolBadge(tool)
+        const labels = byKey.get(key)
+        if (labels) labels.push(tool.label)
+        else byKey.set(key, [tool.label])
+    }
+    return [...byKey].map(([keys, labels]) => ({
+        keys,
+        what:
+            labels.length > 1 ? `${labels[0]}, again for ${labels[1]!.toLowerCase()}` : labels[0]!,
+    }))
+}
+
 const GROUPS: readonly Group[] = [
     {
         name: 'Tools',
-        rows: [
-            { keys: 'B', what: 'Pencil' },
-            { keys: 'E', what: 'Eraser' },
-            { keys: 'L', what: 'Line' },
-            { keys: 'U', what: 'Rectangle, again for ellipse' },
-            { keys: 'G', what: 'Bucket' },
-            { keys: 'M', what: 'Select' },
-            { keys: '[  ]', what: 'Brush smaller, larger' },
-        ],
+        rows: [...toolRows(), { keys: '[  ]', what: 'Brush smaller, larger' }],
     },
     {
         name: 'View',

@@ -5,7 +5,7 @@ import styles from './EditorCrash.module.css'
 export type CrashKind = 'render' | 'document'
 
 const EXPORT_NOTE = {
-    working: 'Building the PNG…',
+    working: 'Building the PNG...',
     done: 'Exported. Check your downloads.',
     failed: 'The export failed too. Reload and try again, your drawing is saved.',
 } as const

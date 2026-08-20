@@ -81,6 +81,11 @@
 
 .noteFailed {
     color: var(--accent);
+    padding: 3px 6px;
+    background: var(--bg);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
 }
 
 .detail {

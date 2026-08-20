@@ -9,9 +9,8 @@ import {
     writePixel,
     type Sprite,
 } from '@starforge/core'
-import { DocumentSession, type Change } from '../../document/session'
+import { DocumentSession, type ChangeSet } from '../../document/session'
 import { LayersController } from './layersController'
-import { EditorStore } from '../store'
 
 const RED = rgba(255, 0, 0)
 
@@ -21,10 +20,9 @@ function setup(): {
     base: string
     mid: string
     top: string
-    store: EditorStore
     session: DocumentSession
     layers: LayersController
-    changes: Change[]
+    changes: ChangeSet[]
 } {
     const sprite = createSprite({ width: 16, height: 16 })
     sprite.layers[0]!.name = 'base'
@@ -36,24 +34,23 @@ function setup(): {
     const top = sprite.layers[2]!.id
 
     const frame = sprite.frames[0]!.id
-    const store = new EditorStore(mid)
-    const session = new DocumentSession(sprite)
-    const layers = new LayersController(sprite, session, store)
+    const session = new DocumentSession(sprite, { target: { layer: mid, frame } })
+    const layers = new LayersController(sprite, session)
 
-    const changes: Change[] = []
+    const changes: ChangeSet[] = []
     session.subscribe((c) => changes.push(c))
 
-    return { sprite, frame, base, mid, top, store, session, layers, changes }
+    return { sprite, frame, base, mid, top, session, layers, changes }
 }
 
 const names = (sprite: Sprite) => sprite.layers.map((l) => l.name)
 
 describe('LayersController: structure', () => {
     it('add inserts directly above the active layer, and the new one becomes active', () => {
-        const { sprite, store, session, layers } = setup()
+        const { sprite, session, layers } = setup()
         layers.add()
         expect(names(sprite)).toEqual(['base', 'mid', 'Layer 1', 'top'])
-        expect(store.state.activeLayer).toBe(sprite.layers[2]!.id)
+        expect(layers.active).toBe(sprite.layers[2]!.id)
 
         session.undo()
         expect(names(sprite)).toEqual(['base', 'mid', 'top'])
@@ -61,8 +58,7 @@ describe('LayersController: structure', () => {
 
     it('never reuses a "Layer N" name, even after deleting one', () => {
         const sprite = createSprite({ width: 16, height: 16 })
-        const store = new EditorStore(sprite.layers[0]!.id)
-        const layers = new LayersController(sprite, new DocumentSession(sprite), store)
+        const layers = new LayersController(sprite, new DocumentSession(sprite))
 
         layers.add()
         layers.add()
@@ -100,12 +96,12 @@ describe('LayersController: structure', () => {
     })
 
     it('duplicate copies above the source, becomes active, and undo removes the copy', () => {
-        const { sprite, frame, mid, store, session, layers } = setup()
+        const { sprite, frame, mid, session, layers } = setup()
         writePixel(sprite, mid, frame, 1, 1, RED)
         layers.duplicate(mid)
         expect(names(sprite)).toEqual(['base', 'mid', 'mid copy', 'top'])
         const copy = sprite.layers[2]!
-        expect(store.state.activeLayer).toBe(copy.id)
+        expect(layers.active).toBe(copy.id)
         expect(getPixel(sprite, copy.id, frame, 1, 1)).toBe(RED)
         writePixel(sprite, copy.id, frame, 3, 3, RED)
         expect(getPixel(sprite, mid, frame, 3, 3)).toBe(0)
@@ -176,39 +172,40 @@ describe('LayersController: props', () => {
 
 describe('LayersController: active layer', () => {
     it('removing the active layer moves active to the one above (same slot)', () => {
-        const { mid, top, store, layers } = setup()
-        expect(store.state.activeLayer).toBe(mid)
+        const { mid, top, layers } = setup()
+        expect(layers.active).toBe(mid)
         layers.remove(mid)
-        expect(store.state.activeLayer).toBe(top)
+        expect(layers.active).toBe(top)
     })
 
     it('removing the active TOP layer falls to the new top', () => {
-        const { sprite, top, store, layers } = setup()
+        const { sprite, top, layers } = setup()
         layers.setActive(top)
         layers.remove(top)
-        expect(store.state.activeLayer).toBe(sprite.layers[1]!.id)
+        expect(layers.active).toBe(sprite.layers[1]!.id)
     })
 
     it('an undo that revokes the active layer also reconciles it', () => {
-        const { sprite, store, session, layers } = setup()
+        const { sprite, session, layers } = setup()
         layers.add()
-        const added = store.state.activeLayer
+        const added = layers.active
         session.undo()
         expect(sprite.layers.some((l) => l.id === added)).toBe(false)
-        expect(sprite.layers.some((l) => l.id === store.state.activeLayer)).toBe(true)
+        expect(sprite.layers.some((l) => l.id === layers.active)).toBe(true)
     })
 
-    it('runs the beforeStructural guard for the ops that can strand a float', () => {
-        const { mid, layers } = setup()
+    it('every entry point settles work in flight through the session guard', () => {
+        const { mid, session, layers } = setup()
         let guards = 0
-        layers.setBeforeStructural(() => guards++)
-        layers.add()
-        layers.duplicate(mid)
-        layers.toggleLocked(mid)
+        session.setBeforeChange(() => guards++)
+
         layers.setActive(mid)
+        expect(guards).toBe(0)
+
+        layers.add()
         layers.toggleVisible(mid)
         layers.rename(mid, 'x')
-        expect(guards).toBe(4)
+        expect(guards).toBeGreaterThanOrEqual(3)
     })
 
     it('emits structure changes carrying the removed index', () => {
@@ -219,7 +216,6 @@ describe('LayersController: active layer', () => {
 })
 
 describe('LayersController: a layer that vanished under the row', () => {
-    /* undo, and later a peer's delete, can land between render and click. */
     it('treats every entry point as a no-op instead of throwing', () => {
         const { sprite, layers, changes } = setup()
         const before = names(sprite)

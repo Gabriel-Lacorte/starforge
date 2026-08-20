@@ -1,29 +1,23 @@
 import { hexToRgba, type RGBA } from '@starforge/core'
+import { Store } from '../store'
 
-export class Store<T extends object> {
-    #state: T
-    readonly #listeners = new Set<() => void>()
+export type ToolId =
+    | 'pencil'
+    | 'eraser'
+    | 'line'
+    | 'rect'
+    | 'ellipse'
+    | 'bucket'
+    | 'select'
+    | 'selectEllipse'
+    | 'lasso'
+    | 'wand'
+    | 'eyedropper'
 
-    constructor(initial: T) {
-        this.#state = initial
-    }
+export const RECENT_COLORS_MAX = 12
 
-    get state(): T {
-        return this.#state
-    }
-
-    patch(partial: Partial<T>): void {
-        this.#state = { ...this.#state, ...partial }
-        for (const listener of this.#listeners) listener()
-    }
-
-    subscribe(listener: () => void): () => void {
-        this.#listeners.add(listener)
-        return () => this.#listeners.delete(listener)
-    }
-}
-
-export type ToolId = 'pencil' | 'eraser' | 'line' | 'rect' | 'ellipse' | 'bucket' | 'select'
+export const DEFAULT_FOREGROUND: RGBA = hexToRgba('#ffffff')
+export const DEFAULT_BACKGROUND: RGBA = hexToRgba('#0b0b12')
 
 export interface EditTarget {
     readonly layer: string
@@ -32,12 +26,15 @@ export interface EditTarget {
 
 export interface EditorState {
     readonly tool: ToolId
-    readonly activeLayer: string
 
     readonly color: RGBA
-    /* 1..64 */
+    readonly background: RGBA
+    readonly recentColors: readonly RGBA[]
+    readonly inkOpacity: number
+
     readonly brushSize: number
-    /* rect/ellipse draw filled */
+    readonly pixelPerfect: boolean
+    readonly lockAlpha: boolean
     readonly shapeFill: boolean
 
     readonly fillTolerance: number
@@ -45,15 +42,48 @@ export interface EditorState {
 }
 
 export class EditorStore extends Store<EditorState> {
-    constructor(activeLayer: string) {
+    constructor() {
         super({
             tool: 'pencil',
-            activeLayer,
-            color: hexToRgba('#ffffff'),
+            color: DEFAULT_FOREGROUND,
+            background: DEFAULT_BACKGROUND,
+            recentColors: [],
+            inkOpacity: 255,
             brushSize: 1,
+            pixelPerfect: true,
+            lockAlpha: false,
             shapeFill: false,
             fillTolerance: 0,
             fillContiguous: true,
         })
     }
+
+    setColor(color: RGBA): void {
+        if (color !== this.state.color) this.patch({ color })
+    }
+
+    pickColor(color: RGBA): void {
+        const current = this.state.color
+        if (color === current) return
+
+        this.patch({ color, recentColors: remember(this.state.recentColors, current) })
+    }
+
+    rememberColor(color: RGBA): void {
+        if (color === this.state.color) return
+
+        this.patch({ recentColors: remember(this.state.recentColors, color) })
+    }
+
+    swapColors(): void {
+        this.patch({ color: this.state.background, background: this.state.color })
+    }
+
+    resetColors(): void {
+        this.patch({ color: DEFAULT_FOREGROUND, background: DEFAULT_BACKGROUND })
+    }
+}
+
+function remember(recent: readonly RGBA[], color: RGBA): readonly RGBA[] {
+    return [color, ...recent.filter((entry) => entry !== color)].slice(0, RECENT_COLORS_MAX)
 }

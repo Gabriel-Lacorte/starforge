@@ -10,14 +10,20 @@
         "dev": "npm run dev -w client",
         "build": "npm run build -w client",
         "test": "vitest run",
+        "test:e2e": "playwright test --project=chromium",
         "test:watch": "vitest",
         "lint": "prettier --check . && eslint . && npm run -s lint:types",
-        "lint:types": "tsc -p core --noEmit && tsc -b client",
-        "format": "prettier --write ."
+        "lint:types": "tsc -p core --noEmit && tsc -b client && tsc -p tsconfig.e2e.json",
+        "format": "prettier --write .",
+        "bench": "vitest bench --run && npm run -s bench:render",
+        "bench:render": "playwright test --project=bench --reporter=list"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
+        "@playwright/test": "^1.62.1",
+        "@types/node": "^26.2.0",
         "eslint": "^10.8.0",
+        "fake-indexeddb": "^6.2.5",
         "prettier": "^3.9.6",
         "typescript": "~6.0.3",
         "typescript-eslint": "^8.66.0",

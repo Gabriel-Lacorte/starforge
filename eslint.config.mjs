@@ -15,7 +15,8 @@ export default defineConfig(
         languageOptions: {
             parserOptions: {
                 projectService: {
-                    allowDefaultProject: ['vitest.config.ts'],
+                    allowDefaultProject: ['vitest.config.ts', 'playwright.config.ts', 'e2e/*.ts'],
+                    defaultProject: 'tsconfig.e2e.json',
                 },
                 tsconfigRootDir: import.meta.dirname,
             },
@@ -41,9 +42,17 @@ export default defineConfig(
                 {
                     patterns: [
                         {
-                            group: ['*/engine', '*/gesture', '**/render/*', '**/document/*'],
+                            group: [
+                                '*/engine',
+                                '*/gesture',
+                                '**/render/*',
+                                '**/document/*',
+                                '**/input/*',
+                                '**/selection/*',
+                                '**/transform/*',
+                            ],
                             message:
-                                'UI is declarative and must not import the engine/render/document layer.',
+                                'UI is declarative: it reads controllers, stores and the tool catalog, never the engine.',
                         },
                     ],
                 },
@@ -58,8 +67,43 @@ export default defineConfig(
                 {
                     patterns: [
                         {
-                            group: ['**/ui/*'],
-                            message: 'The render layer must not import UI components.',
+                            group: ['**/ui/*', '**/document/*'],
+                            message:
+                                'The render layer draws what it is given: no UI, no document session.',
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    {
+        files: ['client/src/storage/**', 'client/src/project/**'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    patterns: [
+                        {
+                            group: ['**/ui/*', '**/render/*', '**/input/*'],
+                            message: 'Persistence works on documents, never on what is on screen.',
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    {
+        files: ['core/src/**/*.ts'],
+        ignores: ['core/src/**/*.test.ts', 'core/src/**/*.bench.ts'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    patterns: [
+                        {
+                            regex: '^[^.]',
+                            message:
+                                'The core has zero dependencies: it imports only its own modules.',
                         },
                     ],
                 },

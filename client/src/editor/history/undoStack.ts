@@ -1,19 +1,12 @@
-import { openCursor, type Command, type DirtyRect, type Sprite } from '@starforge/core'
-
-export type Change =
-    | { kind: 'pixels'; layer: string; frame: string; rect: DirtyRect }
-    | { kind: 'structure'; removedLayerIndex?: number }
-
-export interface UndoEntry {
-    readonly label: string
-    readonly bytes: number
-
-    undo(doc: Sprite): Change
-    redo(doc: Sprite): Change
-}
+import {
+    applyOperation,
+    type ChangeSet,
+    type DocumentOperation,
+    type Sprite,
+} from '@starforge/core'
 
 const CELL_BYTES = 12
-const RECORD_OVERHEAD = 256
+const ENTRY_OVERHEAD = 256
 
 export const DEFAULT_MAX_ENTRIES = 100
 export const DEFAULT_MAX_BYTES = 64 * 1024 * 1024
@@ -23,103 +16,40 @@ export interface UndoLimits {
     maxBytes?: number
 }
 
-export class StrokeRecord implements UndoEntry {
+export class OperationEntry {
     readonly label: string
-    readonly layer: string
-    readonly frame: string
-    readonly rect: DirtyRect
     readonly bytes: number
-    readonly xs: Uint16Array
-    readonly ys: Uint16Array
-    readonly before: Uint32Array
-    readonly after: Uint32Array
 
-    private constructor(
-        label: string,
-        layer: string,
-        frame: string,
-        rect: DirtyRect,
-        xs: Uint16Array,
-        ys: Uint16Array,
-        before: Uint32Array,
-        after: Uint32Array,
-    ) {
+    #forward: DocumentOperation
+    #backward: DocumentOperation
+
+    constructor(label: string, forward: DocumentOperation, backward: DocumentOperation) {
         this.label = label
-        this.layer = layer
-        this.frame = frame
-        this.rect = rect
-        this.bytes = xs.length * CELL_BYTES + RECORD_OVERHEAD
-        this.xs = xs
-        this.ys = ys
-        this.before = before
-        this.after = after
+        this.#forward = forward
+        this.#backward = backward
+        this.bytes = entryBytes(forward, backward)
     }
 
-    static from(command: Command): StrokeRecord | null {
-        const writes = command.writes()
-        const first = writes[0]
-        if (!first) return null
+    undo(doc: Sprite): ChangeSet {
+        const result = applyOperation(doc, this.#backward)
+        this.#forward = result.inverse
 
-        const n = writes.length
-        const xs = new Uint16Array(n)
-        const ys = new Uint16Array(n)
-        const before = new Uint32Array(n)
-        const after = new Uint32Array(n)
-
-        let minX = first.x
-        let maxX = first.x
-        let minY = first.y
-        let maxY = first.y
-
-        for (let i = 0; i < n; i++) {
-            const w = writes[i]!
-            xs[i] = w.x
-            ys[i] = w.y
-            before[i] = w.before
-            after[i] = w.after
-
-            if (w.x < minX) minX = w.x
-            else if (w.x > maxX) maxX = w.x
-
-            if (w.y < minY) minY = w.y
-            else if (w.y > maxY) maxY = w.y
-        }
-
-        return new StrokeRecord(
-            command.label,
-            first.layer,
-            first.frame,
-            { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 },
-            xs,
-            ys,
-            before,
-            after,
-        )
+        return result.change
     }
 
-    undo(doc: Sprite): Change {
-        return this.#replay(doc, this.before)
-    }
+    redo(doc: Sprite): ChangeSet {
+        const result = applyOperation(doc, this.#forward)
+        this.#backward = result.inverse
 
-    redo(doc: Sprite): Change {
-        return this.#replay(doc, this.after)
-    }
-
-    #replay(doc: Sprite, colors: Uint32Array): Change {
-        const cursor = openCursor(doc, this.layer, this.frame)
-        for (let i = 0; i < this.xs.length; i++) {
-            cursor.set(this.xs[i]!, this.ys[i]!, colors[i]!)
-        }
-
-        return { kind: 'pixels', layer: this.layer, frame: this.frame, rect: this.rect }
+        return result.change
     }
 }
 
 export class UndoStack {
     readonly #maxEntries: number
     readonly #maxBytes: number
-    #undo: UndoEntry[] = []
-    #redo: UndoEntry[] = []
+    #undo: OperationEntry[] = []
+    #redo: OperationEntry[] = []
     #bytes = 0
 
     constructor(limits?: UndoLimits) {
@@ -139,7 +69,7 @@ export class UndoStack {
         return this.#bytes
     }
 
-    push(entry: UndoEntry): void {
+    push(entry: OperationEntry): void {
         for (const dropped of this.#redo) this.#bytes -= dropped.bytes
         this.#redo.length = 0
         this.#undo.push(entry)
@@ -153,7 +83,7 @@ export class UndoStack {
         }
     }
 
-    undo(doc: Sprite): Change | null {
+    undo(doc: Sprite): ChangeSet | null {
         const entry = this.#undo.pop()
         if (!entry) return null
 
@@ -163,7 +93,7 @@ export class UndoStack {
         return change
     }
 
-    redo(doc: Sprite): Change | null {
+    redo(doc: Sprite): ChangeSet | null {
         const entry = this.#redo.pop()
         if (!entry) return null
 
@@ -172,4 +102,34 @@ export class UndoStack {
 
         return change
     }
+}
+
+function entryBytes(forward: DocumentOperation, backward: DocumentOperation): number {
+    if (forward.kind === 'pixel.patch') return forward.xs.length * CELL_BYTES + ENTRY_OVERHEAD
+
+    return (
+        ENTRY_OVERHEAD +
+        detachedLayerBytes(forward) +
+        detachedLayerBytes(backward) +
+        keptDocumentBytes(forward) +
+        keptDocumentBytes(backward)
+    )
+}
+
+function keptDocumentBytes(operation: DocumentOperation): number {
+    if (operation.kind !== 'document.restore') return 0
+
+    let bytes = 0
+    for (const cel of operation.cels) bytes += cel.pixels.byteLength
+
+    return bytes
+}
+
+function detachedLayerBytes(operation: DocumentOperation): number {
+    if (operation.kind !== 'layer.add') return 0
+
+    let bytes = 0
+    for (const cel of operation.layer.cels.values()) bytes += cel.pixels.byteLength
+
+    return bytes
 }

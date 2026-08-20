@@ -1,25 +1,39 @@
-import type { Command, Sprite } from '@starforge/core'
 import {
-    StrokeRecord,
-    UndoStack,
-    type Change,
-    type UndoEntry,
-    type UndoLimits,
-} from '../editor/history/undoStack'
+    applyOperation,
+    normalizeSpriteTitle,
+    pixelPatchFrom,
+    resolveProjectWorkspace,
+    type ChangeSet,
+    type Command,
+    type DocumentOperation,
+    type Sprite,
+} from '@starforge/core'
+import { OperationEntry, UndoStack, type UndoLimits } from '../editor/history/undoStack'
+import { Store, type EditTarget } from '../store'
 
-export type { Change } from '../editor/history/undoStack'
+export type { ChangeSet } from '@starforge/core'
+export type { EditTarget } from '../store'
+
+export interface SessionOptions {
+    readonly target?: Partial<EditTarget>
+    readonly author?: string
+    readonly undo?: UndoLimits
+}
 
 export class DocumentSession {
     readonly doc: Sprite
     readonly author: string
+    readonly target: Store<EditTarget>
 
     readonly #undo: UndoStack
-    readonly #listeners = new Set<(change: Change) => void>()
+    readonly #listeners = new Set<(change: ChangeSet) => void>()
+    #beforeChange: (() => void) | null = null
 
-    constructor(doc: Sprite, author: string = crypto.randomUUID(), limits?: UndoLimits) {
+    constructor(doc: Sprite, options: SessionOptions = {}) {
         this.doc = doc
-        this.author = author
-        this.#undo = new UndoStack(limits)
+        this.author = options.author ?? crypto.randomUUID()
+        this.target = new Store(resolveTarget(doc, options.target))
+        this.#undo = new UndoStack(options.undo)
     }
 
     get canUndo(): boolean {
@@ -30,27 +44,53 @@ export class DocumentSession {
         return this.#undo.canRedo
     }
 
-    subscribe(listener: (change: Change) => void): () => void {
+    subscribe(listener: (change: ChangeSet) => void): () => void {
         this.#listeners.add(listener)
         return () => this.#listeners.delete(listener)
     }
 
+    setBeforeChange(resolve: () => void): void {
+        this.#beforeChange = resolve
+    }
+
+    setTarget(next: Partial<EditTarget>): void {
+        const current = this.target.state
+        const layer = next.layer ?? current.layer
+        const frame = next.frame ?? current.frame
+
+        if (layer === current.layer && frame === current.frame) return
+        if (!this.doc.layers.some((candidate) => candidate.id === layer)) return
+        if (!this.doc.frames.some((candidate) => candidate.id === frame)) return
+
+        this.#beforeChange?.()
+        this.target.patch({ layer, frame })
+    }
+
+    rename(title: string): void {
+        const next = normalizeSpriteTitle(title)
+        if (!next || next === this.doc.meta.title) return
+
+        this.apply('rename document', { kind: 'document.rename', title: next })
+    }
+
+    apply(label: string, operation: DocumentOperation): void {
+        this.#beforeChange?.()
+
+        const result = applyOperation(this.doc, operation)
+        this.#undo.push(new OperationEntry(label, operation, result.inverse))
+        this.#emit(result.change)
+    }
+
+    applyTransient(operation: DocumentOperation): void {
+        this.#emit(applyOperation(this.doc, operation).change)
+    }
+
     commit(command: Command): void {
-        const record = StrokeRecord.from(command)
-        if (!record) return
+        const patch = pixelPatchFrom(command.writes())
+        if (!patch) return
 
-        this.#undo.push(record)
-        this.#emit({ kind: 'pixels', layer: record.layer, frame: record.frame, rect: record.rect })
-    }
-
-    apply(entry: UndoEntry): void {
-        const change = entry.redo(this.doc)
-        this.#undo.push(entry)
-        this.#emit(change)
-    }
-
-    notifyStructure(): void {
-        this.#emit({ kind: 'structure' })
+        this.#undo.push(new OperationEntry(command.label, patch.operation, patch.inverse))
+        this.#emit(patch.change)
     }
 
     undo(): void {
@@ -63,7 +103,33 @@ export class DocumentSession {
         if (change) this.#emit(change)
     }
 
-    #emit(change: Change): void {
+    #emit(change: ChangeSet): void {
+        if (change.kind === 'structure') this.#reconcileTarget(change.removedLayerIndex)
         for (const listener of this.#listeners) listener(change)
     }
+
+    #reconcileTarget(removedLayerIndex?: number): void {
+        const { layers, frames } = this.doc
+        const current = this.target.state
+        const next: { layer?: string; frame?: string } = {}
+
+        if (!layers.some((layer) => layer.id === current.layer)) {
+            const slot = Math.min(removedLayerIndex ?? layers.length - 1, layers.length - 1)
+            next.layer = layers[slot]!.id
+        }
+        if (!frames.some((frame) => frame.id === current.frame)) next.frame = frames[0]!.id
+
+        if (next.layer !== undefined || next.frame !== undefined) this.target.patch(next)
+    }
+}
+
+function resolveTarget(doc: Sprite, requested?: Partial<EditTarget>): EditTarget {
+    if (doc.layers.length === 0 || doc.frames.length === 0) return { layer: '', frame: '' }
+
+    const workspace = resolveProjectWorkspace(doc, {
+        activeLayerId: requested?.layer,
+        activeFrameId: requested?.frame,
+    })
+
+    return { layer: workspace.activeLayerId, frame: workspace.activeFrameId }
 }

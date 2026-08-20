@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { Command, createSprite, getCel, rgba, writePixel, type Sprite } from '@starforge/core'
-import { StrokeRecord, UndoStack } from './undoStack'
+import {
+    Command,
+    cloneLayer,
+    createSprite,
+    getCel,
+    layerSet,
+    pixelPatchFrom,
+    rgba,
+    writePixel,
+    type Sprite,
+} from '@starforge/core'
+import { OperationEntry, UndoStack } from './undoStack'
 
 const RED = rgba(255, 0, 0)
 const GREEN = rgba(0, 255, 0)
@@ -33,17 +43,22 @@ function strokeAt(
     return command
 }
 
-function pushStroke(stack: UndoStack, command: Command): StrokeRecord | null {
-    const record = StrokeRecord.from(command)
-    if (record) stack.push(record)
-    return record
+function entryFor(command: Command): OperationEntry | null {
+    const patch = pixelPatchFrom(command.writes())
+    return patch ? new OperationEntry(command.label, patch.operation, patch.inverse) : null
+}
+
+function pushStroke(stack: UndoStack, command: Command): OperationEntry | null {
+    const entry = entryFor(command)
+    if (entry) stack.push(entry)
+    return entry
 }
 
 describe('UndoStack', () => {
     it('undo applies before colors, redo re-applies after, with the gesture rect', () => {
         const { sprite, layer, frame } = sprite32()
         const stack = new UndoStack()
-        const record = pushStroke(
+        pushStroke(
             stack,
             strokeAt(
                 sprite,
@@ -56,7 +71,6 @@ describe('UndoStack', () => {
                 RED,
             ),
         )
-        expect(record).toMatchObject({ layer, frame, rect: { x: 2, y: 3, w: 4, h: 7 } })
 
         const undone = stack.undo(sprite)
         expect(undone).toEqual({ kind: 'pixels', layer, frame, rect: { x: 2, y: 3, w: 4, h: 7 } })
@@ -72,10 +86,10 @@ describe('UndoStack', () => {
         expect(cel.pixels[(3 * 32 + 2) * 4]).toBe(255)
     })
 
-    it('ignores empty gestures, StrokeRecord.from never packs a no-op', () => {
+    it('ignores empty gestures, an empty command never becomes an entry', () => {
         const { sprite } = sprite32()
         const stack = new UndoStack()
-        expect(StrokeRecord.from(new Command('nothing'))).toBeNull()
+        expect(entryFor(new Command('nothing'))).toBeNull()
         expect(stack.undo(sprite)).toBeNull()
         expect(stack.redo(sprite)).toBeNull()
     })
@@ -109,7 +123,7 @@ describe('UndoStack', () => {
         const { sprite, layer, frame } = sprite32()
         const cells = (y: number): [number, number][] =>
             Array.from({ length: 10 }, (_, x) => [x, y])
-        const one = StrokeRecord.from(strokeAt(sprite, layer, frame, cells(0), RED))!
+        const one = entryFor(strokeAt(sprite, layer, frame, cells(0), RED))!
         const stack = new UndoStack({ maxBytes: one.bytes * 2 })
         pushStroke(stack, strokeAt(sprite, layer, frame, cells(1), RED))
         pushStroke(stack, strokeAt(sprite, layer, frame, cells(2), RED))
@@ -120,10 +134,29 @@ describe('UndoStack', () => {
         expect(getCel(sprite, layer, frame)!.pixels[(32 + 5) * 4]).toBe(255)
     })
 
+    it('charges the budget for the pixels a detached layer keeps alive', () => {
+        const { sprite, layer, frame } = sprite32()
+        writePixel(sprite, layer, frame, 0, 0, RED)
+        const copy = cloneLayer(sprite, layer)
+
+        const bare = new OperationEntry(
+            'layer visible',
+            layerSet(layer, 'visible', false),
+            layerSet(layer, 'visible', true),
+        )
+        const heavy = new OperationEntry(
+            'duplicate layer',
+            { kind: 'layer.add', layer: copy, after: layer },
+            { kind: 'layer.remove', layer: copy.id },
+        )
+
+        expect(heavy.bytes - bare.bytes).toBe(32 * 32 * 4)
+    })
+
     it('keeps counting the memory still held for redo', () => {
         const { sprite, layer, frame } = sprite32()
         const stack = new UndoStack()
-        const records = [0, 1, 2].map((y) =>
+        const entries = [0, 1, 2].map((y) =>
             pushStroke(
                 stack,
                 strokeAt(
@@ -138,7 +171,7 @@ describe('UndoStack', () => {
                 ),
             ),
         )
-        const total = records.reduce((sum, r) => sum + r!.bytes, 0)
+        const total = entries.reduce((sum, entry) => sum + entry!.bytes, 0)
         expect(stack.bytes).toBe(total)
 
         while (stack.undo(sprite));

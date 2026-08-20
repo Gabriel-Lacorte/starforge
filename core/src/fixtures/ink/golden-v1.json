@@ -1,0 +1,102 @@
+{
+    "version": 1,
+    "rounding": "integer nearest, exact halves toward positive infinity",
+    "vectors": [
+        {
+            "name": "opaque paint over transparent",
+            "destination": "#00000000",
+            "mode": "source-over",
+            "color": "#ff0000ff",
+            "opacity": 255,
+            "expected": "#ff0000ff"
+        },
+        {
+            "name": "half red over opaque blue",
+            "destination": "#0000ffff",
+            "mode": "source-over",
+            "color": "#ff0000ff",
+            "opacity": 128,
+            "expected": "#80007fff"
+        },
+        {
+            "name": "straight alpha normalizes through premultiplied components",
+            "destination": "#0a141e40",
+            "mode": "source-over",
+            "color": "#f0501480",
+            "opacity": 128,
+            "expected": "#8e361870"
+        },
+        {
+            "name": "half erase from opaque",
+            "destination": "#0c2238ff",
+            "mode": "erase",
+            "color": "#000000ff",
+            "opacity": 128,
+            "expected": "#0c22387f"
+        },
+        {
+            "name": "half erase from translucent",
+            "destination": "#0c223880",
+            "mode": "erase",
+            "color": "#000000ff",
+            "opacity": 128,
+            "expected": "#0c223840"
+        },
+        {
+            "name": "complete erase canonicalizes transparent",
+            "destination": "#0c2238ff",
+            "mode": "erase",
+            "color": "#000000ff",
+            "opacity": 255,
+            "expected": "#00000000"
+        },
+        {
+            "name": "copy replaces every channel",
+            "destination": "#abcdefee",
+            "mode": "copy",
+            "color": "#12345678",
+            "opacity": 255,
+            "expected": "#12345678"
+        },
+        {
+            "name": "copy scales intrinsic alpha",
+            "destination": "#abcdefee",
+            "mode": "copy",
+            "color": "#12345680",
+            "opacity": 128,
+            "expected": "#12345640"
+        },
+        {
+            "name": "lock alpha mixes color but preserves coverage",
+            "destination": "#0000ff64",
+            "mode": "lock-alpha",
+            "color": "#ff0000ff",
+            "opacity": 128,
+            "expected": "#80007f64"
+        },
+        {
+            "name": "lock alpha honors source alpha",
+            "destination": "#14283c5a",
+            "mode": "lock-alpha",
+            "color": "#c8643280",
+            "opacity": 128,
+            "expected": "#4137395a"
+        },
+        {
+            "name": "lock alpha cannot paint transparent destination",
+            "destination": "#00000000",
+            "mode": "lock-alpha",
+            "color": "#ff0000ff",
+            "opacity": 255,
+            "expected": "#00000000"
+        },
+        {
+            "name": "zero opacity is byte exact no-op",
+            "destination": "#12345678",
+            "mode": "source-over",
+            "color": "#fedcbaff",
+            "opacity": 0,
+            "expected": "#12345678"
+        }
+    ]
+}

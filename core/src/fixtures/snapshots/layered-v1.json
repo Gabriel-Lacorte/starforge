@@ -1,0 +1,53 @@
+{
+    "v": 1,
+    "id": "fixture-layered",
+    "width": 16,
+    "height": 16,
+    "palette": {
+        "name": "Fixture",
+        "colors": ["#00000000", "#ff0000ff", "#00ff0080", "#0000ffff"]
+    },
+    "frames": [
+        { "id": "frame-a", "duration": 80 },
+        { "id": "frame-b", "duration": 160 }
+    ],
+    "layers": [
+        {
+            "id": "layer-base",
+            "name": "Base",
+            "opacity": 255,
+            "blendMode": "normal",
+            "visible": true,
+            "locked": false,
+            "cels": [
+                {
+                    "frame": "frame-a",
+                    "x": 0,
+                    "y": 0,
+                    "pixels": "MAAAAAAQ/wAA/8ABAAAAAA=="
+                }
+            ]
+        },
+        {
+            "id": "layer-top",
+            "name": "Top",
+            "opacity": 128,
+            "blendMode": "multiply",
+            "visible": false,
+            "locked": true,
+            "cels": [
+                {
+                    "frame": "frame-b",
+                    "x": 1,
+                    "y": -1,
+                    "pixels": "iAEAAAAAAQAA/4B3AAAAAA=="
+                }
+            ]
+        }
+    ],
+    "meta": {
+        "title": "Layered fixture",
+        "createdAt": "2026-08-11T00:00:00.000Z",
+        "updatedAt": "2026-08-11T00:00:00.000Z"
+    }
+}

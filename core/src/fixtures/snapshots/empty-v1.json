@@ -1,0 +1,27 @@
+{
+    "v": 1,
+    "id": "fixture-empty",
+    "width": 16,
+    "height": 16,
+    "palette": {
+        "name": "Fixture",
+        "colors": ["#00000000", "#ff0000ff", "#00ff0080", "#0000ffff"]
+    },
+    "frames": [{ "id": "frame-1", "duration": 100 }],
+    "layers": [
+        {
+            "id": "layer-1",
+            "name": "Layer 1",
+            "opacity": 255,
+            "blendMode": "normal",
+            "visible": true,
+            "locked": false,
+            "cels": []
+        }
+    ],
+    "meta": {
+        "title": "Empty fixture",
+        "createdAt": "2026-08-11T00:00:00.000Z",
+        "updatedAt": "2026-08-11T00:00:00.000Z"
+    }
+}

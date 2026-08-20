@@ -1,16 +1,39 @@
-import { Command, getLayer, openCursor, type CelCursor, type Sprite } from '@starforge/core'
-import type { DocumentSession } from '../../document/session'
+import {
+    Command,
+    allMask,
+    applyOperation,
+    combineMasks,
+    emptyMask,
+    getLayer,
+    invertMask,
+    isEmptyMask,
+    isSelected,
+    openCursor,
+    pixelPatchFrom,
+    ellipseMask,
+    polygonMask,
+    rectMask,
+    translateMask,
+    wandMask,
+    type CelCursor,
+    type FillOptions,
+    type MaskMode,
+    type MaskPoint,
+    type SelectionMask,
+    type Sprite,
+} from '@starforge/core'
+import type { DocumentSession, EditTarget } from '../../document/session'
+import type { MarqueeShape } from '../tools/definition'
 import { liftRegion, normalizeSelection, stampRegion, type SelRect } from './region'
-import type { EditTarget } from '../store'
+
+const LASSO_MAX_POINTS = 1024
 
 export interface SelectionDeps {
     sprite: Sprite
 
-    /* read when the float lifts and frozen until commit */
     target: () => EditTarget
     session: DocumentSession
 
-    /* ask for redraw */
     onChange: () => void
 
     invalidate?: (layer: string, frame: string, x: number, y: number, w: number, h: number) => void
@@ -18,15 +41,21 @@ export interface SelectionDeps {
 
 export class SelectionController {
     readonly #deps: SelectionDeps
-    #rect: SelRect | null = null
+    #mask: SelectionMask
+    #base: SelectionMask
 
     #anchorX = 0
     #anchorY = 0
+    #mode: MaskMode = 'replace'
+    #shape: MarqueeShape = 'rect'
+
+    #points: MaskPoint[] = []
 
     #moveFromX = 0
     #moveFromY = 0
 
     #buffer: Uint32Array | null = null
+    #liftRect: SelRect | null = null
 
     #offsetX = 0
     #offsetY = 0
@@ -37,18 +66,20 @@ export class SelectionController {
 
     constructor(deps: SelectionDeps) {
         this.#deps = deps
+        this.#mask = emptyMask(deps.sprite.width, deps.sprite.height)
+        this.#base = this.#mask
     }
 
     get active(): boolean {
-        return this.#rect !== null
+        return !isEmptyMask(this.#mask)
     }
 
     get floating(): boolean {
         return this.#buffer !== null
     }
 
-    get rect(): SelRect | null {
-        return this.#rect
+    get mask(): SelectionMask | null {
+        return this.active ? this.#mask : null
     }
 
     get offsetX(): number {
@@ -63,41 +94,98 @@ export class SelectionController {
         return this.#buffer
     }
 
-    contains(x: number, y: number): boolean {
-        const r = this.#rect
-        if (!r) return false
-
-        const left = r.x + this.#offsetX
-        const top = r.y + this.#offsetY
-
-        return x >= left && y >= top && x < left + r.w && y < top + r.h
+    get floatRect(): SelRect | null {
+        return this.#liftRect
     }
 
-    beginMarquee(x: number, y: number): void {
+    contains(x: number, y: number): boolean {
+        return isSelected(this.#mask, x - this.#offsetX, y - this.#offsetY)
+    }
+
+    beginMarquee(
+        x: number,
+        y: number,
+        mode: MaskMode = 'replace',
+        shape: MarqueeShape = 'rect',
+    ): void {
         this.#anchorX = x
         this.#anchorY = y
-        this.#rect = null
-        this.#buffer = null
-        this.#offsetX = 0
-        this.#offsetY = 0
-        this.#deps.onChange()
+        this.#mode = mode
+        this.#shape = shape
+        this.#points = [{ x, y }]
+        this.#base = mode === 'replace' ? emptyMask(this.#width, this.#height) : this.#mask
+        this.#dropFloat()
+        this.#setMask(this.#base)
     }
 
     updateMarquee(x: number, y: number): void {
-        const { sprite } = this.#deps
-        this.#rect = normalizeSelection(
-            this.#anchorX,
-            this.#anchorY,
-            x,
-            y,
-            sprite.width,
-            sprite.height,
+        if (this.#shape === 'lasso') {
+            const last = this.#points.at(-1)
+            if (last?.x === x && last.y === y) return
+
+            if (this.#points.length >= LASSO_MAX_POINTS) this.#points.pop()
+            this.#points.push({ x, y })
+        }
+
+        this.#setMask(combineMasks(this.#base, this.#shapeMask(x, y), this.#mode))
+    }
+
+    wandAt(x: number, y: number, mode: MaskMode, options: FillOptions): void {
+        const { layer, frame } = this.#deps.target()
+        this.#dropFloat()
+
+        const base = mode === 'replace' ? emptyMask(this.#width, this.#height) : this.#mask
+        this.#setMask(
+            combineMasks(base, wandMask(this.#deps.sprite, layer, frame, x, y, options), mode),
         )
-        this.#deps.onChange()
     }
 
     endMarquee(x: number, y: number): void {
         this.updateMarquee(x, y)
+    }
+
+    #shapeMask(x: number, y: number): SelectionMask {
+        if (this.#shape === 'lasso') return polygonMask(this.#width, this.#height, this.#points)
+
+        const rect = normalizeSelection(
+            this.#anchorX,
+            this.#anchorY,
+            x,
+            y,
+            this.#width,
+            this.#height,
+        )
+        if (!rect) return emptyMask(this.#width, this.#height)
+
+        const build = this.#shape === 'ellipse' ? ellipseMask : rectMask
+        return build(
+            this.#width,
+            this.#height,
+            rect.x,
+            rect.y,
+            rect.x + rect.w - 1,
+            rect.y + rect.h - 1,
+        )
+    }
+
+    selectAll(): void {
+        this.commit()
+        this.#setMask(allMask(this.#width, this.#height))
+    }
+
+    invert(): void {
+        this.commit()
+        this.#setMask(invertMask(this.#mask))
+    }
+
+    deselect(): void {
+        this.commit()
+        this.#setMask(emptyMask(this.#width, this.#height))
+    }
+
+    reselect(mask: SelectionMask): void {
+        this.#dropFloat()
+        this.#setMask(mask)
     }
 
     beginMove(x: number, y: number): void {
@@ -106,7 +194,7 @@ export class SelectionController {
     }
 
     moveTo(x: number, y: number): void {
-        if (!this.#rect) return
+        if (!this.active) return
 
         this.#lift()
         this.#offsetX += x - this.#moveFromX
@@ -117,7 +205,7 @@ export class SelectionController {
     }
 
     nudge(dx: number, dy: number): void {
-        if (!this.#rect) return
+        if (!this.active) return
 
         this.#lift()
         this.#offsetX += dx
@@ -127,29 +215,47 @@ export class SelectionController {
 
     commit(): void {
         const target = this.#target
-        if (this.#rect && this.#buffer && this.#cursor && this.#command && target) {
-            if (this.#layerExists(target.layer)) {
-                stampRegion(this.#cursor, this.#buffer, this.#rect, this.#offsetX, this.#offsetY)
+        const rect = this.#liftRect
+        const dx = this.#offsetX
+        const dy = this.#offsetY
+
+        if (rect && this.#buffer && this.#cursor && this.#command && target) {
+            if (this.#writable(target.layer)) {
+                stampRegion(this.#cursor, this.#buffer, rect, dx, dy)
                 this.#deps.session.commit(this.#command)
             }
         }
-        this.#reset()
-        this.#deps.onChange()
+        this.#dropFloat()
+        this.#setMask(translateMask(this.#mask, dx, dy))
     }
 
     cancel(): void {
         const target = this.#target
-        if (this.#rect && this.#command && target && this.#layerExists(target.layer)) {
-            const cursor = openCursor(this.#deps.sprite, target.layer, target.frame)
-            for (const w of this.#command.writes()) cursor.set(w.x, w.y, w.before)
-            this.#invalidate(this.#rect)
+        if (this.#command && target && this.#writable(target.layer)) {
+            const patch = pixelPatchFrom(this.#command.writes())
+            if (patch) applyOperation(this.#deps.sprite, patch.inverse)
+            this.#invalidate()
         }
-        this.#reset()
+        this.#dropFloat()
+        this.#setMask(emptyMask(this.#width, this.#height))
+    }
+
+    get #width(): number {
+        return this.#deps.sprite.width
+    }
+
+    get #height(): number {
+        return this.#deps.sprite.height
+    }
+
+    #setMask(mask: SelectionMask): void {
+        this.#mask = mask
         this.#deps.onChange()
     }
 
     #lift(): void {
-        if (this.#buffer || !this.#rect) return
+        const bounds = this.#mask.bounds
+        if (this.#buffer || !bounds) return
 
         const { sprite } = this.#deps
         const target = this.#deps.target()
@@ -162,24 +268,30 @@ export class SelectionController {
         this.#cursor = openCursor(sprite, target.layer, target.frame, (w) => {
             command.record(w)
         })
-        this.#buffer = liftRegion(this.#cursor, this.#rect)
-        this.#invalidate(this.#rect)
+        this.#liftRect = bounds
+        this.#buffer = liftRegion(this.#cursor, this.#mask, bounds)
+        this.#invalidate()
     }
 
-    #layerExists(id: string): boolean {
-        return this.#deps.sprite.layers.some((l) => l.id === id)
+    #writable(id: string): boolean {
+        const layer = this.#deps.sprite.layers.find((l) => l.id === id)
+        return layer !== undefined && !layer.locked
     }
 
-    #invalidate(r: SelRect): void {
+    #invalidate(): void {
         const target = this.#target
-        if (target) this.#deps.invalidate?.(target.layer, target.frame, r.x, r.y, r.w, r.h)
+        const rect = this.#liftRect
+        if (!target || !rect) return
+
+        this.#deps.invalidate?.(target.layer, target.frame, rect.x, rect.y, rect.w, rect.h)
     }
 
-    #reset(): void {
-        this.#rect = null
+    #dropFloat(): void {
         this.#buffer = null
+        this.#liftRect = null
         this.#cursor = null
         this.#command = null
+        this.#target = null
         this.#offsetX = 0
         this.#offsetY = 0
     }

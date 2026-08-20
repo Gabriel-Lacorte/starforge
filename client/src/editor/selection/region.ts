@@ -1,4 +1,11 @@
-import { TRANSPARENT, type CelCursor, type RGBA } from '@starforge/core'
+import {
+    TRANSPARENT,
+    applyInk,
+    isSelected,
+    type CelCursor,
+    type RGBA,
+    type SelectionMask,
+} from '@starforge/core'
 
 export interface SelRect {
     x: number
@@ -8,10 +15,11 @@ export interface SelRect {
 }
 
 export interface SelectionView {
-    readonly rect: SelRect | null
+    readonly mask: SelectionMask | null
     readonly offsetX: number
     readonly offsetY: number
     readonly floatBuffer: Uint32Array | null
+    readonly floatRect: SelRect | null
 }
 
 export function normalizeSelection(
@@ -33,15 +41,19 @@ export function normalizeSelection(
     return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 }
 }
 
-export function liftRegion(cursor: CelCursor, rect: SelRect): Uint32Array {
+export function liftRegion(cursor: CelCursor, mask: SelectionMask, rect: SelRect): Uint32Array {
     const buffer = new Uint32Array(rect.w * rect.h)
     for (let dy = 0; dy < rect.h; dy++) {
         for (let dx = 0; dx < rect.w; dx++) {
-            const color = cursor.get(rect.x + dx, rect.y + dy)
-            buffer[dy * rect.w + dx] = color
-            cursor.set(rect.x + dx, rect.y + dy, TRANSPARENT)
+            const x = rect.x + dx
+            const y = rect.y + dy
+            if (!isSelected(mask, x, y)) continue
+
+            buffer[dy * rect.w + dx] = cursor.get(x, y)
+            cursor.set(x, y, TRANSPARENT)
         }
     }
+
     return buffer
 }
 
@@ -56,7 +68,13 @@ export function stampRegion(
         for (let dx = 0; dx < rect.w; dx++) {
             const color: RGBA = buffer[dy * rect.w + dx]!
             if ((color & 0xff) === 0) continue
-            cursor.set(rect.x + dx + offsetX, rect.y + dy + offsetY, color)
+            const x = rect.x + dx + offsetX
+            const y = rect.y + dy + offsetY
+            cursor.set(
+                x,
+                y,
+                applyInk(cursor.get(x, y), { mode: 'source-over', color, opacity: 255 }),
+            )
         }
     }
 }

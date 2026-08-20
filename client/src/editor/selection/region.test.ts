@@ -4,6 +4,7 @@ import {
     createSprite,
     getPixel,
     openCursor,
+    rectMask,
     rgba,
     writePixel,
     type CellWrite,
@@ -52,7 +53,7 @@ describe('liftRegion', () => {
         const rect: SelRect = { x: 3, y: 3, w: 2, h: 1 }
 
         const { cursor, writes } = collect(sprite, layer, frame)
-        const buffer = liftRegion(cursor, rect)
+        const buffer = liftRegion(cursor, rectMask(16, 16, 3, 3, 4, 3), rect)
 
         expect([...buffer]).toEqual([RED, BLUE])
         expect(getPixel(sprite, layer, frame, 3, 3)).toBe(TRANSPARENT)

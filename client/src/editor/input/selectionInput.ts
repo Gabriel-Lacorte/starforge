@@ -1,3 +1,6 @@
+import type { MaskMode } from '@starforge/core'
+import { marqueeShape, type MarqueeShape } from '../tools/definition'
+import { toolDefinition } from '../tools/registry'
 import type { Viewport } from '../../render/viewport'
 import type { SelectionController } from '../selection/selectionController'
 import type { EditorStore } from '../store'
@@ -25,7 +28,7 @@ export class SelectionInput {
     constructor(deps: SelectionInputDeps) {
         this.#deps = deps
         this.#unsubStore = deps.store.subscribe(() => {
-            if (deps.store.state.tool !== 'select' && deps.selection.active) deps.selection.commit()
+            if (!this.shape && deps.selection.active) deps.selection.commit()
         })
     }
 
@@ -37,17 +40,35 @@ export class SelectionInput {
         return this.#mode !== 'none'
     }
 
+    get shape(): MarqueeShape | null {
+        return marqueeShape(toolDefinition(this.#deps.store.state.tool))
+    }
+
     pointerDown(e: PointerEvent, p: { x: number; y: number }): void {
-        const { canvas, selection } = this.#deps
+        const { canvas, selection, store } = this.#deps
         this.#pointerId = e.pointerId
         canvas.setPointerCapture(e.pointerId)
-        if (selection.contains(p.x, p.y)) {
+
+        const mode = maskModeFor(e)
+        const shape = this.shape ?? 'rect'
+
+        if (shape === 'wand') {
+            if (selection.floating) selection.commit()
+            this.#mode = 'none'
+            selection.wandAt(p.x, p.y, mode, {
+                tolerance: store.state.fillTolerance,
+                contiguous: store.state.fillContiguous,
+            })
+            return
+        }
+
+        if (mode === 'replace' && selection.contains(p.x, p.y)) {
             this.#mode = 'move'
             selection.beginMove(p.x, p.y)
         } else {
             if (selection.floating) selection.commit()
             this.#mode = 'marquee'
-            selection.beginMarquee(p.x, p.y)
+            selection.beginMarquee(p.x, p.y, mode, shape)
         }
     }
 
@@ -73,6 +94,23 @@ export class SelectionInput {
 
     keyDown(e: KeyboardEvent): boolean {
         const { selection } = this.#deps
+
+        if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+            const key = e.key.toLowerCase()
+            if (key === 'a') {
+                e.preventDefault()
+                if (e.shiftKey) selection.deselect()
+                else selection.selectAll()
+                return true
+            }
+            if (key === 'i' && selection.active) {
+                e.preventDefault()
+                selection.invert()
+                return true
+            }
+            return false
+        }
+
         if (!selection.active) return false
 
         const nudge = ARROW_NUDGE[e.key]
@@ -96,4 +134,12 @@ export class SelectionInput {
 
         return false
     }
+}
+
+function maskModeFor(event: PointerEvent): MaskMode {
+    if (event.shiftKey && event.altKey) return 'intersect'
+    if (event.shiftKey) return 'add'
+    if (event.altKey) return 'subtract'
+
+    return 'replace'
 }

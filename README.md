@@ -75,15 +75,13 @@ An npm workspace with two packages, split by what they are allowed to know:
 | `core/`   | document model, operations with inverses, ink kernels, flood fill, geometry, masks, frames, palettes, serialization | nothing    |
 | `client/` | canvas engine, tools, compositor, controllers, UI, storage                                                          | `core`     |
 
-`core/` has zero dependencies on purpose, it is the half that the relay server will also run when multiplayer lands.
-
 ## Roadmap
 
-Shipped: canvas engine, the tool set above, layers, animation frames and
+**Shipped**: canvas engine, the tool set above, layers, animation frames and
 playback, palettes and the Color Studio, project files and portable PNG,
 documents that survive a reload.
 
-Next:
+**Next**:
 
 - onion skin
 - a CRDT for real-time collaboration (LWW per cell with Lamport clocks)
@@ -95,9 +93,7 @@ Next:
 [MIT](LICENSE)
 
 The interface is set in [Silkscreen](https://github.com/googlefonts/silkscreen) by
-Jason Kottke, used under the SIL Open Font License
-([client/public/fonts/OFL.txt](client/public/fonts/OFL.txt)).
+Jason Kottke, used under the SIL Open Font License.
 
 Toolbar and UI icons are from [pixelarticons](https://pixelarticons.com) by
-Gerrit Halfmann, used under the MIT License
-([THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md)).
+Gerrit Halfmann, used under the MIT License.

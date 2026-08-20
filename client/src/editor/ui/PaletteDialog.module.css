@@ -1,0 +1,192 @@
+.dialog {
+    width: min(320px, calc(100vw - 24px));
+    margin: auto;
+    padding: 0;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo),
+        0 8px 0 var(--shadow-float);
+}
+
+.dialog::backdrop {
+    background: var(--scrim);
+}
+
+.header {
+    padding: 5px 10px;
+    color: var(--dim);
+    border-bottom: 1px solid var(--line);
+}
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+}
+
+.nameField {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--dim);
+}
+
+.nameField input {
+    font: inherit;
+    flex: 1;
+    min-width: 0;
+    min-height: var(--target);
+    padding: 2px 4px;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    max-height: 168px;
+    overflow-y: auto;
+    padding: 3px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.swatch {
+    width: var(--target);
+    height: var(--target);
+    border: 1px solid var(--line);
+    box-shadow: inset 1px 1px 0 var(--edge-inset);
+    cursor: pointer;
+}
+
+.swatch.on {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+    box-shadow: none;
+}
+
+.tools {
+    display: flex;
+    gap: 4px;
+}
+
+.tool {
+    display: grid;
+    place-items: center;
+    flex: 1;
+    min-height: var(--target);
+    padding: 0;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.tool:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.tool:disabled {
+    color: var(--dim);
+    opacity: 0.5;
+    cursor: default;
+}
+
+.note {
+    color: var(--dim);
+    line-height: 1.7;
+}
+
+.fileInput {
+    display: none;
+}
+
+.actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--line);
+}
+
+.action {
+    min-height: var(--target);
+    padding: 0 12px;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.action:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.primary {
+    color: var(--bg);
+    background: var(--accent);
+    box-shadow:
+        inset 1px 1px 0 var(--edge-gold),
+        inset -1px -1px 0 var(--accent-lo);
+}
+
+.primary:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--accent-lo),
+        inset -1px -1px 0 var(--edge-gold);
+}
+
+.grid:focus-visible,
+.tool:focus-visible,
+.action:focus-visible,
+.nameField input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+@media (hover: hover) {
+    .tool:hover:not(:disabled),
+    .action:hover:not(:disabled) {
+        color: var(--accent);
+    }
+
+    .primary:hover:not(:disabled) {
+        color: var(--bg);
+        background: var(--accent-hi);
+    }
+}
+
+@media (max-width: 720px), (max-height: 480px) {
+    .dialog {
+        width: 100vw;
+        max-width: none;
+        margin: auto 0 0;
+        border-width: 1px 0 0;
+    }
+
+    .grid {
+        max-height: 120px;
+    }
+}

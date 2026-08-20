@@ -1,0 +1,295 @@
+.dialog {
+    width: min(280px, calc(100vw - 24px));
+    margin: auto;
+    padding: 0;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo),
+        0 8px 0 var(--shadow-float);
+}
+
+.dialog::backdrop {
+    background: var(--scrim);
+}
+
+.header {
+    padding: 5px 10px;
+    color: var(--dim);
+    border-bottom: 1px solid var(--line);
+}
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+}
+
+.field {
+    display: flex;
+    gap: 8px;
+}
+
+/* white to the chosen hue across, full brightness to black down */
+.area {
+    position: relative;
+    flex: 1;
+    height: 132px;
+    background-image:
+        linear-gradient(to top, #000000, transparent),
+        linear-gradient(to right, #ffffff, var(--pure));
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.marker {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    margin: -4px 0 0 -4px;
+    border: 1px solid var(--bg);
+    box-shadow: 0 0 0 1px var(--text);
+    pointer-events: none;
+}
+
+.track {
+    position: relative;
+    display: block;
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.track input {
+    appearance: none;
+    -webkit-appearance: none;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+    touch-action: none;
+}
+
+.track input::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 5px;
+    height: 130px;
+    background: var(--text);
+    border: 1px solid var(--bg);
+}
+
+.track input::-moz-range-thumb {
+    width: 5px;
+    height: 130px;
+    background: var(--text);
+    border: 1px solid var(--bg);
+    border-radius: 0;
+}
+
+.hue {
+    width: var(--target);
+    height: 132px;
+    background-image: linear-gradient(
+        to bottom,
+        #ff0000,
+        #ffff00,
+        #00ff00,
+        #00ffff,
+        #0000ff,
+        #ff00ff,
+        #ff0000
+    );
+}
+
+.hue input {
+    writing-mode: vertical-lr;
+}
+
+.hue input::-webkit-slider-thumb {
+    width: var(--target);
+    height: 5px;
+}
+
+.hue input::-moz-range-thumb {
+    width: var(--target);
+    height: 5px;
+}
+
+.alpha {
+    height: var(--target);
+    background-color: var(--face);
+    background-image:
+        linear-gradient(to right, transparent, var(--opaque)),
+        linear-gradient(45deg, var(--line) 25%, transparent 25% 75%, var(--line) 75%),
+        linear-gradient(45deg, var(--line) 25%, transparent 25% 75%, var(--line) 75%);
+    background-size:
+        100% 100%,
+        8px 8px,
+        8px 8px;
+    background-position:
+        0 0,
+        0 0,
+        4px 4px;
+}
+
+.alpha input::-webkit-slider-thumb {
+    height: var(--target);
+}
+
+.alpha input::-moz-range-thumb {
+    height: var(--target);
+}
+
+.numbers {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+}
+
+.hexField,
+.channel {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    color: var(--dim);
+}
+
+.hexField {
+    grid-column: 1 / -1;
+}
+
+.hexField input,
+.channel input {
+    font: inherit;
+    min-width: 0;
+    width: 100%;
+    min-height: var(--target);
+    padding: 2px 4px;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+    appearance: textfield;
+}
+
+.channel input::-webkit-inner-spin-button,
+.channel input::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+}
+
+.recent {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.recentRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    min-height: var(--target);
+}
+
+.recentChip {
+    width: var(--target);
+    height: var(--target);
+    padding: 0;
+    cursor: pointer;
+}
+
+.actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--line);
+}
+
+.action {
+    min-height: var(--target);
+    padding: 0 12px;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.action:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.action:disabled {
+    color: var(--dim);
+    opacity: 0.5;
+    cursor: default;
+}
+
+.primary {
+    color: var(--bg);
+    background: var(--accent);
+    box-shadow:
+        inset 1px 1px 0 var(--edge-gold),
+        inset -1px -1px 0 var(--accent-lo);
+}
+
+.primary:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--accent-lo),
+        inset -1px -1px 0 var(--edge-gold);
+}
+
+.area:focus-visible,
+.action:focus-visible,
+.recentChip:focus-visible,
+.track input:focus-visible,
+.hexField input:focus-visible,
+.channel input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+@media (hover: hover) {
+    .action:hover:not(:disabled) {
+        color: var(--accent);
+    }
+
+    .primary:hover:not(:disabled) {
+        color: var(--bg);
+        background: var(--accent-hi);
+    }
+}
+
+/* a sheet the thumb can reach, once the panel would crowd the canvas */
+@media (max-width: 720px), (max-height: 480px) {
+    .dialog {
+        width: 100vw;
+        max-width: none;
+        margin: auto 0 0;
+        border-width: 1px 0 0;
+    }
+
+    .numbers {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}

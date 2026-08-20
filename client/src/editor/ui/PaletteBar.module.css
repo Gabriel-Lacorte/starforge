@@ -32,8 +32,43 @@
     box-shadow: none;
 }
 
-.activeColor {
+.actions {
     margin-left: auto;
+    display: flex;
+    flex: none;
+    gap: 2px;
+}
+
+.chip {
+    height: var(--target);
+    padding: 0 6px;
+    color: var(--dim);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.chip:active {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.chip:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+@media (hover: hover) {
+    .chip:hover {
+        color: var(--text);
+    }
+}
+
+.activeColor {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -49,10 +84,14 @@
     .swatches {
         flex: 1;
         min-width: 0;
-        display: grid;
-        grid-template-columns: repeat(8, var(--target));
-        justify-content: space-between;
-        gap: 4px 0;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        gap: 2px;
+    }
+
+    .swatch {
+        flex: none;
     }
 
     .activeColor {
@@ -77,4 +116,13 @@
         flex: none;
         width: var(--target);
     }
+}
+
+/* A classic bar would take a third of the row; the cut-off control is the cue. */
+.swatches {
+    scrollbar-width: none;
+}
+
+.swatches::-webkit-scrollbar {
+    display: none;
 }

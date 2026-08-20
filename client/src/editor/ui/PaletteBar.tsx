@@ -1,16 +1,26 @@
 import { hexToRgba, rgbaToHex, type Palette } from '@starforge/core'
-import { useMemo } from 'preact/hooks'
 import type { EditorStore } from '../store'
-import { useStore } from './useStore'
+import { useStore, type Subscribable } from './useStore'
 import styles from './PaletteBar.module.css'
+import { blurOnPointer } from './blurOnPointer'
 
-export function PaletteBar({ palette, store }: { palette: Palette; store: EditorStore }) {
+export function PaletteBar({
+    palette,
+    store,
+    revision,
+    onOpenStudio,
+    onOpenPalette,
+}: {
+    palette: Palette
+    store: EditorStore
+    revision: Subscribable<unknown>
+    onOpenStudio: () => void
+    onOpenPalette: () => void
+}) {
     const state = useStore(store)
+    useStore(revision)
 
-    const swatches = useMemo(
-        () => palette.colors.map((hex) => ({ hex, rgba: hexToRgba(hex) })),
-        [palette],
-    )
+    const swatches = palette.colors.map((hex) => ({ hex, rgba: hexToRgba(hex) }))
 
     return (
         <div class={`bar ${styles.palettebar}`}>
@@ -27,11 +37,31 @@ export function PaletteBar({ palette, store }: { palette: Palette; store: Editor
                         aria-pressed={state.color === swatch.rgba}
                         onClick={(e) => {
                             store.patch({ color: swatch.rgba })
-                            e.currentTarget.blur()
+                            blurOnPointer(e)
                         }}
                     />
                 ))}
             </div>
+            <span class={styles.actions}>
+                <button
+                    type="button"
+                    class={styles.chip}
+                    title="Mix a colour of your own"
+                    data-testid="open-studio"
+                    onClick={onOpenStudio}
+                >
+                    studio
+                </button>
+                <button
+                    type="button"
+                    class={styles.chip}
+                    title="Edit, reorder and import palettes"
+                    data-testid="open-palette"
+                    onClick={onOpenPalette}
+                >
+                    palette
+                </button>
+            </span>
             <span class={styles.activeColor}>
                 <span class="chip" style={{ background: rgbaToHex(state.color) }} />
                 <span class="mono" data-testid="active-hex">

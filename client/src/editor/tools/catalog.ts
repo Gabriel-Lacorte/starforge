@@ -1,25 +1,107 @@
-import type { ToolId } from '../store'
+import type { ToolDefinition } from './definition'
 
-export type OptionGroup = 'brush' | 'fill' | 'bucket'
-
-export interface ToolSpec {
-    readonly id: ToolId
-    readonly label: string
-
-    readonly shortcut?: string
-    readonly options: readonly OptionGroup[]
-}
-
-export const TOOL_CATALOG: readonly ToolSpec[] = [
-    { id: 'select', label: 'Select', shortcut: 'm', options: [] },
-    { id: 'pencil', label: 'Pencil', shortcut: 'b', options: ['brush'] },
-    { id: 'eraser', label: 'Eraser', shortcut: 'e', options: ['brush'] },
-    { id: 'line', label: 'Line', shortcut: 'l', options: ['brush'] },
-    { id: 'rect', label: 'Rect', shortcut: 'u', options: ['brush', 'fill'] },
-    { id: 'ellipse', label: 'Ellipse', shortcut: 'u', options: ['brush', 'fill'] },
-    { id: 'bucket', label: 'Bucket', shortcut: 'g', options: ['bucket'] },
+export const TOOL_CATALOG: readonly ToolDefinition[] = [
+    {
+        id: 'select',
+        label: 'Select',
+        shortcut: 'm',
+        geometry: 'select.rect',
+        ink: 'source-over',
+        stamp: 'none',
+        trace: 'preview',
+    },
+    {
+        id: 'selectEllipse',
+        label: 'Select ellipse',
+        shortcut: 'm',
+        geometry: 'select.ellipse',
+        ink: 'source-over',
+        stamp: 'none',
+        trace: 'preview',
+    },
+    {
+        id: 'lasso',
+        label: 'Lasso',
+        shortcut: 'q',
+        geometry: 'select.lasso',
+        ink: 'source-over',
+        stamp: 'none',
+        trace: 'preview',
+    },
+    {
+        id: 'wand',
+        label: 'Magic wand',
+        shortcut: 'w',
+        geometry: 'select.wand',
+        ink: 'source-over',
+        stamp: 'none',
+        trace: 'preview',
+    },
+    {
+        id: 'eyedropper',
+        label: 'Eyedropper',
+        shortcut: 'i',
+        geometry: 'sample',
+        ink: 'source-over',
+        stamp: 'none',
+        trace: 'preview',
+    },
+    {
+        id: 'pencil',
+        label: 'Pencil',
+        shortcut: 'b',
+        geometry: 'freehand',
+        ink: 'source-over',
+        stamp: 'brush',
+        trace: 'direct',
+    },
+    {
+        id: 'eraser',
+        label: 'Eraser',
+        shortcut: 'e',
+        geometry: 'freehand',
+        ink: 'erase',
+        stamp: 'brush',
+        trace: 'direct',
+    },
+    {
+        id: 'line',
+        label: 'Line',
+        shortcut: 'l',
+        geometry: 'line',
+        ink: 'source-over',
+        stamp: 'brush',
+        trace: 'preview',
+    },
+    {
+        id: 'rect',
+        label: 'Rect',
+        shortcut: 'u',
+        geometry: 'rect',
+        ink: 'source-over',
+        stamp: 'brush',
+        trace: 'preview',
+    },
+    {
+        id: 'ellipse',
+        label: 'Ellipse',
+        shortcut: 'u',
+        geometry: 'ellipse',
+        ink: 'source-over',
+        stamp: 'brush',
+        trace: 'preview',
+    },
+    {
+        id: 'bucket',
+        label: 'Bucket',
+        shortcut: 'g',
+        geometry: 'flood',
+        ink: 'source-over',
+        stamp: 'none',
+        trace: 'direct',
+    },
 ]
 
-export function toolBadge(spec: ToolSpec): string | undefined {
-    return spec.shortcut?.toUpperCase()
+export function toolBadge(definition: ToolDefinition): string {
+    return definition.shortcut.toUpperCase()
 }

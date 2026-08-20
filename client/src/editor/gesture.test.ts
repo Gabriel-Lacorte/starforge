@@ -10,6 +10,7 @@ import {
 } from '@starforge/core'
 import { DocumentSession } from '../document/session'
 import { GestureController } from './gesture'
+import { LayersController } from './layers/layersController'
 import { EditorStore } from './store'
 
 const NO_MODS = { shift: false, alt: false, ctrl: false }
@@ -30,12 +31,12 @@ function setup(): {
     const top = sprite.layers[1]!.id
 
     const frame = sprite.frames[0]!.id
-    const store = new EditorStore(top)
-    const session = new DocumentSession(sprite)
+    const store = new EditorStore()
+    const session = new DocumentSession(sprite, { target: { layer: top, frame } })
 
     const gestures = new GestureController({
         sprite,
-        target: () => ({ layer: store.state.activeLayer, frame }),
+        target: () => session.target.state,
         session,
         renderer: {
             invalidate: () => {
@@ -78,7 +79,7 @@ describe('GestureController vs Active layer', () => {
         const { sprite, frame, base, top, store, session, gestures } = setup()
 
         gestures.begin('pencil', 0, 0, NO_MODS)
-        store.patch({ activeLayer: base })
+        session.setTarget({ layer: base })
         gestures.move(4, 0, NO_MODS)
         gestures.finish(4, 0, NO_MODS)
 
@@ -91,10 +92,27 @@ describe('GestureController vs Active layer', () => {
     })
 
     it('the NEXT gesture reads the switched active layer', () => {
-        const { sprite, frame, base, store, gestures } = setup()
-        store.patch({ activeLayer: base, color: rgba(255, 0, 0) })
+        const { sprite, frame, base, store, session, gestures } = setup()
+        session.setTarget({ layer: base })
+        store.patch({ color: rgba(255, 0, 0) })
         gestures.begin('pencil', 2, 2, NO_MODS)
         gestures.finish(2, 2, NO_MODS)
         expect(getPixel(sprite, base, frame, 2, 2)).toBe(rgba(255, 0, 0))
+    })
+})
+
+describe('GestureController vs the layers panel', () => {
+    it('picking a layer in the panel moves where the next stroke lands', () => {
+        const { sprite, frame, base, top, store, session, gestures } = setup()
+        const layers = new LayersController(sprite, session)
+
+        layers.setActive(base)
+        expect(layers.active).toBe(base)
+
+        gestures.begin('pencil', 6, 6, NO_MODS)
+        gestures.finish(6, 6, NO_MODS)
+
+        expect(getPixel(sprite, base, frame, 6, 6)).toBe(store.state.color)
+        expect(getPixel(sprite, top, frame, 6, 6)).toBe(0)
     })
 })

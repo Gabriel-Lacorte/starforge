@@ -1,14 +1,30 @@
 import {
+    applyInk,
+    applyOperation,
     Command,
     getLayer,
+    inBounds,
+    isSelected,
     openCursor,
+    pixelPatchFrom,
     type CelCursor,
+    type InkContext,
     type RGBA,
+    type SelectionMask,
     type Sprite,
 } from '@starforge/core'
 import type { DocumentSession } from '../document/session'
 import type { EditTarget, EditorStore } from './store'
-import { makeTool, type GestureToolId, type Mods, type Tool, type ToolHost } from './tools'
+import {
+    captureSettings,
+    makeTool,
+    toolDefinition,
+    type GestureToolId,
+    type Mods,
+    type Tool,
+    type ToolHost,
+} from './tools'
+import type { ToolSettings } from './tools/definition'
 
 export interface InvalidateSink {
     invalidate(
@@ -31,6 +47,7 @@ interface GestureDeps {
     sprite: Sprite
 
     target: () => EditTarget
+    selection?: () => SelectionMask | null
     session: DocumentSession
     renderer: InvalidateSink
     overlay: PreviewSink
@@ -48,6 +65,12 @@ export class GestureController {
     #cursor: CelCursor | null = null
     #target: EditTarget | null = null
 
+    #mask: SelectionMask | null = null
+    #settings: ToolSettings | null = null
+
+    #seed = 0
+    readonly #inkBase = new Map<number, RGBA>()
+
     #dirtyMinX = 0
     #dirtyMinY = 0
     #dirtyMaxX = -1
@@ -61,6 +84,7 @@ export class GestureController {
     #makeHost(): ToolHost {
         const deps = this.#deps
         const target = () => this.#gestureTarget()
+        const settings = () => this.#gestureSettings()
 
         return {
             sprite: deps.sprite,
@@ -73,12 +97,12 @@ export class GestureController {
                 return target().frame
             },
 
-            get state() {
-                return deps.store.state
+            get settings() {
+                return settings()
             },
 
-            write: (x, y, color) => {
-                this.#cursor?.set(x, y, color)
+            write: (x, y, context) => {
+                this.#ink(x, y, context)
             },
             absorb: (writes) => {
                 if (!this.#command) return
@@ -111,6 +135,9 @@ export class GestureController {
             return
         }
         this.#target = target
+        this.#mask = this.#deps.selection?.() ?? null
+        this.#settings = captureSettings(this.#deps.store.state, this.#seed++)
+        this.#inkBase.clear()
         const command = new Command(tool)
         this.#command = command
 
@@ -118,7 +145,7 @@ export class GestureController {
             command.record(write)
             this.#extendDirty(write.x, write.y)
         })
-        this.#tool = makeTool(tool, this.#host)
+        this.#tool = makeTool(toolDefinition(tool), this.#host)
         this.#tool.begin(x, y, mods)
         this.#flushDirty()
     }
@@ -144,11 +171,13 @@ export class GestureController {
     abort(): void {
         if (!this.#tool || !this.#command) return
 
-        const { layer, frame } = this.#gestureTarget()
-        const cursor = openCursor(this.#deps.sprite, layer, frame, (w) =>
-            this.#extendDirty(w.x, w.y),
-        )
-        for (const write of this.#command.writes()) cursor.set(write.x, write.y, write.before)
+        const patch = pixelPatchFrom(this.#command.writes())
+        if (patch) {
+            applyOperation(this.#deps.sprite, patch.inverse)
+            const { x, y, w, h } = patch.change.rect
+            this.#extendDirty(x, y)
+            this.#extendDirty(x + w - 1, y + h - 1)
+        }
         this.#deps.overlay.clear()
         this.#flushDirty()
 
@@ -163,6 +192,22 @@ export class GestureController {
         else this.#deps.session.redo()
     }
 
+    #ink(x: number, y: number, context: InkContext): void {
+        const cursor = this.#cursor
+        if (!cursor || !inBounds(this.#deps.sprite, x, y)) return
+
+        const mask = this.#mask
+        if (mask && !isSelected(mask, x, y)) return
+
+        const cell = y * this.#deps.sprite.width + x
+        let before = this.#inkBase.get(cell)
+        if (before === undefined) {
+            before = cursor.get(x, y)
+            this.#inkBase.set(cell, before)
+        }
+        cursor.set(x, y, applyInk(before, context))
+    }
+
     #gestureTarget(): EditTarget {
         const target = this.#target
         if (!target) throw new Error('no gesture in progress')
@@ -170,11 +215,21 @@ export class GestureController {
         return target
     }
 
+    #gestureSettings(): ToolSettings {
+        const settings = this.#settings
+        if (!settings) throw new Error('no gesture in progress')
+
+        return settings
+    }
+
     #clear(): void {
         this.#tool = null
         this.#command = null
         this.#cursor = null
         this.#target = null
+        this.#mask = null
+        this.#settings = null
+        this.#inkBase.clear()
     }
 
     #extendDirty(x: number, y: number): void {

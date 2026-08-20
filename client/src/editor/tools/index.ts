@@ -1,2 +1,3 @@
 export type { Mods, Tool, ToolHost } from './tool'
-export { makeTool, type GestureToolId } from './registry'
+export { captureSettings, type ToolDefinition, type ToolSettings } from './definition'
+export { makeTool, toolDefinition, type GestureToolId } from './registry'

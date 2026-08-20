@@ -1,5 +1,5 @@
-import type { CellWrite, RGBA, Sprite } from '@starforge/core'
-import type { EditorState } from '../store'
+import type { CellWrite, InkContext, RGBA, Sprite } from '@starforge/core'
+import type { ToolSettings } from './definition'
 
 export interface Mods {
     shift: boolean
@@ -12,9 +12,9 @@ export interface ToolHost {
     readonly layer: string
     readonly frame: string
 
-    readonly state: EditorState
+    readonly settings: ToolSettings
 
-    write(x: number, y: number, color: RGBA): void
+    write(x: number, y: number, ink: InkContext): void
     absorb(writes: readonly CellWrite[]): void
 
     preview(cells: Iterable<number>, color: RGBA): void

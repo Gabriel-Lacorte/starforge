@@ -1,3 +1,5 @@
+import { normalizeName } from './text'
+
 export type BlendMode =
     'normal' | 'multiply' | 'screen' | 'overlay' | 'additive' | 'darken' | 'lighten'
 
@@ -73,6 +75,13 @@ export const SPRITE_MAX_SIZE = 1024
 
 export const DEFAULT_FRAME_DURATION = 100
 
+export const PALETTE_MAX_COLORS = 4_096
+export const SPRITE_TITLE_MAX = 64
+
+export function normalizeSpriteTitle(title: string): string {
+    return normalizeName(title, SPRITE_TITLE_MAX)
+}
+
 export const DEFAULT_PALETTE: Palette = {
     name: 'Starforge',
 
@@ -118,7 +127,7 @@ export function createSprite(init: SpriteInit): Sprite {
         palette: { name: DEFAULT_PALETTE.name, colors: [...DEFAULT_PALETTE.colors] },
 
         meta: {
-            title: init.title ?? 'Untitled',
+            title: normalizeSpriteTitle(init.title ?? '') || 'Untitled',
             createdAt: now,
             updatedAt: now,
         },

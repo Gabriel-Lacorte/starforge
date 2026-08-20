@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { TRANSPARENT, rgba, type RGBA } from './color'
 import { createSprite, getCel } from './doc'
-import { fillMask, floodFill } from './fill'
+import { fillMask, floodFill, floodFillInk } from './fill'
 import { getPixel, writePixel } from './ops'
 
 const A = rgba(255, 0, 0)
@@ -125,6 +125,41 @@ describe('floodFill (sprite level)', () => {
             floodFill(sprite, layer, frame, 8, 8, A, { tolerance: 0, contiguous: true }),
         ).toEqual([])
         expect(getCel(sprite, layer, frame)!.version).toBe(version)
+    })
+
+    it('applies source-over ink once to every selected cell', () => {
+        const { sprite, layer, frame } = sprite16()
+        floodFill(sprite, layer, frame, 0, 0, C, { tolerance: 0, contiguous: true })
+
+        const writes = floodFillInk(
+            sprite,
+            layer,
+            frame,
+            0,
+            0,
+            { mode: 'source-over', color: A, opacity: 128 },
+            { tolerance: 0, contiguous: true },
+        )
+
+        expect(writes).toHaveLength(16 * 16)
+        expect(writes.every((write) => write.after === rgba(128, 0, 127))).toBe(true)
+    })
+
+    it('does not allocate a cel for zero-opacity ink', () => {
+        const { sprite, layer, frame } = sprite16()
+
+        expect(
+            floodFillInk(
+                sprite,
+                layer,
+                frame,
+                0,
+                0,
+                { mode: 'source-over', color: A, opacity: 0 },
+                { tolerance: 0, contiguous: true },
+            ),
+        ).toEqual([])
+        expect(getCel(sprite, layer, frame)).toBeUndefined()
     })
 
     it('skips cells that already hold the fill color inside a tolerant region', () => {

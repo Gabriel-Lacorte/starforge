@@ -1,6 +1,7 @@
 import type { RGBA } from './color'
 import { openCursor } from './cursor'
 import { getCel, inBounds, type Sprite } from './doc'
+import { applyInk, type InkContext } from './ink'
 import { getPixel, type CellWrite } from './ops'
 
 export interface FillOptions {
@@ -105,14 +106,40 @@ export function floodFill(
     color: RGBA,
     options: FillOptions,
 ): CellWrite[] {
+    return floodFillResolved(sprite, layerId, frameId, x, y, options, () => color >>> 0)
+}
+
+export function floodFillInk(
+    sprite: Sprite,
+    layerId: string,
+    frameId: string,
+    x: number,
+    y: number,
+    context: InkContext,
+    options: FillOptions,
+): CellWrite[] {
+    return floodFillResolved(sprite, layerId, frameId, x, y, options, (before) =>
+        applyInk(before, context),
+    )
+}
+
+function floodFillResolved(
+    sprite: Sprite,
+    layerId: string,
+    frameId: string,
+    x: number,
+    y: number,
+    options: FillOptions,
+    resolve: (before: RGBA) => RGBA,
+): CellWrite[] {
     const { tolerance, contiguous } = options
     if (!Number.isInteger(tolerance) || tolerance < 0 || tolerance > 255)
         throw new RangeError(`fill tolerance must be an integer in 0..255, got ${tolerance}`)
 
     if (!inBounds(sprite, x, y)) return []
 
-    const fill = color >>> 0
-    if (tolerance === 0 && getPixel(sprite, layerId, frameId, x, y) === fill) return []
+    const seed = getPixel(sprite, layerId, frameId, x, y)
+    if (tolerance === 0 && resolve(seed) === seed) return []
 
     const cel = getCel(sprite, layerId, frameId)
     const mask = fillMask(
@@ -133,7 +160,8 @@ export function floodFill(
         if (!mask[cell]) continue
 
         const cx = cell % width
-        cursor.set(cx, (cell - cx) / width, fill)
+        const cy = (cell - cx) / width
+        cursor.set(cx, cy, resolve(cursor.get(cx, cy)))
     }
 
     return writes

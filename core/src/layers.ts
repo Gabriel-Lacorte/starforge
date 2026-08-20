@@ -1,26 +1,12 @@
 import { createLayer, getLayer, type Layer, type Sprite } from './doc'
+import { normalizeName } from './text'
 
 export type LayerProps = Pick<Layer, 'name' | 'opacity' | 'blendMode' | 'visible' | 'locked'>
 
 export const LAYER_NAME_MAX = 64
 
-/* eslint-disable-next-line no-control-regex -- control characters are exactly what this strips */
-const CONTROL = /[\u0000-\u001f\u007f]/g
-
-const GRAPHEMES = new Intl.Segmenter()
-
 export function normalizeLayerName(name: string): string {
-    const flat = name.replace(CONTROL, ' ').replace(/\s+/g, ' ').trim()
-    if (flat.length <= LAYER_NAME_MAX) return flat
-
-    let out = ''
-    let count = 0
-    for (const { segment } of GRAPHEMES.segment(flat)) {
-        if (++count > LAYER_NAME_MAX) break
-        out += segment
-    }
-
-    return out.trim()
+    return normalizeName(name, LAYER_NAME_MAX)
 }
 
 export function insertLayer(sprite: Sprite, layer: Layer, after: string | null): void {

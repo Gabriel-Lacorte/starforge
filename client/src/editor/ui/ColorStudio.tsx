@@ -38,11 +38,6 @@ export function ColorStudio({
     useStore(layers)
     const state = useStore(store)
 
-    /*
-     * The document keeps RGBA, but hue and saturation survive a trip to black or
-     * grey only if the picker remembers them, so the wheel is the local state and
-     * the store is re-read whenever the color changed somewhere else.
-     */
     const [hsva, setHsva] = useState<Hsva>(() => rgbaToHsva(state.color))
     const applied = useRef(state.color)
     const openedWith = useRef(state.color)
@@ -51,7 +46,6 @@ export function ColorStudio({
         ref.current?.showModal()
     }, [])
 
-    /* every drag step would otherwise land in recent, so only the colour left behind is filed */
     const close = (): void => {
         store.rememberColor(openedWith.current)
         onClose()

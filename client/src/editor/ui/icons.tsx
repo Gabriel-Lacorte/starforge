@@ -1,46 +1,44 @@
 import type { ComponentType, JSX } from 'preact'
 import type { ToolId } from '../store'
+import { ICON_PATHS, type IconName } from './iconPaths'
 
-const GRID = 22
-const MINI = 11
+const GRID = 24
 
-function glyph(rows: string[], grid = GRID, cls = 'tool-ico'): JSX.Element {
-    let minX = grid
-    let minY = grid
-    let maxX = -1
-    let maxY = -1
-    for (let y = 0; y < rows.length; y++) {
-        const row = rows[y] ?? ''
-        for (let x = 0; x < row.length; x++) {
-            if (row[x] !== '#') continue
-            if (x < minX) minX = x
-            if (x > maxX) maxX = x
-            if (y < minY) minY = y
-            if (y > maxY) maxY = y
-        }
-    }
-    const ox = maxX < 0 ? 0 : Math.round((grid - (maxX - minX + 1)) / 2) - minX
-    const oy = maxY < 0 ? 0 : Math.round((grid - (maxY - minY + 1)) / 2) - minY
-
-    const rects: JSX.Element[] = []
-    for (let y = 0; y < rows.length; y++) {
-        const row = rows[y] ?? ''
-        let x = 0
-        while (x < row.length) {
-            if (row[x] === '#') {
-                let w = 1
-                while (row[x + w] === '#') w++
-                rects.push(<rect key={`${x},${y}`} x={x + ox} y={y + oy} width={w} height={1} />)
-                x += w
-            } else {
-                x++
-            }
-        }
-    }
+function pathIcon(name: IconName, cls = 'tool-ico'): JSX.Element {
     return (
         <svg
             class={cls}
-            viewBox={`0 0 ${grid} ${grid}`}
+            viewBox={`0 0 ${GRID} ${GRID}`}
+            fill="currentColor"
+            shape-rendering="crispEdges"
+            aria-hidden="true"
+        >
+            <path d={ICON_PATHS[name]} />
+        </svg>
+    )
+}
+
+function glyph(rows: string[], cls = 'tool-ico'): JSX.Element {
+    const rects: JSX.Element[] = []
+    for (const [y, row] of rows.entries()) {
+        let x = 0
+        while (x < row.length) {
+            if (row[x] !== '#') {
+                x++
+                continue
+            }
+
+            let w = 1
+            while (row[x + w] === '#') w++
+            rects.push(<rect key={`${x},${y}`} x={x} y={y} width={w} height={1} />)
+            x += w
+        }
+    }
+
+    return (
+        <svg
+            class={cls}
+            viewBox={`0 0 ${GRID} ${GRID}`}
             fill="currentColor"
             shape-rendering="crispEdges"
             aria-hidden="true"
@@ -50,315 +48,72 @@ function glyph(rows: string[], grid = GRID, cls = 'tool-ico'): JSX.Element {
     )
 }
 
-const PENCIL = [
-    '.........######.......',
-    '.........#....#.......',
-    '.........######.......',
-    '.........#....#.......',
-    '.........#....#.......',
-    '.........#....#.......',
-    '.........#....#.......',
-    '.........#....#.......',
-    '.........#....#.......',
-    '.........#....#.......',
-    '..........####........',
-    '..........####........',
-    '...........##.........',
-    '...........##.........',
-    '......................',
+const SELECT_ELLIPSE = [
+    '........................',
+    '........................',
+    '..........####..........',
+    '..........####..........',
+    '....####........####....',
+    '....####........####....',
+    '....##............##....',
+    '....##............##....',
+    '........................',
+    '........................',
+    '..##................##..',
+    '..##................##..',
+    '..##................##..',
+    '..##................##..',
+    '........................',
+    '........................',
+    '....##............##....',
+    '....##............##....',
+    '....####........####....',
+    '....####........####....',
+    '..........####..........',
+    '..........####..........',
+    '........................',
+    '........................',
 ]
-
-const ERASER = [
-    '...##########.........',
-    '....##########........',
-    '.....##########.......',
-    '......##########......',
-    '.......##########.....',
-    '........##########....',
-    '.........##########...',
-    '......................',
-    '.....#....#....#......',
-]
-
-const LINE = [
-    '................####..',
-    '................#..#..',
-    '................#..#..',
-    '................####..',
-    '..............##......',
-    '.............##.......',
-    '............##........',
-    '...........##.........',
-    '..........##..........',
-    '.........##...........',
-    '........##............',
-    '.......##.............',
-    '......##..............',
-    '.....##...............',
-    '..####................',
-    '..#..#................',
-    '..#..#................',
-    '..####................',
-]
-
-const RECT = [
-    '....##############....',
-    '....#............#....',
-    '....#............#....',
-    '....#............#....',
-    '....#............#....',
-    '....#............#....',
-    '....#............#....',
-    '....#............#....',
-    '....#............#....',
-    '....#............#....',
-    '....#............#....',
-    '....#............#....',
-    '....##############....',
-]
-
-const ELLIPSE = [
-    '........######........',
-    '......##......##......',
-    '.....#..........#.....',
-    '....#............#....',
-    '...#..............#...',
-    '...#..............#...',
-    '..#................#..',
-    '..#................#..',
-    '..#................#..',
-    '..#................#..',
-    '...#..............#...',
-    '...#..............#...',
-    '....#............#....',
-    '.....#..........#.....',
-    '......##......##......',
-    '........######........',
-]
-
-const BUCKET = [
-    '......########........',
-    '.....#........#.......',
-    '.....#........#.......',
-    '...##############.....',
-    '...#............#.....',
-    '...##############.....',
-    '....#...........#.....',
-    '....#...........#.....',
-    '.....#.........#......',
-    '.....#.........#......',
-    '......#.......#.......',
-    '......########......',
-]
-
-const SELECT = [
-    '##.##.##.##.##',
-    '#............#',
-    '..............',
-    '#............#',
-    '#............#',
-    '..............',
-    '#............#',
-    '#............#',
-    '..............',
-    '#............#',
-    '##.##.##.##.##',
-]
-
-const Pencil = () => glyph(PENCIL)
-const Eraser = () => glyph(ERASER)
-const Line = () => glyph(LINE)
-const Rect = () => glyph(RECT)
-const Ellipse = () => glyph(ELLIPSE)
-const Bucket = () => glyph(BUCKET)
-const Select = () => glyph(SELECT)
 
 export const TOOL_ICON: Record<ToolId, ComponentType> = {
-    select: Select,
-    pencil: Pencil,
-    eraser: Eraser,
-    line: Line,
-    rect: Rect,
-    ellipse: Ellipse,
-    bucket: Bucket,
+    select: () => pathIcon('section'),
+    selectEllipse: () => glyph(SELECT_ELLIPSE),
+    lasso: () => pathIcon('lasso'),
+    wand: () => pathIcon('sparkles'),
+    eyedropper: () => pathIcon('pipette'),
+    pencil: () => pathIcon('pencil'),
+    eraser: () => pathIcon('eraser'),
+    line: () => pathIcon('scale'),
+    rect: () => pathIcon('checkbox-sharp'),
+    ellipse: () => pathIcon('circle'),
+    bucket: () => pathIcon('potion'),
 }
 
-const EYE_OPEN = [
-    '...#####...',
-    '.##.....##.',
-    '#....#....#',
-    '#...###...#',
-    '#....#....#',
-    '.##.....##.',
-    '...#####...',
-]
+export const FileIcon = () => pathIcon('file', 'mini-ico')
+export const LibraryIcon = () => pathIcon('images', 'mini-ico')
+export const OpenIcon = () => pathIcon('folder', 'mini-ico')
+export const SaveIcon = () => pathIcon('save', 'mini-ico')
+export const ExportIcon = () => pathIcon('download', 'mini-ico')
+export const SizeIcon = () => pathIcon('expand', 'mini-ico')
+export const PanelIcon = () => pathIcon('layout', 'mini-ico')
+export const CloseIcon = () => pathIcon('close', 'mini-ico')
+export const KeysIcon = () => pathIcon('keyboard', 'mini-ico')
+export const UndoIcon = () => pathIcon('undo', 'mini-ico')
+export const RedoIcon = () => pathIcon('redo', 'mini-ico')
 
-const EYE_CLOSED = ['#.........#', '.##.....##.', '...#####...', '..#..#..#..', '.#...#...#.']
-
-const LOCKED = [
-    '...#####...',
-    '..##...##..',
-    '..#.....#..',
-    '.#########.',
-    '.#########.',
-    '.####.####.',
-    '.####.####.',
-    '.#########.',
-    '.#########.',
-]
-
-const UNLOCKED = [
-    '.....#####.',
-    '....##...##',
-    '....#.....#',
-    '.#########.',
-    '.#########.',
-    '.####.####.',
-    '.####.####.',
-    '.#########.',
-    '.#########.',
-]
-
-const PLUS = [
-    '....###....',
-    '....###....',
-    '....###....',
-    '.#########.',
-    '.#########.',
-    '.#########.',
-    '....###....',
-    '....###....',
-    '....###....',
-]
-
-const DUPLICATE = [
-    '.######....',
-    '.#....#....',
-    '.#....#....',
-    '.#..######.',
-    '.#..#....#.',
-    '.####....#.',
-    '....#....#.',
-    '....#....#.',
-    '....######.',
-]
-
-const TRASH = [
-    '....###....',
-    '.#########.',
-    '..#######..',
-    '..#.#.#.#..',
-    '..#.#.#.#..',
-    '..#.#.#.#..',
-    '..#.#.#.#..',
-    '..#######..',
-]
-
-const UP = [
-    '....###....',
-    '...#####...',
-    '..#######..',
-    '.#########.',
-    '....###....',
-    '....###....',
-    '....###....',
-]
-
-const DOWN = [
-    '....###....',
-    '....###....',
-    '....###....',
-    '.#########.',
-    '..#######..',
-    '...#####...',
-    '....###....',
-]
-
-const FILE = [
-    '..#######..',
-    '..#.....#..',
-    '..#.###.#..',
-    '..#.....#..',
-    '..#.###.#..',
-    '..#.....#..',
-    '..#.###.#..',
-    '..#.....#..',
-    '..#######..',
-]
-
-const PANEL = [
-    '###########',
-    '#.....#...#',
-    '#.....#...#',
-    '#.....#####',
-    '#.....#...#',
-    '#.....#...#',
-    '#.....#####',
-    '#.....#...#',
-    '###########',
-]
-
-const UNDO = [
-    '...#.......',
-    '..##.......',
-    '.###.......',
-    '####.......',
-    '.###.####..',
-    '..##.#..##.',
-    '...#.#...#.',
-    '.....#...#.',
-    '.....#####.',
-]
-
-const REDO = [
-    '.......#...',
-    '.......##..',
-    '.......###.',
-    '.......####',
-    '..####.###.',
-    '.##..#.##..',
-    '.#...#.#...',
-    '.#...#.....',
-    '.#####.....',
-]
-
-const KEYS = [
-    '###########',
-    '#.........#',
-    '#.#.#.#.#.#',
-    '#.........#',
-    '#.#.#.#.#.#',
-    '#.........#',
-    '#..#####..#',
-    '#.........#',
-    '###########',
-]
-
-const CLOSE = [
-    '##.......##',
-    '.##.....##.',
-    '..##...##..',
-    '...##.##...',
-    '....###....',
-    '...##.##...',
-    '..##...##..',
-    '.##.....##.',
-    '##.......##',
-]
-
-export const FileIcon = () => glyph(FILE, MINI, 'mini-ico')
-export const PanelIcon = () => glyph(PANEL, MINI, 'mini-ico')
-export const CloseIcon = () => glyph(CLOSE, MINI, 'mini-ico')
-export const KeysIcon = () => glyph(KEYS, MINI, 'mini-ico')
-export const UndoIcon = () => glyph(UNDO, MINI, 'mini-ico')
-export const RedoIcon = () => glyph(REDO, MINI, 'mini-ico')
-
-export const EyeOpenIcon = () => glyph(EYE_OPEN, MINI, 'mini-ico')
-export const EyeClosedIcon = () => glyph(EYE_CLOSED, MINI, 'mini-ico')
-export const LockedIcon = () => glyph(LOCKED, MINI, 'mini-ico')
-export const UnlockedIcon = () => glyph(UNLOCKED, MINI, 'mini-ico')
-export const PlusIcon = () => glyph(PLUS, MINI, 'mini-ico')
-export const DuplicateIcon = () => glyph(DUPLICATE, MINI, 'mini-ico')
-export const TrashIcon = () => glyph(TRASH, MINI, 'mini-ico')
-export const UpIcon = () => glyph(UP, MINI, 'mini-ico')
-export const DownIcon = () => glyph(DOWN, MINI, 'mini-ico')
+export const EyeOpenIcon = () => pathIcon('eye', 'mini-ico')
+export const EyeClosedIcon = () => pathIcon('eye-off', 'mini-ico')
+export const LockedIcon = () => pathIcon('lock', 'mini-ico')
+export const UnlockedIcon = () => pathIcon('unlock', 'mini-ico')
+export const PlusIcon = () => pathIcon('plus', 'mini-ico')
+export const DuplicateIcon = () => pathIcon('copy', 'mini-ico')
+export const TrashIcon = () => pathIcon('trash', 'mini-ico')
+export const UpIcon = () => pathIcon('arrow-up', 'mini-ico')
+export const DownIcon = () => pathIcon('arrow-down', 'mini-ico')
+export const FlipXIcon = () => pathIcon('flip-horizontal-2', 'mini-ico')
+export const FlipYIcon = () => pathIcon('flip-vertical-2', 'mini-ico')
+export const RotateIcon = () => pathIcon('reload', 'mini-ico')
+export const PlayIcon = () => pathIcon('play', 'mini-ico')
+export const PauseIcon = () => pathIcon('pause', 'mini-ico')
+export const LeftIcon = () => pathIcon('arrow-left', 'mini-ico')
+export const RightIcon = () => pathIcon('arrow-right', 'mini-ico')

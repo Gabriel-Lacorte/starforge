@@ -7,10 +7,15 @@
     border-bottom: 1px solid var(--line);
 }
 
+.toolStrip,
+.optionStrip {
+    display: contents;
+}
+
 .toolBtn {
     position: relative;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     display: grid;
     place-items: center;
     padding: 0;
@@ -96,8 +101,14 @@
 .fileGroup {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
+    min-width: 0;
     gap: 4px;
     margin-left: auto;
+}
+
+.fileInput {
+    display: none;
 }
 
 .iconBtn {
@@ -164,9 +175,47 @@
     color: var(--accent);
 }
 
-.stepper :global(.mono) {
-    min-width: 3ch;
+.opt .stepper :global(.mono) {
+    min-width: 1ch;
+    padding: 0 4px;
     text-align: center;
+    color: var(--text);
+}
+
+.range {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 72px;
+    height: 12px;
+    margin: 0;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+    cursor: pointer;
+}
+
+.range::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 5px;
+    height: 10px;
+    background: var(--text);
+    border: 0;
+}
+
+.range::-moz-range-thumb {
+    width: 5px;
+    height: 10px;
+    background: var(--text);
+    border: 0;
+    border-radius: 0;
+}
+
+.opt :global(.mono) {
+    min-width: 4ch;
+    text-align: right;
     color: var(--text);
 }
 
@@ -225,6 +274,7 @@
 .toolBtn:focus-visible,
 .textBtn:focus-visible,
 .num:focus-visible,
+.range:focus-visible,
 .stepper button:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
@@ -250,4 +300,87 @@
     .wide {
         display: none;
     }
+
+    .toolbar .toolStrip,
+    .toolbar .optionStrip,
+    .toolbar .fileGroup {
+        display: flex;
+        align-items: center;
+        flex: 1 0 100%;
+        flex-wrap: nowrap;
+        min-width: 0;
+        gap: 3px;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+    }
+
+    .optionStrip {
+        min-height: var(--target);
+        gap: 8px;
+    }
+
+    .toolbar .toolStrip > *,
+    .toolbar .optionStrip > *,
+    .toolbar .fileGroup > * {
+        flex: none;
+    }
+
+    .toolbar .optionStrip > .sep {
+        display: none;
+    }
+
+    .fileGroup {
+        margin-left: 0;
+        justify-content: flex-start;
+        gap: 4px;
+    }
+}
+
+@media (max-height: 480px) {
+    .toolbar .toolStrip,
+    .toolbar .optionStrip,
+    .toolbar .fileGroup {
+        display: flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        min-width: 0;
+        gap: 3px;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+    }
+
+    .toolStrip {
+        flex: 0 1 auto;
+    }
+
+    .optionStrip {
+        flex: 1 1 0;
+        min-height: var(--target);
+        gap: 8px;
+    }
+
+    .fileGroup {
+        flex: 1 0 100%;
+        margin-left: 0;
+        justify-content: flex-start;
+        gap: 4px;
+    }
+
+    .toolbar .toolStrip > *,
+    .toolbar .optionStrip > *,
+    .toolbar .fileGroup > * {
+        flex: none;
+    }
+}
+
+.toolStrip,
+.optionStrip,
+.fileGroup {
+    scrollbar-width: none;
+}
+
+.toolStrip::-webkit-scrollbar,
+.optionStrip::-webkit-scrollbar,
+.fileGroup::-webkit-scrollbar {
+    display: none;
 }

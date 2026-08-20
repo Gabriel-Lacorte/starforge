@@ -56,3 +56,10 @@
         display: none;
     }
 }
+
+.loading {
+    display: grid;
+    place-items: center;
+    min-height: 0;
+    color: var(--dim);
+}

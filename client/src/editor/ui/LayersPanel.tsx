@@ -8,8 +8,9 @@ import {
 } from '@starforge/core'
 import type { ComponentChildren } from 'preact'
 import { useEffect, useRef, useState } from 'preact/hooks'
+import type { Store } from '../../store'
 import type { LayersController } from '../layers/layersController'
-import type { EditorStore } from '../store'
+import type { EditTarget } from '../store'
 import {
     CloseIcon,
     DownIcon,
@@ -24,20 +25,21 @@ import {
 } from './icons'
 import { useStore } from './useStore'
 import styles from './LayersPanel.module.css'
+import { blurOnPointer } from './blurOnPointer'
 
 export function LayersPanel({
     sprite,
-    store,
+    target,
     layers,
     onClose,
 }: {
     sprite: Sprite
-    store: EditorStore
+    target: Store<EditTarget>
     layers: LayersController
     onClose: () => void
 }) {
     useStore(layers)
-    const state = useStore(store)
+    const activeLayer = useStore(target).layer
     const [editing, setEditing] = useState<string | null>(null)
 
     const drag = useRef<{ layer: string; from: number } | null>(null)
@@ -55,7 +57,7 @@ export function LayersPanel({
     )
 
     const frameId = sprite.frames[0]!.id
-    const active = sprite.layers.find((l) => l.id === state.activeLayer)
+    const active = sprite.layers.find((l) => l.id === activeLayer)
     const rows = [...sprite.layers].reverse()
 
     const commitRename = (layer: Layer, value: string | null) => {
@@ -81,7 +83,7 @@ export function LayersPanel({
 
             <ul class={styles.list}>
                 {rows.map((layer) => {
-                    const isActive = layer.id === state.activeLayer
+                    const isActive = layer.id === activeLayer
                     return (
                         <li
                             key={layer.id}
@@ -108,7 +110,7 @@ export function LayersPanel({
                                     type="button"
                                     class={styles.select}
                                     data-testid="layer-select"
-                                    aria-current={isActive}
+                                    aria-current={isActive ? 'true' : undefined}
                                     title={`${layer.name} (F2 or double-click to rename)`}
                                     onClick={() => layers.setActive(layer.id)}
                                     onDblClick={() => setEditing(layer.id)}
@@ -139,7 +141,7 @@ export function LayersPanel({
                                 onClick={(e) => {
                                     e.stopPropagation()
                                     layers.toggleVisible(layer.id)
-                                    e.currentTarget.blur()
+                                    blurOnPointer(e)
                                 }}
                             >
                                 {layer.visible ? <EyeOpenIcon /> : <EyeClosedIcon />}
@@ -154,7 +156,7 @@ export function LayersPanel({
                                 onClick={(e) => {
                                     e.stopPropagation()
                                     layers.toggleLocked(layer.id)
-                                    e.currentTarget.blur()
+                                    blurOnPointer(e)
                                 }}
                             >
                                 {layer.locked ? <LockedIcon /> : <UnlockedIcon />}
@@ -186,7 +188,6 @@ export function LayersPanel({
                                     drag.current?.layer === active.id ? drag.current.from : value
                                 drag.current = null
                                 layers.commitOpacity(active.id, from, value)
-                                e.currentTarget.blur()
                             }}
                         />
                         <span class="mono dim" data-testid="layer-opacity-value">
@@ -195,21 +196,28 @@ export function LayersPanel({
                     </label>
                     <label class={styles.prop} title="Blend mode of the active layer">
                         <span class={styles.propName}>blend</span>
-                        <select
-                            class={styles.blend}
-                            data-testid="layer-blend"
-                            value={active.blendMode}
-                            onChange={(e) => {
-                                layers.setBlendMode(active.id, e.currentTarget.value as BlendMode)
-                                e.currentTarget.blur()
-                            }}
-                        >
-                            {BLEND_MODES.map((mode) => (
-                                <option key={mode} value={mode}>
-                                    {mode}
-                                </option>
-                            ))}
-                        </select>
+                        <span class={styles.selectWrap}>
+                            <select
+                                class={styles.blend}
+                                data-testid="layer-blend"
+                                value={active.blendMode}
+                                onChange={(e) => {
+                                    layers.setBlendMode(
+                                        active.id,
+                                        e.currentTarget.value as BlendMode,
+                                    )
+                                }}
+                            >
+                                {BLEND_MODES.map((mode) => (
+                                    <option key={mode} value={mode}>
+                                        {mode}
+                                    </option>
+                                ))}
+                            </select>
+                            <span class={styles.selectArrow} aria-hidden="true">
+                                <DownIcon />
+                            </span>
+                        </span>
                     </label>
                 </div>
             )}
@@ -322,7 +330,7 @@ function ActionButton({
             disabled={disabled}
             onClick={(e) => {
                 onPress()
-                e.currentTarget.blur()
+                blurOnPointer(e)
             }}
         >
             {children}

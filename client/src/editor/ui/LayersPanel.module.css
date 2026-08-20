@@ -233,6 +233,13 @@
     outline-offset: 1px;
 }
 
+.selectWrap {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-width: 0;
+}
+
 .blend {
     flex: 1;
     min-width: 0;
@@ -241,7 +248,19 @@
     color: var(--text);
     background: var(--bg);
     border: 1px solid var(--line);
-    padding: 2px;
+    padding: 2px 18px 2px 2px;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+/* The native chevron is an anti-aliased vector among crispEdges glyphs. */
+.selectArrow {
+    position: absolute;
+    inset: 0 4px 0 auto;
+    display: grid;
+    place-items: center;
+    color: var(--dim);
+    pointer-events: none;
 }
 
 .actions {

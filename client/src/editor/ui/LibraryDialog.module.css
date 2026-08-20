@@ -1,0 +1,210 @@
+.dialog {
+    width: min(380px, calc(100vw - 24px));
+    margin: auto;
+    padding: 0;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo),
+        0 8px 0 var(--shadow-float);
+}
+
+.dialog::backdrop {
+    background: var(--scrim);
+}
+
+.header {
+    padding: 5px 10px;
+    color: var(--dim);
+    border-bottom: 1px solid var(--line);
+}
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: min(60vh, 420px);
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.search input {
+    font: inherit;
+    width: 100%;
+    min-height: var(--target);
+    padding: 2px 6px;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+    appearance: none;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px;
+    border: 1px solid transparent;
+}
+
+.row.on {
+    background: var(--face-lo);
+    border-color: var(--line);
+}
+
+.thumb {
+    flex: none;
+    width: 48px;
+    height: 48px;
+    image-rendering: pixelated;
+    border: 1px solid var(--line);
+}
+
+.pick {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+    min-height: var(--target);
+    padding: 2px 4px;
+    color: var(--text);
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-align: left;
+}
+
+.title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+.meta {
+    color: var(--dim);
+}
+
+.icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: var(--target);
+    height: var(--target);
+    padding: 0;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.icon:disabled {
+    color: var(--dim);
+    opacity: 0.5;
+    cursor: default;
+}
+
+.empty,
+.detail {
+    color: var(--dim);
+    line-height: 1.7;
+}
+
+.recovery {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+}
+
+.recoveryTitle {
+    font: inherit;
+    color: var(--accent);
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--line);
+}
+
+.action {
+    min-height: var(--target);
+    padding: 0 12px;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.action:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.primary {
+    color: var(--bg);
+    background: var(--accent);
+    box-shadow:
+        inset 1px 1px 0 var(--edge-gold),
+        inset -1px -1px 0 var(--accent-lo);
+}
+
+.pick:focus-visible,
+.icon:focus-visible,
+.action:focus-visible,
+.search input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+@media (hover: hover) {
+    .pick:hover {
+        border-color: var(--line);
+    }
+
+    .icon:hover:not(:disabled),
+    .action:hover:not(:disabled) {
+        color: var(--accent);
+    }
+
+    .primary:hover:not(:disabled) {
+        color: var(--bg);
+        background: var(--accent-hi);
+    }
+}
+
+@media (max-width: 720px), (max-height: 480px) {
+    .dialog {
+        width: 100vw;
+        max-width: none;
+        margin: auto 0 0;
+        border-width: 1px 0 0;
+    }
+}

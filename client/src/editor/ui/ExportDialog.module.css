@@ -1,0 +1,144 @@
+.dialog {
+    width: min(340px, calc(100vw - 24px));
+    margin: auto;
+    padding: 0;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo),
+        0 8px 0 var(--shadow-float);
+}
+
+.dialog::backdrop {
+    background: var(--scrim);
+}
+
+.header {
+    padding: 5px 10px;
+    color: var(--dim);
+    border-bottom: 1px solid var(--line);
+}
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 10px;
+}
+
+.group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.legend {
+    padding: 0 0 8px;
+    color: var(--dim);
+}
+
+.choice {
+    display: grid;
+    grid-template-columns: var(--target) 1fr;
+    align-items: center;
+    column-gap: 4px;
+    cursor: pointer;
+}
+
+.choice input {
+    justify-self: center;
+}
+
+.choiceLabel {
+    color: var(--text);
+}
+
+.choiceDetail {
+    grid-column: 2;
+    color: var(--dim);
+    line-height: 1.7;
+}
+
+.choice:has(input:disabled) {
+    cursor: default;
+}
+
+.choice:has(input:disabled) .choiceLabel,
+.choice:has(input:disabled) .choiceDetail {
+    opacity: 0.5;
+}
+
+.filename {
+    padding-top: 2px;
+    border-top: 1px solid var(--line);
+    overflow-wrap: anywhere;
+    line-height: 1.7;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--line);
+}
+
+.action {
+    min-height: var(--target);
+    padding: 0 12px;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.action:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.action:disabled {
+    color: var(--dim);
+    opacity: 0.5;
+    cursor: default;
+}
+
+.primary {
+    color: var(--bg);
+    background: var(--accent);
+    box-shadow:
+        inset 1px 1px 0 var(--edge-gold),
+        inset -1px -1px 0 var(--accent-lo);
+}
+
+.primary:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--accent-lo),
+        inset -1px -1px 0 var(--edge-gold);
+}
+
+.action:focus-visible,
+.choice input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+@media (hover: hover) {
+    .action:hover:not(:disabled) {
+        color: var(--accent);
+    }
+
+    .primary:hover:not(:disabled) {
+        color: var(--bg);
+        background: var(--accent-hi);
+    }
+}

@@ -8,7 +8,17 @@ import {
     writePixel,
     type Sprite,
 } from '@starforge/core'
-import { clearDocument, loadDocument, saveDocument, type StorageLike } from './localDoc'
+import {
+    clearDocument,
+    clearDocumentRecovery,
+    clearReplacementRecovery,
+    loadDocument,
+    loadDocumentRecovery,
+    loadReplacementRecovery,
+    saveDocument,
+    saveReplacementRecovery,
+    type StorageLike,
+} from './localDoc'
 
 const RED = rgba(255, 0, 0)
 
@@ -84,20 +94,36 @@ describe('localDoc', () => {
         expect(saveDocument({ sprite: drawing(), activeLayer: 'x' }, storage)).toBe(false)
     })
 
-    it('drops a snapshot it cannot read, so the next save starts clean', () => {
+    it('preserves an unreadable snapshot and exposes it as recovery', () => {
         const storage = new FakeStorage()
         saveDocument({ sprite: drawing(), activeLayer: 'x' }, storage)
-        storage.items.set('starforge.document', '{"sprite":{"v":99}}')
+        const raw = '{"sprite":{"v":99}}'
+        storage.items.set('starforge.document', raw)
 
         expect(loadDocument(storage)).toBeNull()
-        expect(storage.items.size).toBe(0)
+        expect(storage.items.get('starforge.document')).toBe(raw)
+        expect(loadDocumentRecovery(storage)).toMatchObject({ raw, reason: 'VERSION' })
     })
 
-    it('survives storage holding something that is not JSON', () => {
+    it('preserves truncated JSON as format recovery', () => {
         const storage = new FakeStorage()
-        storage.items.set('starforge.document', 'half a doc')
+        const raw = '{"sprite":{"v":1'
+        storage.items.set('starforge.document', raw)
 
         expect(loadDocument(storage)).toBeNull()
+        expect(storage.items.get('starforge.document')).toBe(raw)
+        expect(loadDocumentRecovery(storage)).toMatchObject({ raw, reason: 'FORMAT' })
+    })
+
+    it('does not discard recovery when a later valid autosave succeeds', () => {
+        const storage = new FakeStorage()
+        const raw = 'half a doc'
+        storage.items.set('starforge.document', raw)
+        loadDocument(storage)
+
+        expect(saveDocument({ sprite: drawing(), activeLayer: 'x' }, storage)).toBe(true)
+        expect(loadDocument(storage)?.sprite.meta.title).toBe('saved')
+        expect(loadDocumentRecovery(storage)?.raw).toBe(raw)
     })
 
     it('clears the saved document', () => {
@@ -106,5 +132,45 @@ describe('localDoc', () => {
         clearDocument(storage)
 
         expect(loadDocument(storage)).toBeNull()
+    })
+
+    it('clears recovery only through its explicit action', () => {
+        const storage = new FakeStorage()
+        storage.items.set('starforge.document', 'broken')
+        loadDocument(storage)
+
+        clearDocument(storage)
+        expect(loadDocumentRecovery(storage)).not.toBeNull()
+
+        clearDocumentRecovery(storage)
+        expect(loadDocumentRecovery(storage)).toBeNull()
+    })
+
+    it('keeps a separate recovery checkpoint before project replacement', () => {
+        const storage = new FakeStorage()
+        const sprite = drawing()
+
+        expect(
+            saveReplacementRecovery({ sprite, activeLayer: sprite.layers[0]!.id }, storage),
+        ).toBe(true)
+        const recovery = loadReplacementRecovery(storage)
+        expect(recovery?.reason).toBe('PROJECT_OPEN')
+        expect(JSON.parse(recovery!.raw)).toMatchObject({
+            sprite: { id: sprite.id },
+            activeLayer: sprite.layers[0]!.id,
+        })
+        expect(loadDocumentRecovery(storage)).toBeNull()
+
+        clearReplacementRecovery(storage)
+        expect(loadReplacementRecovery(storage)).toBeNull()
+    })
+
+    it('reports when a replacement recovery cannot be secured', () => {
+        const storage = new FakeStorage()
+        storage.failOnSet = true
+
+        expect(saveReplacementRecovery({ sprite: drawing(), activeLayer: 'x' }, storage)).toBe(
+            false,
+        )
     })
 })

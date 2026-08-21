@@ -1,6 +1,7 @@
 import { parsePalette, type DecodedProject, type Sprite } from '@starforge/core'
 import type { DocumentSession } from '../document/session'
 import { downloadFile } from '../export/download'
+import { exportGif, exportSpritesheet, gifPaletteMessage, type GifScale } from '../export/gif'
 import { exportFramePng } from '../export/png'
 import { exportPortablePng } from '../export/portablePng'
 import { openProjectFileTransaction } from '../project/openPortablePng'
@@ -24,6 +25,8 @@ export interface DocumentActionDeps {
 export interface DocumentActions {
     exportPng(): void
     exportPortable(): void
+    exportGif(scale: GifScale, loop: boolean): void
+    exportSpritesheet(scale: GifScale): void
     saveProject(): void
     openProjectFile(file: File): void
     importPalette(file: File): void
@@ -100,6 +103,53 @@ export function createDocumentActions(deps: DocumentActionDeps): DocumentActions
                     show(projectFailureNotice(error, 'portable'))
                 })
                 .finally(settle)
+        },
+
+        exportGif(scale, loop) {
+            if (exporting || working || !readable()) return
+            exporting = true
+
+            exportNotice.hold()
+            readout.patch({ exportState: 'working' })
+
+            void exportGif(sprite, scale, loop)
+                .then(() => {
+                    readout.patch({ exportState: 'done' })
+                })
+                .catch((error: unknown) => {
+                    const paletteMsg = gifPaletteMessage(error)
+                    if (paletteMsg) {
+                        show({ phase: 'error', label: 'too many colors', detail: paletteMsg })
+                    } else {
+                        console.error('GIF export failed', error)
+                        readout.patch({ exportState: 'failed' })
+                    }
+                })
+                .finally(() => {
+                    exporting = false
+                    exportNotice.fade(() => readout.patch({ exportState: null }))
+                })
+        },
+
+        exportSpritesheet(scale) {
+            if (exporting || working || !readable()) return
+            exporting = true
+
+            exportNotice.hold()
+            readout.patch({ exportState: 'working' })
+
+            void exportSpritesheet(sprite, scale)
+                .then(() => {
+                    readout.patch({ exportState: 'done' })
+                })
+                .catch((reason: unknown) => {
+                    console.error('spritesheet export failed', reason)
+                    readout.patch({ exportState: 'failed' })
+                })
+                .finally(() => {
+                    exporting = false
+                    exportNotice.fade(() => readout.patch({ exportState: null }))
+                })
         },
 
         saveProject() {

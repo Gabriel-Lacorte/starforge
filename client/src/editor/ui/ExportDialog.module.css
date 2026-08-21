@@ -73,6 +73,36 @@
     opacity: 0.5;
 }
 
+.scaleRow {
+    display: flex;
+    gap: 4px;
+}
+
+.scaleChoice {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    min-height: var(--target);
+    border: 1px solid var(--line);
+    background: var(--face);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.scaleChoice:has(input:checked) {
+    color: var(--accent);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.scaleChoice input {
+    display: none;
+}
+
 .filename {
     padding-top: 2px;
     border-top: 1px solid var(--line);

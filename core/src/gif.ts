@@ -22,7 +22,7 @@ export function encodeGif(
     width: number,
     height: number,
     opts?: GifOptions,
-): Uint8Array {
+): Uint8Array<ArrayBuffer> {
     const loop = opts?.loop ?? true
     const pixelCount = width * height
 
@@ -145,8 +145,13 @@ class ByteWriter {
         this.#buf = next
     }
 
-    result(): Uint8Array {
-        return this.#buf.subarray(0, this.#pos)
+    /*
+     * A subarray here would alias the whole backing buffer, and any caller
+     * reaching for `.buffer` would silently get the unused tail as trailing
+     * garbage. Copy exactly what was written.
+     */
+    result(): Uint8Array<ArrayBuffer> {
+        return this.#buf.slice(0, this.#pos)
     }
 }
 
@@ -203,7 +208,7 @@ function mapIndices(
     pixelCount: number,
     indexFor: Map<number, number>,
     transparentIndex: number,
-): Uint8Array {
+): Uint8Array<ArrayBuffer> {
     const result = new Uint8Array(pixelCount)
     for (let i = 0; i < pixelCount; i++) {
         const o = i * 4

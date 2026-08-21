@@ -35,25 +35,16 @@ test('GIF download starts with the GIF89a magic bytes', async ({ page }) => {
     expect(download.suggestedFilename()).toMatch(/\.gif$/)
 
     const stream = await download.createReadStream()
-    const header = await new Promise<Buffer>((resolve, reject) => {
+    const bytes = await new Promise<Buffer>((resolve, reject) => {
         const chunks: Buffer[] = []
-        stream.on('data', (chunk: Buffer) => {
-            chunks.push(chunk)
-            if (Buffer.concat(chunks).length >= 6) {
-                stream.destroy()
-                resolve(Buffer.concat(chunks))
-            }
-        })
+        stream.on('data', (chunk: Buffer) => chunks.push(chunk))
         stream.on('end', () => resolve(Buffer.concat(chunks)))
         stream.on('error', reject)
     })
 
-    expect(header.subarray(0, 6).toString('ascii')).toBe('GIF89a')
-    const path = await download.path()
-    if (path) {
-        const { statSync } = await import('fs')
-        expect(statSync(path).size).toBeGreaterThan(20)
-    }
+    expect(bytes.subarray(0, 6).toString('ascii')).toBe('GIF89a')
+    expect(bytes.length).toBeGreaterThan(20)
+    expect(bytes[bytes.length - 1]).toBe(0x3b)
 })
 
 test('first-visit hint appears and is dismissed by drawing', async ({ page }) => {

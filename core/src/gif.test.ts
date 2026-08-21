@@ -441,6 +441,20 @@ describe('GIF encoder', () => {
         expect(gif[gif.length - 1]).toBe(0x3b)
     })
 
+    /*
+     * The writer grows a buffer and hands back a slice of it. If that slice ever
+     * aliases the backing buffer again, `.buffer` on the result carries the
+     * unused tail as trailing zeros and the file is malformed past its trailer.
+     */
+    it('returns bytes that own their buffer exactly, with nothing after the trailer', () => {
+        const frame = makeNoiseFrame(64, 64, 120, 0xc0ffee)
+        const gif = encodeGif([frame, frame], 64, 64)
+
+        expect(gif[gif.length - 1]).toBe(0x3b)
+        expect(gif.byteOffset).toBe(0)
+        expect(gif.buffer.byteLength).toBe(gif.length)
+    })
+
     it('encodes a single fully-transparent frame', () => {
         const pixels = new Uint8Array(4 * 4 * 4)
         const gif = encodeGif([{ pixels, durationMs: 100 }], 4, 4)

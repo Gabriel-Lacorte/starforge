@@ -41,7 +41,7 @@ export function exportGif(sprite: Sprite, scale: GifScale, loop: boolean): Promi
     })
 
     const bytes = encodeGif(gifFrames, sw, sh, { loop })
-    const blob = new Blob([new Uint8Array(bytes.buffer as ArrayBuffer)], { type: 'image/gif' })
+    const blob = new Blob([bytes], { type: 'image/gif' })
     const name = gifFilename(sprite.meta.title)
     downloadFile({ blob, filename: name })
 

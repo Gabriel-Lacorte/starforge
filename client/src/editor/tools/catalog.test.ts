@@ -22,6 +22,7 @@ import {
 } from './definition'
 import { makeTool, toolDefinition } from './registry'
 import type { ToolHost } from './tool'
+import { ONION_SHOWN } from '../../render/onion'
 
 const ALL_TOOLS: ToolId[] = [
     'select',
@@ -164,6 +165,7 @@ describe('captured settings', () => {
             shapeFill: true,
             fillTolerance: 12,
             fillContiguous: false,
+            onion: ONION_SHOWN,
         } as const
 
         expect(captureSettings(state, 7)).toEqual({
@@ -210,7 +212,6 @@ describe('freehand corners', () => {
         tool.end(cells.at(-1)![0], cells.at(-1)![1], NO_MODS)
     }
 
-    /* the control for this was cut from the toolbar, the behaviour was not */
     it('drops the corner a 1px turn leaves behind, so a diagonal reads as drawn', () => {
         const sprite = createSprite({ width: 16, height: 16 })
         const layer = sprite.layers[0]!.id
@@ -265,7 +266,6 @@ describe('lock alpha', () => {
         const layer = sprite.layers[0]!.id
         const frame = sprite.frames[0]!.id
 
-        /* a single opaque cell: everything around it must survive the stroke */
         writePixel(sprite, layer, frame, 4, 4, rgba(0, 0, 255))
 
         const tool = makeTool(

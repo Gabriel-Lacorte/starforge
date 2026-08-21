@@ -14,6 +14,9 @@ import type { ReadoutStore } from './readout'
 import { SelectionController } from './selection/selectionController'
 import type { EditorStore } from './store'
 import { stepZoom } from './view'
+import { ghostFrames, type Ghost } from '../render/onion'
+
+const NO_GHOSTS: readonly Ghost[] = []
 
 export interface EditorHandle {
     dispose(): void
@@ -136,6 +139,7 @@ export function startEditor(
     })
 
     const unsubscribeStore = store.subscribe(() => {
+        invalidate()
         input.sync()
     })
 
@@ -159,8 +163,13 @@ export function startEditor(
         if (!needsRender) return
         needsRender = false
 
+        const frame = playback.frame
+        const ghosts = playback.state.playing
+            ? NO_GHOSTS
+            : ghostFrames(sprite.frames, frame, store.state.onion)
+
         const t0 = DEV ? performance.now() : 0
-        renderer.render(sprite, playback.frame, viewport.view)
+        renderer.render(sprite, playback.frame, viewport.view, ghosts)
         overlay.render(viewport.view, selection)
         if (DEV) lastRenderMs = performance.now() - t0
     })

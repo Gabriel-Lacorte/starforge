@@ -1,6 +1,7 @@
 import type { Sprite } from '@starforge/core'
 import type { View } from '../editor/view'
 import { canvasBackend, Compositor } from './compositor'
+import type { Ghost } from './onion'
 
 const BACKDROP = '#0c0c0c'
 const DOC_EDGE = '#5e5e5e'
@@ -27,7 +28,7 @@ export class Renderer {
         return this.#compositor.stats
     }
 
-    render(sprite: Sprite, frameId: string, view: View): void {
+    render(sprite: Sprite, frameId: string, view: View, ghosts: readonly Ghost[]): void {
         const ctx = this.#ctx
 
         const { width: cw, height: ch } = ctx.canvas
@@ -45,6 +46,12 @@ export class Renderer {
         ctx.fillStyle = this.#checker
         ctx.fillRect(0, 0, w, h)
         ctx.setTransform(1, 0, 0, 1, 0, 0)
+
+        for (const ghost of ghosts) {
+            ctx.globalAlpha = ghost.alpha
+            ctx.drawImage(this.#compositor.get(sprite, ghost.id), panX, panY, w, h)
+        }
+        ctx.globalAlpha = 1
 
         ctx.drawImage(this.#compositor.get(sprite, frameId), panX, panY, w, h)
 

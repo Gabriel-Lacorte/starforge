@@ -46,6 +46,9 @@ interface FrameEntry<TImage> {
     dirty: DirtyRect | null
 }
 
+/* onion skin draws the neighbours too:
+ * the cache must hold 1 + before + after, at most 7
+ */
 export const DEFAULT_FRAME_CACHE = 24
 
 export class Compositor<TImage> {

@@ -1,5 +1,6 @@
 import { hexToRgba, type RGBA } from '@starforge/core'
 import { Store } from '../store'
+import { ONION_HIDDEN, ONION_SHOWN, onionShowing, type OnionSettings } from '../render/onion'
 
 export type ToolId =
     | 'pencil'
@@ -39,6 +40,8 @@ export interface EditorState {
 
     readonly fillTolerance: number
     readonly fillContiguous: boolean
+
+    readonly onion: OnionSettings
 }
 
 export class EditorStore extends Store<EditorState> {
@@ -55,7 +58,18 @@ export class EditorStore extends Store<EditorState> {
             shapeFill: false,
             fillTolerance: 0,
             fillContiguous: true,
+            onion: ONION_SHOWN,
         })
+    }
+
+    get onionShown(): boolean {
+        return onionShowing(this.state.onion)
+    }
+
+    setOnion(shown: boolean): void {
+        if (shown === this.onionShown) return
+
+        this.patch({ onion: shown ? ONION_SHOWN : ONION_HIDDEN })
     }
 
     setColor(color: RGBA): void {

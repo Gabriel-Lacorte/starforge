@@ -94,6 +94,7 @@ export const DEFAULT_PALETTE: Palette = {
         '#c33bd4',
         '#ff4fd8',
         '#ff8fab',
+        '#ebb7ff',
         '#26c9ff',
         '#6ee7ff',
         '#b6f6ff',

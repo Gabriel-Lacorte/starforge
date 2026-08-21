@@ -15,6 +15,7 @@ export default defineConfig(
         languageOptions: {
             parserOptions: {
                 projectService: {
+                    maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 12,
                     allowDefaultProject: [
                         'vitest.config.ts',
                         'playwright.config.ts',

@@ -121,4 +121,11 @@ export default defineConfig(
         files: ['**/*.{js,mjs}'],
         extends: [js.configs.recommended, tseslint.configs.recommended],
     },
+
+    {
+        files: ['docs/**/*.mjs'],
+        languageOptions: {
+            globals: { console: 'readonly', process: 'readonly', setTimeout: 'readonly' },
+        },
+    },
 )

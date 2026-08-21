@@ -1,4 +1,5 @@
 export * from './color'
+export * from './gif'
 export * from './cursor'
 export * from './layers'
 export * from './doc'

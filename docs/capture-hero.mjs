@@ -21,9 +21,11 @@ const { chromium } = req('playwright')
 const URL = process.argv[2] ?? 'http://localhost:5173'
 const OUT = join(__dirname, 'media', 'hero.gif')
 const TMP = join(__dirname, '.hero-frames')
-const W = 960
-const H = 540
+const W = 1280
+const H = 720
 const FPS = 12
+/* fit picks the largest zoom for the window; one step back keeps the star from filling the frame */
+const ZOOM_OUT_STEPS = 1
 
 async function wait(ms) {
     return new Promise((r) => setTimeout(r, ms))
@@ -59,6 +61,11 @@ async function run() {
     await page.getByTestId('canvas').waitFor({ timeout: 15_000 })
     // wait for the initial render to settle
     await wait(400)
+
+    for (let z = 0; z < ZOOM_OUT_STEPS; z++) {
+        await page.getByTestId('zoom-out').click()
+        await wait(120)
+    }
 
     const playBtn = page.getByTestId('playback-toggle')
     const onionBtn = page.getByTestId('onion')

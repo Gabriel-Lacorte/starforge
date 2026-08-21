@@ -122,6 +122,18 @@
     cursor: pointer;
 }
 
+.tool.on {
+    color: var(--accent);
+    background: var(--face-lo);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.tool.muted {
+    opacity: 0.5;
+}
+
 .tool:active:not(:disabled) {
     box-shadow:
         inset 1px 1px 0 var(--face-lo),

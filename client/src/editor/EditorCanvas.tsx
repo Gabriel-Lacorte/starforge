@@ -322,6 +322,7 @@ export function EditorCanvas({
                     frames={frames}
                     playback={playback}
                     target={session.target}
+                    store={store}
                     revision={layers}
                 />
             )}
@@ -394,6 +395,7 @@ export function EditorCanvas({
                         frames={frames}
                         playback={playback}
                         target={session.target}
+                        store={store}
                         revision={layers}
                     />
                 </MobileSheet>

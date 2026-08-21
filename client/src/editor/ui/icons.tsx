@@ -75,6 +75,33 @@ const SELECT_ELLIPSE = [
     '........................',
 ]
 
+const ONION = [
+    '##..##..##..##..........',
+    '##..##..##..##..........',
+    '..............##........',
+    '..............##........',
+    '##......................',
+    '##......................',
+    '..............##........',
+    '..............##........',
+    '##......................',
+    '##......................',
+    '..........##############',
+    '..........##############',
+    '##........##############',
+    '##........##############',
+    '..##..##..##############',
+    '..##..##..##############',
+    '..........##############',
+    '..........##############',
+    '..........##############',
+    '..........##############',
+    '..........##############',
+    '..........##############',
+    '..........##############',
+    '..........##############',
+]
+
 export const TOOL_ICON: Record<ToolId, ComponentType> = {
     select: () => pathIcon('section'),
     selectEllipse: () => glyph(SELECT_ELLIPSE),
@@ -115,5 +142,6 @@ export const FlipYIcon = () => pathIcon('flip-vertical-2', 'mini-ico')
 export const RotateIcon = () => pathIcon('reload', 'mini-ico')
 export const PlayIcon = () => pathIcon('play', 'mini-ico')
 export const PauseIcon = () => pathIcon('pause', 'mini-ico')
+export const OnionIcon = () => glyph(ONION, 'mini-ico')
 export const LeftIcon = () => pathIcon('arrow-left', 'mini-ico')
 export const RightIcon = () => pathIcon('arrow-right', 'mini-ico')

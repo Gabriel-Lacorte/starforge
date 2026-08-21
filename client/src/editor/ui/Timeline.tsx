@@ -5,6 +5,7 @@ import type { EditTarget, Store } from '../../store'
 import {
     DuplicateIcon,
     LeftIcon,
+    OnionIcon,
     PauseIcon,
     PlayIcon,
     PlusIcon,
@@ -14,16 +15,19 @@ import {
 import { useStore, type Subscribable } from './useStore'
 import styles from './Timeline.module.css'
 import { blurOnPointer } from './blurOnPointer'
+import type { EditorStore } from '../store'
 
 export function Timeline({
     frames,
     playback,
     target,
+    store,
     revision,
 }: {
     frames: FramesController
     playback: PlaybackController
     target: Store<EditTarget>
+    store: EditorStore
     revision: Subscribable<unknown>
 }) {
     useStore(revision)
@@ -33,6 +37,17 @@ export function Timeline({
     const list = frames.frames
     const index = list.findIndex((frame) => frame.id === active)
     const current = list[index]
+
+    useStore(store)
+    const onion = store.onionShown
+    const onionClass = [styles.tool, onion && styles.on, reel.playing && styles.muted]
+        .filter(Boolean)
+        .join(' ')
+    const onionTitle = reel.playing
+        ? 'The ghosts stay hidden while the reel plays'
+        : onion
+          ? 'Hide the neighbour frames'
+          : 'Show the neighbour frames behind this one'
 
     return (
         <div class={`bar ${styles.timeline}`}>
@@ -67,6 +82,20 @@ export function Timeline({
                     }}
                 >
                     loop
+                </button>
+                <button
+                    type="button"
+                    class={onionClass}
+                    title={onionTitle}
+                    aria-label="Onion skin"
+                    aria-pressed={onion}
+                    data-testid="onion"
+                    onClick={(e) => {
+                        store.setOnion(!onion)
+                        blurOnPointer(e)
+                    }}
+                >
+                    <OnionIcon />
                 </button>
             </span>
 

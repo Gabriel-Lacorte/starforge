@@ -25,6 +25,7 @@ import { Toolbar } from './ui/Toolbar'
 import { COMPACT_QUERY, useMobile } from './ui/useMobile'
 import { useFocusReturn } from './ui/useFocusReturn'
 import { useNotice } from './ui/useNotice'
+import { FirstVisitHint } from './ui/FirstVisitHint'
 import styles from './EditorCanvas.module.css'
 
 const NOTICE_MS = 4000
@@ -292,6 +293,7 @@ export function EditorCanvas({
                         data-testid="overlay"
                         aria-hidden="true"
                     />
+                    <FirstVisitHint readout={readout} />
                 </div>
                 {layersOpen && (
                     <button
@@ -462,7 +464,10 @@ export function EditorCanvas({
                 }}
                 onExport={(choice) => {
                     closeDialog()
-                    if (choice.portable) actions.exportPortable()
+                    if (choice.format === 'gif') actions.exportGif(choice.scale, choice.loop)
+                    else if (choice.format === 'spritesheet')
+                        actions.exportSpritesheet(choice.scale)
+                    else if (choice.portable) actions.exportPortable()
                     else actions.exportPng()
                 }}
                 onCanvasSize={(choice) => {

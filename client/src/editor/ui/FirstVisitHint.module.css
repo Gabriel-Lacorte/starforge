@@ -1,0 +1,48 @@
+.hint {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    color: var(--dim);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    pointer-events: auto;
+    white-space: nowrap;
+    z-index: 10;
+}
+
+.hint kbd {
+    color: var(--text);
+    font: inherit;
+}
+
+.close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    color: var(--dim);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    line-height: 1;
+}
+
+.close:hover {
+    color: var(--text);
+}
+
+.close:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}

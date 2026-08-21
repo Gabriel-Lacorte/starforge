@@ -50,8 +50,6 @@ export function ToolOptions({ store }: { store: EditorStore }) {
 
     return (
         <div class={styles.optionStrip}>
-            {capabilities.length > 0 && <span class={styles.sep} />}
-
             {shows('brush') && (
                 <span class={styles.opt} title="Brush size">
                     brush

@@ -15,7 +15,12 @@ export default defineConfig(
         languageOptions: {
             parserOptions: {
                 projectService: {
-                    allowDefaultProject: ['vitest.config.ts', 'playwright.config.ts', 'e2e/*.ts'],
+                    allowDefaultProject: [
+                        'vitest.config.ts',
+                        'playwright.config.ts',
+                        'e2e/*.ts',
+                        'tools/*.ts',
+                    ],
                     defaultProject: 'tsconfig.e2e.json',
                 },
                 tsconfigRootDir: import.meta.dirname,

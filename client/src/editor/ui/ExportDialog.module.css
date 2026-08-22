@@ -116,6 +116,40 @@
     outline-offset: 1px;
 }
 
+.preview {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.previewStage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 96px;
+    padding: 8px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.previewStage[aria-busy='true'] {
+    opacity: 0.6;
+}
+
+.previewImg {
+    max-width: 100%;
+    max-height: 160px;
+    image-rendering: pixelated;
+}
+
+.previewMeta {
+    overflow-wrap: anywhere;
+    line-height: 1.7;
+}
+
 .filename {
     padding-top: 2px;
     border-top: 1px solid var(--line);

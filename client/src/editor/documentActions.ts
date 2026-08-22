@@ -1,7 +1,7 @@
 import { parsePalette, type DecodedProject, type Sprite } from '@starforge/core'
 import type { DocumentSession } from '../document/session'
 import { downloadFile } from '../export/download'
-import { exportGif, exportSpritesheet, gifPaletteMessage, type GifScale } from '../export/gif'
+import { exportGif, exportSpritesheet, type GifScale } from '../export/gif'
 import { exportFramePng } from '../export/png'
 import { exportPortablePng } from '../export/portablePng'
 import { openProjectFileTransaction } from '../project/openPortablePng'
@@ -117,13 +117,8 @@ export function createDocumentActions(deps: DocumentActionDeps): DocumentActions
                     readout.patch({ exportState: 'done' })
                 })
                 .catch((error: unknown) => {
-                    const paletteMsg = gifPaletteMessage(error)
-                    if (paletteMsg) {
-                        show({ phase: 'error', label: 'too many colors', detail: paletteMsg })
-                    } else {
-                        console.error('GIF export failed', error)
-                        readout.patch({ exportState: 'failed' })
-                    }
+                    console.error('GIF export failed', error)
+                    readout.patch({ exportState: 'failed' })
                 })
                 .finally(() => {
                     exporting = false

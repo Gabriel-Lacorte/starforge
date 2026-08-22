@@ -1,4 +1,4 @@
-import { GifError, encodeGif, type GifFrame } from '@starforge/core'
+import { encodeGifWithStats, type GifFrame } from '@starforge/core'
 import type { Sprite } from '@starforge/core'
 import { composeFrameCanvas } from './frame'
 import { slug } from './png'
@@ -14,7 +14,12 @@ export function spritesheetFilename(title: string): string {
     return `${slug(title)}.sheet.png`
 }
 
-export function exportGif(sprite: Sprite, scale: GifScale, loop: boolean): Promise<string> {
+export interface GifRender {
+    blob: Blob
+    colorsUsed: number
+}
+
+export function renderGif(sprite: Sprite, scale: GifScale, loop: boolean): GifRender {
     const { width, height, frames } = sprite
     const sw = width * scale
     const sh = height * scale
@@ -40,15 +45,19 @@ export function exportGif(sprite: Sprite, scale: GifScale, loop: boolean): Promi
         return { pixels, durationMs: frame.duration }
     })
 
-    const bytes = encodeGif(gifFrames, sw, sh, { loop })
-    const blob = new Blob([bytes], { type: 'image/gif' })
+    const { bytes, colorsUsed } = encodeGifWithStats(gifFrames, sw, sh, { loop })
+    return { blob: new Blob([bytes], { type: 'image/gif' }), colorsUsed }
+}
+
+export function exportGif(sprite: Sprite, scale: GifScale, loop: boolean): Promise<string> {
+    const { blob } = renderGif(sprite, scale, loop)
     const name = gifFilename(sprite.meta.title)
     downloadFile({ blob, filename: name })
 
     return Promise.resolve(name)
 }
 
-export async function exportSpritesheet(sprite: Sprite, scale: GifScale): Promise<string> {
+export function renderSpritesheet(sprite: Sprite, scale: GifScale): Promise<Blob> {
     const { width, height, frames } = sprite
     const sw = width * scale
     const sh = height * scale
@@ -65,20 +74,14 @@ export async function exportSpritesheet(sprite: Sprite, scale: GifScale): Promis
         ctx.drawImage(src, 0, 0, width, height, i * sw, 0, sw, sh)
     }
 
-    const blob = await new Promise<Blob>((resolve, reject) => {
+    return new Promise<Blob>((resolve, reject) => {
         strip.toBlob((b) => (b ? resolve(b) : reject(new Error('PNG encode failed'))), 'image/png')
     })
+}
 
+export async function exportSpritesheet(sprite: Sprite, scale: GifScale): Promise<string> {
+    const blob = await renderSpritesheet(sprite, scale)
     const name = spritesheetFilename(sprite.meta.title)
     downloadFile({ blob, filename: name })
     return name
-}
-
-export function gifPaletteMessage(error: unknown): string | null {
-    if (error instanceof GifError && error.code === 'PALETTE') {
-        const match = /(\d+) opaque/.exec(error.message)
-        const count = match ? match[1] : '?'
-        return `This animation uses ${count} colors; GIF holds 256. Reduce the palette before exporting.`
-    }
-    return null
 }

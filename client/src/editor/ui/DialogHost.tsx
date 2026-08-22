@@ -100,7 +100,14 @@ export function DialogHost(props: DialogHostProps) {
     }
 
     if (open === 'export') {
-        return <ExportDialog title={sprite.meta.title} onExport={props.onExport} onCancel={close} />
+        return (
+            <ExportDialog
+                title={sprite.meta.title}
+                sprite={sprite}
+                onExport={props.onExport}
+                onCancel={close}
+            />
+        )
     }
 
     if (open === 'keys') return <KeysDialog onClose={close} />

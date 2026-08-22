@@ -1,6 +1,7 @@
+import type { Sprite } from '@starforge/core'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import type { GifScale } from '../../export/gif'
-import { gifFilename, spritesheetFilename } from '../../export/gif'
+import { gifFilename, renderGif, renderSpritesheet, spritesheetFilename } from '../../export/gif'
 import { portablePngFilename, visualPngFilename } from '../../export/png'
 import styles from './ExportDialog.module.css'
 
@@ -56,12 +57,35 @@ const FORMATS: readonly FormatOption[] = [
 
 const SCALES: readonly GifScale[] = [1, 2, 4]
 
+const PREVIEW_DEBOUNCE_MS = 150
+
+function formatBytes(n: number): string {
+    if (n < 1024) return `${n} B`
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatDuration(ms: number): string {
+    return `${(ms / 1000).toFixed(2)}s`
+}
+
+interface Preview {
+    url: string
+    size: number
+    note: string
+    alt: string
+}
+
+const PREVIEWABLE: readonly ExportFormat[] = ['gif', 'spritesheet']
+
 export function ExportDialog({
     title,
+    sprite,
     onExport,
     onCancel,
 }: {
     title: string
+    sprite: Sprite
     onExport: (choice: ExportChoice) => void
     onCancel: () => void
 }) {
@@ -71,9 +95,88 @@ export function ExportDialog({
     const [scale, setScale] = useState<GifScale>(1)
     const [loop, setLoop] = useState(true)
 
+    const [preview, setPreview] = useState<Preview | null>(null)
+    const [previewBusy, setPreviewBusy] = useState(false)
+    const [previewError, setPreviewError] = useState(false)
+
+    const urlRef = useRef<string | null>(null)
+
     useEffect(() => {
         ref.current?.showModal()
     }, [])
+
+    const revokeUrl = () => {
+        if (urlRef.current) {
+            URL.revokeObjectURL(urlRef.current)
+            urlRef.current = null
+        }
+    }
+
+    const loopMs = sprite.frames.reduce((sum, frame) => sum + frame.duration, 0)
+
+    useEffect(() => {
+        if (!PREVIEWABLE.includes(chosen.id)) {
+            revokeUrl()
+            setPreview(null)
+            setPreviewError(false)
+            setPreviewBusy(false)
+            return
+        }
+
+        setPreviewBusy(true)
+        let cancelled = false
+
+        const show = (blob: Blob, note: string, alt: string): void => {
+            if (cancelled) return
+            const url = URL.createObjectURL(blob)
+            revokeUrl()
+            urlRef.current = url
+            setPreview({ url, size: blob.size, note, alt })
+            setPreviewError(false)
+            setPreviewBusy(false)
+        }
+        const fail = (): void => {
+            if (cancelled) return
+            revokeUrl()
+            setPreview(null)
+            setPreviewError(true)
+            setPreviewBusy(false)
+        }
+
+        const timer = setTimeout(() => {
+            try {
+                if (chosen.id === 'gif') {
+                    const { blob, colorsUsed } = renderGif(sprite, scale, loop)
+                    show(
+                        blob,
+                        `uses ${colorsUsed} of 256 colors * ${formatDuration(loopMs)} loop`,
+                        'Animated preview of the GIF export',
+                    )
+                } else {
+                    const sheetW = sprite.width * scale * sprite.frames.length
+                    const sheetH = sprite.height * scale
+                    renderSpritesheet(sprite, scale).then(
+                        (blob) =>
+                            show(
+                                blob,
+                                `${sprite.frames.length} frames * ${sheetW}×${sheetH}`,
+                                'Preview of the spritesheet export',
+                            ),
+                        fail,
+                    )
+                }
+            } catch {
+                fail()
+            }
+        }, PREVIEW_DEBOUNCE_MS)
+
+        return () => {
+            cancelled = true
+            clearTimeout(timer)
+        }
+    }, [chosen.id, scale, loop, sprite])
+
+    useEffect(() => revokeUrl, [])
 
     const choice: ExportChoice = {
         format: chosen.id,
@@ -185,6 +288,33 @@ export function ExportDialog({
                             metadata leaves the picture intact but drops the project.
                         </span>
                     </label>
+                )}
+
+                {PREVIEWABLE.includes(chosen.id) && (
+                    <div class={styles.preview} data-testid="export-preview">
+                        <div class={styles.previewStage} aria-busy={previewBusy}>
+                            {preview ? (
+                                <img
+                                    class={styles.previewImg}
+                                    src={preview.url}
+                                    alt={preview.alt}
+                                    data-testid="export-preview-img"
+                                />
+                            ) : (
+                                <span class="mono dim">
+                                    {previewError ? 'preview unavailable' : 'rendering…'}
+                                </span>
+                            )}
+                        </div>
+                        {preview && (
+                            <p class={styles.previewMeta}>
+                                <span class="mono" data-testid="export-preview-size">
+                                    {formatBytes(preview.size)}
+                                </span>
+                                <span class="mono dim"> * {preview.note}</span>
+                            </p>
+                        )}
+                    </div>
                 )}
 
                 <p class={styles.filename}>

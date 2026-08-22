@@ -47,6 +47,42 @@ test('GIF download starts with the GIF89a magic bytes', async ({ page }) => {
     expect(bytes[bytes.length - 1]).toBe(0x3b)
 })
 
+test('the export dialog previews the GIF, and its size follows the scale', async ({ page }) => {
+    await openEditor(page)
+    await drawStroke(page)
+
+    await page.getByTestId('export').click()
+    await page.getByTestId('export-dialog').waitFor()
+
+    await page.getByTestId('export-format').nth(1).click()
+
+    const previewImg = page.getByTestId('export-preview-img')
+    await expect(previewImg).toBeVisible()
+    await expect(previewImg).toHaveAttribute('src', /^blob:/)
+
+    const sizeLabel = page.getByTestId('export-preview-size')
+    await expect(sizeLabel).toBeVisible()
+    const sizeAt1x = (await sizeLabel.textContent())!
+
+    await page.getByText('4x', { exact: true }).click()
+    await expect(sizeLabel).not.toHaveText(sizeAt1x)
+})
+
+test('the export dialog previews the spritesheet too', async ({ page }) => {
+    await openEditor(page)
+    await drawStroke(page)
+
+    await page.getByTestId('export').click()
+    await page.getByTestId('export-dialog').waitFor()
+
+    await page.getByTestId('export-format').nth(2).click()
+
+    const previewImg = page.getByTestId('export-preview-img')
+    await expect(previewImg).toBeVisible()
+    await expect(previewImg).toHaveAttribute('src', /^blob:/)
+    await expect(page.getByTestId('export-preview-size')).toBeVisible()
+})
+
 test('first-visit hint appears and is dismissed by drawing', async ({ page }) => {
     await page.addInitScript(() => {
         localStorage.removeItem('starforge:hint-dismissed')

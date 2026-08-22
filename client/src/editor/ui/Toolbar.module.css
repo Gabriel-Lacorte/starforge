@@ -114,11 +114,11 @@
 .fileGroup {
     grid-row: 1;
     grid-column: 2;
-    justify-self: end;
     align-self: center;
     display: flex;
     align-items: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     min-width: 0;
     gap: 4px;
 }

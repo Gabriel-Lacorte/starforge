@@ -3,6 +3,7 @@ import type { ReadoutStore } from '../readout'
 import { DocumentActions } from './DocumentActions'
 import { HistoryActions } from './HistoryActions'
 import { MobileSheet } from './MobileSheet'
+import styles from './MobileFileSheet.module.css'
 import { useStore } from './useStore'
 
 export function MobileFileSheet({
@@ -39,12 +40,14 @@ export function MobileFileSheet({
 
     return (
         <MobileSheet title="File" onClose={onClose}>
-            <HistoryActions
-                canUndo={canUndo}
-                canRedo={canRedo}
-                onHistory={onHistory}
-                onTransform={onTransform}
-            />
+            <div class={styles.iconRow}>
+                <HistoryActions
+                    canUndo={canUndo}
+                    canRedo={canRedo}
+                    onHistory={onHistory}
+                    onTransform={onTransform}
+                />
+            </div>
             <DocumentActions
                 busy={busy}
                 exporting={exportState === 'working'}

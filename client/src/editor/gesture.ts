@@ -69,6 +69,7 @@ export class GestureController {
     #settings: ToolSettings | null = null
 
     #seed = 0
+    #mirror = false
     readonly #inkBase = new Map<number, RGBA>()
 
     #dirtyMinX = 0
@@ -137,6 +138,7 @@ export class GestureController {
         this.#target = target
         this.#mask = this.#deps.selection?.() ?? null
         this.#settings = captureSettings(this.#deps.store.state, this.#seed++)
+        this.#mirror = toolDefinition(tool).geometry === 'freehand'
         this.#inkBase.clear()
         const command = new Command(tool)
         this.#command = command
@@ -193,6 +195,26 @@ export class GestureController {
     }
 
     #ink(x: number, y: number, context: InkContext): void {
+        const settings = this.#settings
+        const mirrorH = this.#mirror && settings?.symmetryH === true
+        const mirrorV = this.#mirror && settings?.symmetryV === true
+
+        if (!mirrorH && !mirrorV) {
+            this.#inkCell(x, y, context)
+            return
+        }
+
+        const w = this.#deps.sprite.width
+        const h = this.#deps.sprite.height
+        const xs = mirrorH && w - 1 - x !== x ? [x, w - 1 - x] : [x]
+        const ys = mirrorV && h - 1 - y !== y ? [y, h - 1 - y] : [y]
+
+        for (const py of ys) {
+            for (const px of xs) this.#inkCell(px, py, context)
+        }
+    }
+
+    #inkCell(x: number, y: number, context: InkContext): void {
         const cursor = this.#cursor
         if (!cursor || !inBounds(this.#deps.sprite, x, y)) return
 
@@ -229,6 +251,7 @@ export class GestureController {
         this.#target = null
         this.#mask = null
         this.#settings = null
+        this.#mirror = false
         this.#inkBase.clear()
     }
 

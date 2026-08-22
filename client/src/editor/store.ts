@@ -38,6 +38,9 @@ export interface EditorState {
     readonly lockAlpha: boolean
     readonly shapeFill: boolean
 
+    readonly symmetryH: boolean
+    readonly symmetryV: boolean
+
     readonly fillTolerance: number
     readonly fillContiguous: boolean
 
@@ -56,6 +59,8 @@ export class EditorStore extends Store<EditorState> {
             pixelPerfect: true,
             lockAlpha: false,
             shapeFill: false,
+            symmetryH: false,
+            symmetryV: false,
             fillTolerance: 0,
             fillContiguous: true,
             onion: ONION_SHOWN,

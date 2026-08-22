@@ -15,7 +15,10 @@ import { EditorStore } from './store'
 
 const NO_MODS = { shift: false, alt: false, ctrl: false }
 
-function setup(): {
+function setup(
+    width = 16,
+    height = width,
+): {
     sprite: Sprite
     frame: string
     base: string
@@ -24,7 +27,7 @@ function setup(): {
     session: DocumentSession
     gestures: GestureController
 } {
-    const sprite = createSprite({ width: 16, height: 16 })
+    const sprite = createSprite({ width, height })
 
     const base = sprite.layers[0]!.id
     insertLayer(sprite, createLayer('top'), base)
@@ -114,5 +117,88 @@ describe('GestureController vs the layers panel', () => {
 
         expect(getPixel(sprite, base, frame, 6, 6)).toBe(store.state.color)
         expect(getPixel(sprite, top, frame, 6, 6)).toBe(0)
+    })
+})
+
+describe('GestureController symmetry', () => {
+    it('horizontal symmetry mirrors a point across the vertical axis', () => {
+        const { sprite, frame, top, store, session, gestures } = setup(16, 16)
+        store.patch({ symmetryH: true })
+        const color = store.state.color
+
+        gestures.begin('pencil', 3, 5, NO_MODS)
+        gestures.finish(3, 5, NO_MODS)
+
+        expect(getPixel(sprite, top, frame, 3, 5)).toBe(color)
+        expect(getPixel(sprite, top, frame, 12, 5)).toBe(color)
+        expect(getPixel(sprite, top, frame, 13, 5)).toBe(0)
+
+        expect(session.canUndo).toBe(true)
+        session.undo()
+        expect(getPixel(sprite, top, frame, 3, 5)).toBe(0)
+        expect(getPixel(sprite, top, frame, 12, 5)).toBe(0)
+        expect(session.canUndo).toBe(false)
+    })
+
+    it('vertical symmetry mirrors across the horizontal axis', () => {
+        const { sprite, frame, top, store, gestures } = setup(16, 16)
+        store.patch({ symmetryV: true })
+        const color = store.state.color
+
+        gestures.begin('pencil', 5, 3, NO_MODS)
+        gestures.finish(5, 3, NO_MODS)
+
+        expect(getPixel(sprite, top, frame, 5, 3)).toBe(color)
+        expect(getPixel(sprite, top, frame, 5, 12)).toBe(color)
+        expect(getPixel(sprite, top, frame, 5, 13)).toBe(0)
+    })
+
+    it('both axes on paint all four reflections of one point', () => {
+        const { sprite, frame, top, store, gestures } = setup(16, 16)
+        store.patch({ symmetryH: true, symmetryV: true })
+        const color = store.state.color
+
+        gestures.begin('pencil', 3, 5, NO_MODS)
+        gestures.finish(3, 5, NO_MODS)
+
+        for (const [x, y] of [
+            [3, 5],
+            [12, 5],
+            [3, 10],
+            [12, 10],
+        ] as const) {
+            expect(getPixel(sprite, top, frame, x, y), `(${x},${y})`).toBe(color)
+        }
+    })
+
+    it('shares the center column on an odd canvas, mirrors onto itself, once', () => {
+        const size = 17
+        const { sprite, frame, top, store, gestures } = setup(size, size)
+        store.patch({ symmetryH: true })
+        const color = store.state.color
+        const center = (size - 1) / 2
+
+        gestures.begin('pencil', center, 0, NO_MODS)
+        for (let y = 1; y < size; y++) gestures.move(center, y, NO_MODS)
+        gestures.finish(center, size - 1, NO_MODS)
+
+        for (let y = 0; y < size; y++) {
+            expect(getPixel(sprite, top, frame, center, y)).toBe(color)
+            expect(getPixel(sprite, top, frame, center - 1, y)).toBe(0)
+            expect(getPixel(sprite, top, frame, center + 1, y)).toBe(0)
+        }
+        expect(sprite.layers[1]!.cels.get(frame)!.version).toBe(size)
+    })
+
+    it('leaves shapes literal, symmetry is a free-stroke tool only (D10)', () => {
+        const { sprite, frame, top, store, gestures } = setup(16, 16)
+        store.patch({ symmetryH: true })
+        const color = store.state.color
+
+        gestures.begin('rect', 2, 2, NO_MODS)
+        gestures.finish(5, 5, NO_MODS)
+
+        expect(getPixel(sprite, top, frame, 2, 2)).toBe(color)
+        expect(getPixel(sprite, top, frame, 13, 2)).toBe(0)
     })
 })

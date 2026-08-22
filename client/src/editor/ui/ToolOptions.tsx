@@ -62,7 +62,7 @@ export function ToolOptions({ store }: { store: EditorStore }) {
                                 blurOnPointer(e)
                             }}
                         >
-                            −
+                            -
                         </button>
                         <span class="mono" data-testid="brush-size">
                             {state.brushSize}
@@ -125,6 +125,31 @@ export function ToolOptions({ store }: { store: EditorStore }) {
                         store.patch({ lockAlpha })
                     }}
                 />
+            )}
+
+            {shows('symmetry') && (
+                <>
+                    <Toggle
+                        text="mirror h"
+                        title="Horizontal symmetry: mirror the stroke left–right"
+                        checked={state.symmetryH}
+                        testId="symmetry-h"
+                        ariaLabel="Horizontal symmetry"
+                        onToggle={(symmetryH) => {
+                            store.patch({ symmetryH })
+                        }}
+                    />
+                    <Toggle
+                        text="mirror v"
+                        title="Vertical symmetry: mirror the stroke top–bottom"
+                        checked={state.symmetryV}
+                        testId="symmetry-v"
+                        ariaLabel="Vertical symmetry"
+                        onToggle={(symmetryV) => {
+                            store.patch({ symmetryV })
+                        }}
+                    />
+                </>
             )}
 
             {shows('shapeFill') && (

@@ -47,6 +47,8 @@ const SETTINGS: ToolSettings = {
     pixelPerfect: true,
     lockAlpha: false,
     shapeFill: false,
+    symmetryH: false,
+    symmetryV: false,
     fillTolerance: 0,
     fillContiguous: true,
     seed: 0,
@@ -106,14 +108,19 @@ describe('TOOL_CATALOG', () => {
         expect(capabilities('lasso')).toEqual([])
         expect(capabilities('eyedropper')).toEqual([])
         expect(capabilities('wand')).toEqual(['flood'])
-        expect(capabilities('pencil')).toEqual(['brush', 'opacity', 'pixelPerfect', 'lockAlpha'])
+        expect(capabilities('pencil')).toEqual([
+            'brush',
+            'opacity',
+            'pixelPerfect',
+            'lockAlpha',
+            'symmetry',
+        ])
         expect(capabilities('line')).toEqual(['brush', 'opacity', 'lockAlpha'])
         expect(capabilities('rect')).toEqual(['brush', 'opacity', 'lockAlpha', 'shapeFill'])
         expect(capabilities('ellipse')).toEqual(['brush', 'opacity', 'lockAlpha', 'shapeFill'])
         expect(capabilities('bucket')).toEqual(['opacity', 'lockAlpha', 'flood'])
 
-        /* an eraser paints nothing to preserve, so it never offers lock alpha */
-        expect(capabilities('eraser')).toEqual(['brush', 'opacity', 'pixelPerfect'])
+        expect(capabilities('eraser')).toEqual(['brush', 'opacity', 'pixelPerfect', 'symmetry'])
     })
 
     it('gives the eraser erase ink and every other pixel tool source-over', () => {
@@ -163,6 +170,8 @@ describe('captured settings', () => {
             pixelPerfect: false,
             lockAlpha: true,
             shapeFill: true,
+            symmetryH: true,
+            symmetryV: false,
             fillTolerance: 12,
             fillContiguous: false,
             onion: ONION_SHOWN,
@@ -175,6 +184,8 @@ describe('captured settings', () => {
             pixelPerfect: false,
             lockAlpha: true,
             shapeFill: true,
+            symmetryH: true,
+            symmetryV: false,
             fillTolerance: 12,
             fillContiguous: false,
             seed: 7,

@@ -9,6 +9,13 @@ interface Rect {
     h: number
 }
 
+export interface SymmetryGuides {
+    h: boolean
+    v: boolean
+}
+
+const GUIDE_STROKE = 'rgba(154, 154, 154, 0.5)'
+
 export class PreviewOverlay {
     readonly #ctx: CanvasRenderingContext2D
     readonly #buffer: HTMLCanvasElement
@@ -98,9 +105,10 @@ export class PreviewOverlay {
         this.setCells([], 0)
     }
 
-    render(view: View, selection?: SelectionView | null): void {
+    render(view: View, selection?: SelectionView | null, guides?: SymmetryGuides | null): void {
         const hasSelection = !!selection?.mask
-        if (!this.#painted && !hasSelection && !this.#onScreen) return
+        const hasGuides = !!guides && (guides.h || guides.v)
+        if (!this.#painted && !hasSelection && !hasGuides && !this.#onScreen) return
 
         const ctx = this.#ctx
         ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -116,8 +124,38 @@ export class PreviewOverlay {
             )
         }
 
+        if (hasGuides) this.#paintGuides(view, guides)
         if (hasSelection) this.#paintSelection(view, selection)
         this.#onScreen = this.#painted !== null || hasSelection
+    }
+
+    #paintGuides(view: View, guides: SymmetryGuides): void {
+        const ctx = this.#ctx
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+
+        const panX = Math.round(view.panX)
+        const panY = Math.round(view.panY)
+        const w = this.#width * view.zoom
+        const h = this.#height * view.zoom
+
+        ctx.strokeStyle = GUIDE_STROKE
+        ctx.lineWidth = 1
+        ctx.setLineDash([3, 3])
+        ctx.beginPath()
+
+        if (guides.h) {
+            const x = Math.round(panX + w / 2) + 0.5
+            ctx.moveTo(x, panY)
+            ctx.lineTo(x, panY + h)
+        }
+        if (guides.v) {
+            const y = Math.round(panY + h / 2) + 0.5
+            ctx.moveTo(panX, y)
+            ctx.lineTo(panX + w, y)
+        }
+
+        ctx.stroke()
+        ctx.setLineDash([])
     }
 
     #paintSelection(view: View, sel: SelectionView): void {

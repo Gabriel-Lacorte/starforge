@@ -27,7 +27,7 @@ export function marqueeShape(definition: ToolDefinition): MarqueeShape | null {
 }
 
 export type ToolCapability =
-    'brush' | 'opacity' | 'pixelPerfect' | 'lockAlpha' | 'shapeFill' | 'flood'
+    'brush' | 'opacity' | 'pixelPerfect' | 'lockAlpha' | 'shapeFill' | 'symmetry' | 'flood'
 
 export interface ToolDefinition {
     readonly id: ToolId
@@ -48,6 +48,9 @@ export interface ToolSettings {
     readonly lockAlpha: boolean
     readonly shapeFill: boolean
 
+    readonly symmetryH: boolean
+    readonly symmetryV: boolean
+
     readonly fillTolerance: number
     readonly fillContiguous: boolean
 
@@ -62,6 +65,8 @@ export function captureSettings(state: EditorState, seed: number): ToolSettings 
         pixelPerfect: state.pixelPerfect,
         lockAlpha: state.lockAlpha,
         shapeFill: state.shapeFill,
+        symmetryH: state.symmetryH,
+        symmetryV: state.symmetryV,
         fillTolerance: state.fillTolerance,
         fillContiguous: state.fillContiguous,
         seed,
@@ -93,6 +98,7 @@ export function toolCapabilities(definition: ToolDefinition): readonly ToolCapab
     if (PAINTS.includes(definition.geometry) && definition.ink === 'source-over') {
         capabilities.push('lockAlpha')
     }
+    if (definition.geometry === 'freehand') capabilities.push('symmetry')
     if (definition.geometry === 'rect' || definition.geometry === 'ellipse') {
         capabilities.push('shapeFill')
     }

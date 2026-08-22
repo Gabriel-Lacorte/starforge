@@ -1,6 +1,6 @@
 import type { DocumentSession, EditTarget } from '../document/session'
 import type { ComposeBenchResult } from '../render/composeBench'
-import { PreviewOverlay } from '../render/overlay'
+import { PreviewOverlay, type SymmetryGuides } from '../render/overlay'
 import { Renderer } from '../render/renderer'
 import { Viewport } from '../render/viewport'
 import type { TransformKind } from '@starforge/core'
@@ -14,6 +14,7 @@ import type { ReadoutStore } from './readout'
 import { SelectionController } from './selection/selectionController'
 import type { EditorStore } from './store'
 import { stepZoom } from './view'
+import { toolDefinition } from './tools'
 import { ghostFrames, type Ghost } from '../render/onion'
 
 const NO_GHOSTS: readonly Ghost[] = []
@@ -153,6 +154,15 @@ export function startEditor(
         invalidate()
     })
 
+    const symmetryGuides = (): SymmetryGuides | null => {
+        if (toolDefinition(store.state.tool).geometry !== 'freehand') return null
+
+        const { symmetryH, symmetryV } = store.state
+        if (!symmetryH && !symmetryV) return null
+
+        return { h: symmetryH, v: symmetryV }
+    }
+
     const DEV = import.meta.env.DEV
     let lastRenderMs = 0
 
@@ -170,7 +180,7 @@ export function startEditor(
 
         const t0 = DEV ? performance.now() : 0
         renderer.render(sprite, playback.frame, viewport.view, ghosts)
-        overlay.render(viewport.view, selection)
+        overlay.render(viewport.view, selection, symmetryGuides())
         if (DEV) lastRenderMs = performance.now() - t0
     })
 

@@ -1,3 +1,5 @@
+import { medianCut } from './quantize'
+
 export interface GifFrame {
     pixels: Uint8Array /* RGBA */
     durationMs: number
@@ -8,13 +10,19 @@ export interface GifOptions {
 }
 
 export class GifError extends Error {
-    readonly code: 'PALETTE' | 'BOUNDS'
+    readonly code: 'BOUNDS'
 
-    constructor(code: 'PALETTE' | 'BOUNDS', detail: string) {
+    constructor(code: 'BOUNDS', detail: string) {
         super(detail)
         this.name = 'GifError'
         this.code = code
     }
+}
+
+export interface GifResult {
+    bytes: Uint8Array<ArrayBuffer>
+    /* palette entries the animation actually needs, ≤ 256 (transparent slot counts) */
+    colorsUsed: number
 }
 
 export function encodeGif(
@@ -23,6 +31,15 @@ export function encodeGif(
     height: number,
     opts?: GifOptions,
 ): Uint8Array<ArrayBuffer> {
+    return encodeGifWithStats(frames, width, height, opts).bytes
+}
+
+export function encodeGifWithStats(
+    frames: readonly GifFrame[],
+    width: number,
+    height: number,
+    opts?: GifOptions,
+): GifResult {
     const loop = opts?.loop ?? true
     const pixelCount = width * height
 
@@ -37,34 +54,34 @@ export function encodeGif(
 
     const { rgbFlat, paletteCount, transparentIndex, indexFor } = buildPalette(frames)
 
-    // GCT must be a power of 2, minimum 2 entries
+    /* GCT must be a power of 2, minimum 2 entries */
     const gctSize = nextPow2(Math.max(2, paletteCount))
-    // GCT packed field n where entry count = 2^(n+1), so n = log2(gctSize) - 1
+    /* GCT packed field n where entry count = 2^(n+1), so n = log2(gctSize) - 1 */
     const gctField = Math.log2(gctSize) - 1
-    // LZW min code size matches the bit-width of the GCT
+    /* LZW min code size matches the bit-width of the GCT */
     const minCodeSize = Math.max(2, Math.log2(gctSize))
 
     const out = new ByteWriter()
 
-    // Header
+    /* header */
     for (const c of 'GIF89a') out.write(c.charCodeAt(0))
 
-    // Logical Screen Descriptor
+    /* logical screen descriptor */
     out.writeU16LE(width)
     out.writeU16LE(height)
-    // GCT flag | colorResolution=7 | sort=0 | gctField
+    /* GCT flag | colorResolution=7 | sort=0 | gctField */
     out.write(0x80 | 0x70 | gctField)
-    out.write(0) // background color index
-    out.write(0) // pixel aspect ratio
+    out.write(0) /* background color index */
+    out.write(0) /* pixel aspect ratio */
 
-    // Global Color Table (padded to gctSize entries with black)
+    /* the global color table, padded to gctSize entries with black */
     for (let i = 0; i < gctSize; i++) {
         out.write(rgbFlat[i * 3] ?? 0)
         out.write(rgbFlat[i * 3 + 1] ?? 0)
         out.write(rgbFlat[i * 3 + 2] ?? 0)
     }
 
-    // NETSCAPE2.0 application extension — required for looping
+    /* NETSCAPE2.0 application extension, required for looping */
     if (loop) {
         out.write(0x21)
         out.write(0xff)
@@ -72,7 +89,7 @@ export function encodeGif(
         for (const c of 'NETSCAPE2.0') out.write(c.charCodeAt(0))
         out.write(0x03)
         out.write(0x01)
-        out.writeU16LE(0) // 0 = infinite loop
+        out.writeU16LE(0) /* 0 = infinite loop */
         out.write(0x00)
     }
 
@@ -80,41 +97,41 @@ export function encodeGif(
 
     for (const frame of frames) {
         const indices = mapIndices(frame.pixels, pixelCount, indexFor, transparentIndex)
-        // Browsers treat delays of 0–1 centiseconds as 10cs — enforce a floor of 2cs
+        /* browsers treat delays of 0–1 centiseconds as 10cs, enforce a floor of 2cs */
         const delay = Math.max(2, Math.round(frame.durationMs / 10))
 
-        // Graphic Control Extension
+        /* graphic control extension */
         out.write(0x21)
         out.write(0xf9)
         out.write(0x04)
-        // disposal=2 (restore to background), transparent flag
+        /* disposal=2 (restore to background), transparent flag */
         out.write((2 << 2) | (hasTransparency ? 1 : 0))
         out.writeU16LE(delay)
         out.write(hasTransparency ? transparentIndex : 0)
         out.write(0x00)
 
-        // Image Descriptor
+        /* image descriptor */
         out.write(0x2c)
         out.writeU16LE(0)
         out.writeU16LE(0)
         out.writeU16LE(width)
         out.writeU16LE(height)
-        out.write(0x00) // no LCT, no interlace
+        out.write(0x00) /* no LCT, no interlace */
 
-        // LZW compressed image data
+        /* LZW compressed image data */
         out.write(minCodeSize)
         lzwEncode(indices, minCodeSize, out)
     }
 
-    out.write(0x3b) // Trailer
+    out.write(0x3b) /* trailer */
 
-    return out.result()
+    return { bytes: out.result(), colorsUsed: paletteCount }
 }
 
-// ─── internals ────────────────────────────────────────────────────────────────
-
-// Growable byte buffer — avoids the number[] → Uint8Array.from() round-trip and
-// the spread-bomb that hits the engine arg limit on large outputs.
+/*
+ * Growable byte buffer — avoids the number[] → Uint8Array.from() round-trip and
+ * the spread-bomb that hits the engine arg limit on large outputs.
+ */
 class ByteWriter {
     #buf: Uint8Array
     #pos = 0
@@ -159,7 +176,7 @@ interface PaletteResult {
     rgbFlat: number[]
     paletteCount: number
     transparentIndex: number
-    indexFor: Map<number, number> // rgb24 → palette index
+    indexFor: Map<number, number> /* rgb24 → palette index */
 }
 
 function buildPalette(frames: readonly GifFrame[]): PaletteResult {
@@ -181,26 +198,52 @@ function buildPalette(frames: readonly GifFrame[]): PaletteResult {
     const opaqueCount = uniqueRgb.size
     const paletteCount = opaqueCount + (hasTransparency ? 1 : 0)
 
+    /*
+     * Past 256 entries the table can't hold every color, so median-cut collapses
+     * them to representatives. This branch is the ONLY change from the direct path
+     * below: with ≤256 colors nothing here runs and the bytes are untouched.
+     */
     if (paletteCount > 256) {
-        throw new GifError(
-            'PALETTE',
-            `palette exceeds 256 entries: ${opaqueCount} opaque colors${hasTransparency ? ' + transparent' : ''}`,
-        )
+        return quantizedPalette([...uniqueRgb.keys()], hasTransparency)
     }
 
-    // Index 0 is reserved for the transparent slot when transparency is present
+    /* index 0 is reserved for the transparent slot when transparency is present */
     const transparentIndex = hasTransparency ? 0 : -1
     let nextIdx = hasTransparency ? 1 : 0
 
     for (const rgb of uniqueRgb.keys()) uniqueRgb.set(rgb, nextIdx++)
 
     const rgbFlat: number[] = []
-    if (hasTransparency) rgbFlat.push(0, 0, 0) // transparent slot (arbitrary RGB)
+    if (hasTransparency) rgbFlat.push(0, 0, 0)
     for (const rgb of uniqueRgb.keys()) {
         rgbFlat.push((rgb >>> 16) & 0xff, (rgb >>> 8) & 0xff, rgb & 0xff)
     }
 
     return { rgbFlat, paletteCount, transparentIndex, indexFor: uniqueRgb }
+}
+
+function quantizedPalette(colors: number[], hasTransparency: boolean): PaletteResult {
+    /* the transparent slot takes one of the 256 entries when it's needed */
+    const maxOpaque = 256 - (hasTransparency ? 1 : 0)
+    const { palette, map } = medianCut(colors, maxOpaque)
+
+    const transparentIndex = hasTransparency ? 0 : -1
+    const offset = hasTransparency ? 1 : 0
+
+    /*
+     * Every original color points at its representative's palette index, so
+     * mapIndices resolves any pixel with the same lookup as the direct path.
+     */
+    const indexFor = new Map<number, number>()
+    for (const [rgb, slot] of map) indexFor.set(rgb, slot + offset)
+
+    const rgbFlat: number[] = []
+    if (hasTransparency) rgbFlat.push(0, 0, 0)
+    for (const rep of palette) {
+        rgbFlat.push((rep >>> 16) & 0xff, (rep >>> 8) & 0xff, rep & 0xff)
+    }
+
+    return { rgbFlat, paletteCount: palette.length + offset, transparentIndex, indexFor }
 }
 
 function mapIndices(
@@ -225,7 +268,7 @@ function lzwEncode(indices: Uint8Array, minCodeSize: number, out: ByteWriter): v
     const clearCode = 1 << minCodeSize
     const eoiCode = clearCode + 1
 
-    let dict = new Map<number, number>() // (prefix<<8)|sym → code
+    let dict = new Map<number, number>() /* (prefix<<8)|sym -> code */
     let nextCode = eoiCode + 1
     let codeSize = minCodeSize + 1
 
@@ -251,9 +294,12 @@ function lzwEncode(indices: Uint8Array, minCodeSize: number, out: ByteWriter): v
             bits.write(prefix, codeSize)
             dict.set(key, nextCode++)
 
-            // Grow code size when we've overflowed the current width.
-            // The decoder adds entries one emission later, so the encoder bumps
-            // one step later (>) while the decoder bumps one step earlier (===).
+            /*
+             * Grow the code size when we've overflowed the current width. The
+             * decoder adds entries one emission later, so the encoder bumps one
+             * step later (>) while the decoder bumps one step earlier (===).
+             * Get this off by one and the file dissolves into confetti.
+             */
             if (codeSize < 12 && nextCode > 1 << codeSize) codeSize++
 
             if (nextCode > 4095) {
@@ -303,7 +349,7 @@ class BitPacker {
     flush(): void {
         if (this.#count > 0) this.#block[this.#blockLen++] = this.#pending & 0xff
         if (this.#blockLen > 0) this.#flushBlock()
-        this.#out.write(0x00) // block terminator
+        this.#out.write(0x00)
     }
 }
 

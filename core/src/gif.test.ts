@@ -314,7 +314,7 @@ describe('GIF encoder', () => {
     })
 
     it('respects the loop=false option (no NETSCAPE2.0 block)', () => {
-        const px = new Uint8Array(4 * 4 * 4).fill(0xff) // white opaque
+        const px = new Uint8Array(4 * 4 * 4).fill(0xff)
         const gif = encodeGif([{ pixels: px, durationMs: 100 }], 4, 4, { loop: false })
 
         let found = false
@@ -386,32 +386,67 @@ describe('GIF encoder', () => {
         expect(hash).toBe('7bb7035ad2d6d987e0f836b1d3bc3eb16c7aa5f63bd3d3f707403f87ac7cd81b')
     })
 
-    it('throws GifError(PALETTE) when more than 256 colors are used', () => {
+    it('quantizes art past 256 colors into a valid ≤256-color GIF', () => {
         const pixels = new Uint8Array(257 * 4)
         for (let i = 0; i < 257; i++) {
             pixels[i * 4] = Math.floor(i / 16)
             pixels[i * 4 + 1] = i % 16
-            pixels[i * 4 + 2] = 0
+            pixels[i * 4 + 2] = i & 1 ? 200 : 40
             pixels[i * 4 + 3] = 255
         }
-        expect(() => encodeGif([{ pixels, durationMs: 100 }], 257, 1)).toThrow(GifError)
-        try {
-            encodeGif([{ pixels, durationMs: 100 }], 257, 1)
-        } catch (e) {
-            expect((e as GifError).code).toBe('PALETTE')
-            expect((e as GifError).message).toMatch(/257/)
+        const gif = encodeGif([{ pixels, durationMs: 100 }], 257, 1)
+
+        expect(String.fromCharCode(...gif.slice(0, 6))).toBe('GIF89a')
+        expect(gif[gif.length - 1]).toBe(0x3b)
+
+        const parsed = parseGif(gif)
+        expect(parsed.gctSize).toBeLessThanOrEqual(256)
+        const used = new Set(parsed.frames[0]!.indices)
+        for (const idx of used) expect(idx).toBeLessThan(parsed.gctSize)
+    })
+
+    it('never draws more than 256 distinct colors, whatever the input (seeded)', () => {
+        for (const seed of [1, 2, 3, 7, 42]) {
+            const frame = makeNoiseFrame(64, 64, 1000, seed)
+            const parsed = parseGif(encodeGif([frame], 64, 64))
+            const rgbUsed = new Set<number>()
+            for (const idx of parsed.frames[0]!.indices) {
+                const o = idx * 3
+                rgbUsed.add((parsed.gct[o]! << 16) | (parsed.gct[o + 1]! << 8) | parsed.gct[o + 2]!)
+            }
+            expect(rgbUsed.size, `seed ${seed}`).toBeLessThanOrEqual(256)
         }
     })
 
-    it('throws GifError(PALETTE) mentioning the count', () => {
-        const pixels = new Uint8Array(300 * 4)
-        for (let i = 0; i < 300; i++) {
+    it('quantization is deterministic: the same art encodes to identical bytes', () => {
+        const a = encodeGif([makeNoiseFrame(48, 48, 900, 0xfeed)], 48, 48)
+        const b = encodeGif([makeNoiseFrame(48, 48, 900, 0xfeed)], 48, 48)
+        expect(a).toEqual(b)
+    })
+
+    it('keeps the transparent slot when quantizing past-256-color art', () => {
+        const opaque = 400
+        const pixels = new Uint8Array((opaque + 1) * 4)
+        for (let i = 0; i < opaque; i++) {
             pixels[i * 4] = i & 0xff
-            pixels[i * 4 + 1] = (i >> 1) & 0xff
-            pixels[i * 4 + 2] = (i >> 2) & 0xff
+            pixels[i * 4 + 1] = (i * 3) & 0xff
+            pixels[i * 4 + 2] = (i * 7) & 0xff
             pixels[i * 4 + 3] = 255
         }
-        expect(() => encodeGif([{ pixels, durationMs: 100 }], 300, 1)).toThrow(GifError)
+        const parsed = parseGif(encodeGif([{ pixels, durationMs: 100 }], opaque + 1, 1))
+        expect(parsed.frames[0]!.transparentIndex).toBe(0)
+        expect(parsed.gctSize).toBeLessThanOrEqual(256)
+    })
+
+    it('quantizes a 512*512 frame with ~10k colors within the 1.5s budget', () => {
+        const frame = makeNoiseFrame(512, 512, 10000, 0x5eed)
+        const start = Date.now()
+        const gif = encodeGif([frame], 512, 512)
+        const elapsed = Date.now() - start
+
+        expect(gif.length).toBeGreaterThan(0)
+        expect(parseGif(gif).gctSize).toBeLessThanOrEqual(256)
+        expect(elapsed).toBeLessThan(1500)
     })
 
     it('accepts exactly 256 opaque colors without throwing', () => {
@@ -441,11 +476,6 @@ describe('GIF encoder', () => {
         expect(gif[gif.length - 1]).toBe(0x3b)
     })
 
-    /*
-     * The writer grows a buffer and hands back a slice of it. If that slice ever
-     * aliases the backing buffer again, `.buffer` on the result carries the
-     * unused tail as trailing zeros and the file is malformed past its trailer.
-     */
     it('returns bytes that own their buffer exactly, with nothing after the trailer', () => {
         const frame = makeNoiseFrame(64, 64, 120, 0xc0ffee)
         const gif = encodeGif([frame, frame], 64, 64)

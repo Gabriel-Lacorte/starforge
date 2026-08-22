@@ -5,13 +5,6 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { encodeGif, type GifFrame } from '../core/src/gif'
 
-/*
- * Our own decoder in gif.test.ts can share a bug with the encoder and still
- * agree with it. This suite proves the bytes against ffmpeg — an independent
- * decoder that knows nothing about how we built them. It skips when ffmpeg is
- * absent so CI without it stays green.
- */
-
 function hasFfmpeg(): boolean {
     try {
         execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' })
@@ -21,7 +14,6 @@ function hasFfmpeg(): boolean {
     }
 }
 
-/* deterministic LCG so a failure is always reproducible */
 function lcg(seed: number): () => number {
     let s = seed >>> 0
     return () => {
@@ -39,7 +31,6 @@ function buildPalette(colors: number, seed: number): number[][] {
     ])
 }
 
-/* every frame draws from ONE palette: the whole animation shares a 256-entry GCT */
 function noiseFrame(w: number, h: number, palette: number[][], seed: number): GifFrame {
     const rnd = lcg(seed)
     const px = new Uint8Array(w * h * 4)
@@ -53,7 +44,6 @@ function noiseFrame(w: number, h: number, palette: number[][], seed: number): Gi
     return { pixels: px, durationMs: 100 }
 }
 
-/* 16*16 distinct colors = 256 exactly, the largest palette a GIF can hold */
 function gradientFrame(w: number, h: number): GifFrame {
     const px = new Uint8Array(w * h * 4)
     for (let y = 0; y < h; y++) {
@@ -79,7 +69,6 @@ const NOISE_PALETTE = buildPalette(200, 0xabad1dea)
 
 const CASES: readonly CrossCase[] = [
     { name: 'gradient', width: 64, height: 64, frames: [gradientFrame(64, 64)] },
-    /* 200 colors of noise overruns the 4096-entry dictionary and forces resets */
     {
         name: 'noise-dictreset',
         width: 128,
@@ -98,14 +87,60 @@ const CASES: readonly CrossCase[] = [
     },
 ]
 
+function ffmpegDecodeRaw(gif: Uint8Array, frameCount: number, w: number, h: number): Uint8Array {
+    const dir = mkdtempSync(join(tmpdir(), 'starforge-gif-'))
+    const gifPath = join(dir, 'out.gif')
+    writeFileSync(gifPath, gif)
+
+    const rawPath = join(dir, 'frames.raw')
+    execFileSync(
+        'ffmpeg',
+        [
+            '-v',
+            'error',
+            '-i',
+            gifPath,
+            '-fps_mode',
+            'passthrough',
+            '-pix_fmt',
+            'rgba',
+            '-f',
+            'rawvideo',
+            rawPath,
+        ],
+        { stdio: 'pipe' },
+    )
+
+    const raw = new Uint8Array(readFileSync(rawPath))
+    expect(raw.length).toBe(frameCount * w * h * 4)
+    return raw
+}
+
 describe.skipIf(!hasFfmpeg())('GIF encoder cross-checked against ffmpeg', () => {
+    it('quantized past-256-color art is a stable fixed point through ffmpeg', () => {
+        const w = 96
+        const h = 96
+        const palette900 = buildPalette(900, 0x0ddba11)
+        const source = noiseFrame(w, h, palette900, 0xfeed)
+
+        const dec1 = ffmpegDecodeRaw(encodeGif([source], w, h), 1, w, h)
+
+        const distinct = new Set<number>()
+        for (let p = 0; p < dec1.length; p += 4) {
+            distinct.add((dec1[p]! << 16) | (dec1[p + 1]! << 8) | dec1[p + 2]!)
+        }
+        expect(distinct.size, 'distinct colors after quantization').toBeLessThanOrEqual(256)
+
+        const dec2 = ffmpegDecodeRaw(encodeGif([{ pixels: dec1, durationMs: 100 }], w, h), 1, w, h)
+        expect(dec2).toEqual(dec1)
+    })
+
     for (const testCase of CASES) {
         it(`${testCase.name}: ffmpeg decodes every pixel back unchanged`, () => {
             const dir = mkdtempSync(join(tmpdir(), 'starforge-gif-'))
             const gifPath = join(dir, 'out.gif')
             writeFileSync(gifPath, encodeGif(testCase.frames, testCase.width, testCase.height))
 
-            /* one raw RGBA stream, every frame concatenated back to back */
             const rawPath = join(dir, 'frames.raw')
             execFileSync(
                 'ffmpeg',
@@ -114,7 +149,6 @@ describe.skipIf(!hasFfmpeg())('GIF encoder cross-checked against ffmpeg', () => 
                     'error',
                     '-i',
                     gifPath,
-                    /* keep the GIF's own frames: no resampling to a constant rate */
                     '-fps_mode',
                     'passthrough',
                     '-pix_fmt',

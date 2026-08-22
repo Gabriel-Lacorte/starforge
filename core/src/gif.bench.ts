@@ -46,4 +46,14 @@ describe('GIF encoder', () => {
         },
         { time: 1000, warmupTime: 200 },
     )
+
+    const bigQuantized = makeNoiseFrame(512, 512, 10000, 0x5eed)
+
+    bench(
+        '1 frame 512*512, ~10k colors quantized (budget: <1500ms)',
+        () => {
+            encodeGif([bigQuantized], 512, 512)
+        },
+        { time: 2000, warmupTime: 500, iterations: 3 },
+    )
 })

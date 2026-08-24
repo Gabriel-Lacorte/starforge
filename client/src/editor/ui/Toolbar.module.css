@@ -25,6 +25,10 @@
     border-top: 1px solid var(--line);
 }
 
+.toolbar > .optionStrip {
+    height: calc(var(--target) + 10px);
+}
+
 .toolBtn {
     position: relative;
     width: 32px;

@@ -42,6 +42,7 @@ export function startEditor(
     const target = (): EditTarget => session.target.state
 
     let needsRender = true
+    let ready = false
     const invalidate = () => {
         needsRender = true
     }
@@ -49,7 +50,10 @@ export function startEditor(
     const renderer = new Renderer(canvas)
     const overlay = new PreviewOverlay(overlayCanvas, sprite.width, sprite.height)
     const viewport = new Viewport(canvas, overlayCanvas, sprite.width, sprite.height, {
-        onResize: invalidate,
+        onResize: () => {
+            invalidate()
+            if (ready) draw()
+        },
         onFit: (zoom) => {
             readout.patch({ zoom })
         },
@@ -166,11 +170,7 @@ export function startEditor(
     const DEV = import.meta.env.DEV
     let lastRenderMs = 0
 
-    let raf = requestAnimationFrame(function tick(now: number) {
-        raf = requestAnimationFrame(tick)
-
-        playback.tick(now)
-        if (!needsRender) return
+    function draw(): void {
         needsRender = false
 
         const frame = playback.frame
@@ -179,9 +179,20 @@ export function startEditor(
             : ghostFrames(sprite.frames, frame, store.state.onion)
 
         const t0 = DEV ? performance.now() : 0
-        renderer.render(sprite, playback.frame, viewport.view, ghosts)
+        renderer.render(sprite, frame, viewport.view, ghosts)
         overlay.render(viewport.view, selection, symmetryGuides())
         if (DEV) lastRenderMs = performance.now() - t0
+    }
+
+    ready = true
+
+    let raf = requestAnimationFrame(function tick(now: number) {
+        raf = requestAnimationFrame(tick)
+
+        playback.tick(now)
+        if (!needsRender) return
+
+        draw()
     })
 
     if (DEV) {

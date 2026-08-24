@@ -68,6 +68,7 @@ function paintingHost(
         layer,
         frame,
         settings,
+        selection: null,
         write: (x, y, context) => {
             cursor.set(x, y, applyInk(cursor.get(x, y), context))
         },

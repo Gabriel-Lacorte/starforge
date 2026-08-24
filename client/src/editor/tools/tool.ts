@@ -1,4 +1,4 @@
-import type { CellWrite, InkContext, RGBA, Sprite } from '@starforge/core'
+import type { CellWrite, InkContext, RGBA, SelectionMask, Sprite } from '@starforge/core'
 import type { ToolSettings } from './definition'
 
 export interface Mods {
@@ -13,6 +13,7 @@ export interface ToolHost {
     readonly frame: string
 
     readonly settings: ToolSettings
+    readonly selection: SelectionMask | null
 
     write(x: number, y: number, ink: InkContext): void
     absorb(writes: readonly CellWrite[]): void

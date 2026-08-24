@@ -86,6 +86,7 @@ export class GestureController {
         const deps = this.#deps
         const target = () => this.#gestureTarget()
         const settings = () => this.#gestureSettings()
+        const selection = () => this.#mask
 
         return {
             sprite: deps.sprite,
@@ -100,6 +101,10 @@ export class GestureController {
 
             get settings() {
                 return settings()
+            },
+
+            get selection() {
+                return selection()
             },
 
             write: (x, y, context) => {

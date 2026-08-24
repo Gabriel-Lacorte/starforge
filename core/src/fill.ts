@@ -2,11 +2,13 @@ import type { RGBA } from './color'
 import { openCursor } from './cursor'
 import { getCel, inBounds, type Sprite } from './doc'
 import { applyInk, type InkContext } from './ink'
+import { isSelected, type SelectionMask } from './mask'
 import { getPixel, type CellWrite } from './ops'
 
 export interface FillOptions {
     tolerance: number
     contiguous: boolean
+    within?: SelectionMask | null
 }
 
 export function fillMask(
@@ -17,6 +19,7 @@ export function fillMask(
     seedY: number,
     tolerance: number,
     contiguous: boolean,
+    within?: SelectionMask | null,
 ): Uint8Array {
     if (
         !Number.isInteger(seedX) ||
@@ -29,8 +32,17 @@ export function fillMask(
         throw new RangeError(`fill seed (${seedX}, ${seedY}) outside ${width}*${height}`)
 
     const mask = new Uint8Array(width * height)
+
+    const allowed = (cell: number): boolean => {
+        if (!within) return true
+        const x = cell % width
+        return isSelected(within, x, (cell - x) / width)
+    }
+    if (!allowed(seedY * width + seedX)) return mask
+
     if (!pixels) {
-        mask.fill(1)
+        if (!within) mask.fill(1)
+        else for (let cell = 0; cell < mask.length; cell++) mask[cell] = allowed(cell) ? 1 : 0
         return mask
     }
 
@@ -41,6 +53,7 @@ export function fillMask(
     const sa = pixels[so + 3]!
 
     const matches = (cell: number): boolean => {
+        if (!allowed(cell)) return false
         const o = cell * 4
 
         return (
@@ -132,11 +145,13 @@ function floodFillResolved(
     options: FillOptions,
     resolve: (before: RGBA) => RGBA,
 ): CellWrite[] {
-    const { tolerance, contiguous } = options
+    const { tolerance, contiguous, within } = options
     if (!Number.isInteger(tolerance) || tolerance < 0 || tolerance > 255)
         throw new RangeError(`fill tolerance must be an integer in 0..255, got ${tolerance}`)
 
     if (!inBounds(sprite, x, y)) return []
+
+    if (within && !isSelected(within, x, y)) return []
 
     const seed = getPixel(sprite, layerId, frameId, x, y)
     if (tolerance === 0 && resolve(seed) === seed) return []
@@ -150,6 +165,7 @@ function floodFillResolved(
         y,
         tolerance,
         contiguous,
+        within,
     )
 
     const writes: CellWrite[] = []

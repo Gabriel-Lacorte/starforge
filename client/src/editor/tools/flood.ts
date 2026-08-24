@@ -14,7 +14,11 @@ export function traceFlood(definition: ToolDefinition, host: ToolHost): Tool {
                     x,
                     y,
                     inkFor(definition, host.settings),
-                    { tolerance: fillTolerance, contiguous: fillContiguous },
+                    {
+                        tolerance: fillTolerance,
+                        contiguous: fillContiguous,
+                        within: host.selection,
+                    },
                 ),
             )
         },

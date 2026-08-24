@@ -4,8 +4,10 @@ import {
     createSprite,
     getPixel,
     insertLayer,
+    rectMask,
     rgba,
     setLayerProp,
+    type SelectionMask,
     type Sprite,
 } from '@starforge/core'
 import { DocumentSession } from '../document/session'
@@ -18,6 +20,7 @@ const NO_MODS = { shift: false, alt: false, ctrl: false }
 function setup(
     width = 16,
     height = width,
+    selection: SelectionMask | null = null,
 ): {
     sprite: Sprite
     frame: string
@@ -40,6 +43,7 @@ function setup(
     const gestures = new GestureController({
         sprite,
         target: () => session.target.state,
+        selection: () => selection,
         session,
         renderer: {
             invalidate: () => {
@@ -117,6 +121,58 @@ describe('GestureController vs the layers panel', () => {
 
         expect(getPixel(sprite, base, frame, 6, 6)).toBe(store.state.color)
         expect(getPixel(sprite, top, frame, 6, 6)).toBe(0)
+    })
+})
+
+describe('GestureController vs the selection', () => {
+    it('keeps the bucket inside the selection', () => {
+        const mask = rectMask(16, 16, 4, 4, 7, 7)
+        const { sprite, frame, top, store, gestures } = setup(16, 16, mask)
+        const color = store.state.color
+
+        gestures.begin('bucket', 5, 5, NO_MODS)
+        gestures.finish(5, 5, NO_MODS)
+
+        for (let y = 4; y <= 7; y++) {
+            for (let x = 4; x <= 7; x++) {
+                expect(getPixel(sprite, top, frame, x, y), `inside (${x},${y})`).toBe(color)
+            }
+        }
+        for (const [x, y] of [
+            [3, 5],
+            [8, 5],
+            [5, 3],
+            [5, 8],
+            [0, 0],
+            [15, 15],
+        ] as const) {
+            expect(getPixel(sprite, top, frame, x, y), `outside (${x},${y})`).toBe(0)
+        }
+    })
+
+    it('refuses a bucket started outside the selection', () => {
+        const mask = rectMask(16, 16, 4, 4, 7, 7)
+        const { sprite, frame, top, session, gestures } = setup(16, 16, mask)
+
+        gestures.begin('bucket', 12, 12, NO_MODS)
+        gestures.finish(12, 12, NO_MODS)
+
+        expect(getPixel(sprite, top, frame, 12, 12)).toBe(0)
+        expect(getPixel(sprite, top, frame, 5, 5)).toBe(0)
+        expect(session.canUndo).toBe(false)
+    })
+
+    it('undoes a fenced bucket as one entry', () => {
+        const mask = rectMask(16, 16, 4, 4, 7, 7)
+        const { sprite, frame, top, session, gestures } = setup(16, 16, mask)
+
+        gestures.begin('bucket', 5, 5, NO_MODS)
+        gestures.finish(5, 5, NO_MODS)
+        expect(session.canUndo).toBe(true)
+
+        session.undo()
+        expect(getPixel(sprite, top, frame, 5, 5)).toBe(0)
+        expect(session.canUndo).toBe(false)
     })
 })
 

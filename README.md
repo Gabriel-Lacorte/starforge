@@ -34,14 +34,15 @@ An npm workspace with two packages, split by what they are allowed to know:
 
 ## Roadmap
 
-**Shipped**: canvas engine, the tool set above, layers, animation frames with
-playback and onion skin, palettes and the Color Studio, project files and
-portable PNG, documents that survive a reload.
+**Shipped**: canvas engine, the tool set above, layers, a frame timeline
+with per-frame duration, playback and onion skin, mirror drawing,
+palettes and the Color Studio, a hand-rolled GIF89a + LZW encoder with
+median-cut quantization and a live export preview, spritesheets, project
+files and portable PNG, documents that survive a reload.
 
 **Next**:
-
 - a CRDT for real-time collaboration (LWW per cell with Lamport clocks)
-- a GIF89a + LZW encoder · WebGL filters
+- WebGL filters
 - a public gallery?
 
 ## License

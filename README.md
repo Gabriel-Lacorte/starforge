@@ -40,8 +40,11 @@ palettes and the Color Studio, a hand-rolled GIF89a + LZW encoder with
 median-cut quantization and a live export preview, spritesheets, project
 files and portable PNG, documents that survive a reload.
 
+**In progress**: the multiplayer CRDT core (LWW per cell with Lamport clocks).
+
 **Next**:
-- a CRDT for real-time collaboration (LWW per cell with Lamport clocks)
+
+- a WebSocket relay and shareable rooms
 - WebGL filters
 - a public gallery?
 

@@ -32,6 +32,7 @@ export interface InputDeps {
     store: EditorStore
     readout: ReadoutStore
     playback: PlaybackController
+    isActive: () => boolean
 
     requestRender: () => void
 }
@@ -371,6 +372,7 @@ export class EditorInput {
     }
 
     #onKeyDown = (e: KeyboardEvent): void => {
+        if (!this.#deps.isActive()) return
         if (isEditableTarget(e.target)) return
 
         const { store, gestures } = this.#deps
@@ -450,6 +452,7 @@ export class EditorInput {
     }
 
     #onKeyUp = (e: KeyboardEvent): void => {
+        if (!this.#deps.isActive()) return
         if (e.code !== 'Space') return
         this.#spaceHeld = false
         this.#updateCursor()

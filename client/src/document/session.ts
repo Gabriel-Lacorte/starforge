@@ -27,6 +27,9 @@ export class DocumentSession {
 
     readonly #undo: UndoStack
     readonly #listeners = new Set<(change: ChangeSet) => void>()
+    readonly #operationListeners = new Set<
+        (operation: DocumentOperation, origin: 'local' | 'remote') => void
+    >()
     #beforeChange: (() => void) | null = null
 
     constructor(doc: Sprite, options: SessionOptions = {}) {
@@ -47,6 +50,13 @@ export class DocumentSession {
     subscribe(listener: (change: ChangeSet) => void): () => void {
         this.#listeners.add(listener)
         return () => this.#listeners.delete(listener)
+    }
+
+    onOperation(
+        listener: (operation: DocumentOperation, origin: 'local' | 'remote') => void,
+    ): () => void {
+        this.#operationListeners.add(listener)
+        return () => this.#operationListeners.delete(listener)
     }
 
     setBeforeChange(resolve: () => void): void {
@@ -79,6 +89,7 @@ export class DocumentSession {
         const result = applyOperation(this.doc, operation)
         this.#undo.push(new OperationEntry(label, operation, result.inverse))
         this.#emit(result.change)
+        this.#emitOperation(operation, 'local')
     }
 
     applyTransient(operation: DocumentOperation): void {
@@ -91,6 +102,13 @@ export class DocumentSession {
 
         this.#undo.push(new OperationEntry(command.label, patch.operation, patch.inverse))
         this.#emit(patch.change)
+        this.#emitOperation(patch.operation, 'local')
+    }
+
+    applyRemote(operation: DocumentOperation): void {
+        const result = applyOperation(this.doc, operation)
+        this.#emit(result.change)
+        this.#emitOperation(operation, 'remote')
     }
 
     undo(): void {
@@ -106,6 +124,10 @@ export class DocumentSession {
     #emit(change: ChangeSet): void {
         if (change.kind === 'structure') this.#reconcileTarget(change.removedLayerIndex)
         for (const listener of this.#listeners) listener(change)
+    }
+
+    #emitOperation(operation: DocumentOperation, origin: 'local' | 'remote'): void {
+        for (const listener of this.#operationListeners) listener(operation, origin)
     }
 
     #reconcileTarget(removedLayerIndex?: number): void {

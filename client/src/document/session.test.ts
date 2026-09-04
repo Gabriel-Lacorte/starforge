@@ -8,6 +8,7 @@ import {
     insertLayer,
     rgba,
     writePixel,
+    type DocumentOperation,
     type Sprite,
 } from '@starforge/core'
 import { DocumentSession, type ChangeSet } from './session'
@@ -115,6 +116,31 @@ describe('DocumentSession', () => {
         off()
         session.commit(paint(sprite, layer, frame, [[2, 2]], BLUE))
         expect(count).toBe(1)
+    })
+
+    it('reports local and remote operations until the operation listener unsubscribes', () => {
+        const { session, layer } = doc()
+        const seen: { operation: DocumentOperation; origin: 'local' | 'remote' }[] = []
+        const off = session.onOperation((operation, origin) => {
+            seen.push({ operation, origin })
+        })
+        const local: DocumentOperation = {
+            kind: 'layer.set',
+            layer,
+            prop: 'opacity',
+            value: 128,
+        }
+        const remote: DocumentOperation = { kind: 'document.rename', title: 'From orbit' }
+
+        session.apply('dim layer', local)
+        session.applyRemote(remote)
+        off()
+        session.apply('show layer', { kind: 'layer.set', layer, prop: 'opacity', value: 255 })
+
+        expect(seen).toEqual([
+            { operation: local, origin: 'local' },
+            { operation: remote, origin: 'remote' },
+        ])
     })
 })
 

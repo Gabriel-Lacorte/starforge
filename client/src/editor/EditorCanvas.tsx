@@ -41,6 +41,7 @@ export function EditorCanvas({
     initialLayer,
     initialFrame,
     initialProjectNotice,
+    initialLayersOpen,
     onNew,
     onOpenStored,
     onOpenProject,
@@ -53,6 +54,7 @@ export function EditorCanvas({
     initialLayer?: string
     initialFrame: string
     initialProjectNotice: ProjectNotice | null
+    initialLayersOpen?: boolean
     onNew: (width: number, height: number, title: string) => void
     onOpenStored: (document: OpenedDocument) => void
     onOpenProject: (project: DecodedProject, notice: ProjectNotice) => void
@@ -93,7 +95,9 @@ export function EditorCanvas({
     const frames = framesRef.current
     const playback = playbackRef.current
 
-    const [layersOpen, setLayersOpen] = useState(() => !window.matchMedia(COMPACT_QUERY).matches)
+    const [layersOpen, setLayersOpen] = useState(
+        () => initialLayersOpen ?? !window.matchMedia(COMPACT_QUERY).matches,
+    )
     const [dialog, setDialog] = useState<DialogId | null>(null)
     const [sheet, setSheet] = useState<'options' | 'frames' | 'file' | null>(null)
     const mobile = useMobile()

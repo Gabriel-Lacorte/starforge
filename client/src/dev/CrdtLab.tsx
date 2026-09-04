@@ -101,6 +101,7 @@ export function CrdtLab() {
                         initialLayer={pair.initialLayer}
                         initialFrame={pair.initialFrame}
                         initialProjectNotice={null}
+                        initialLayersOpen={false}
                         onNew={createNew}
                         onOpenStored={openStored}
                         onOpenProject={openProject}

@@ -102,6 +102,7 @@ export function CrdtLab() {
                         initialFrame={pair.initialFrame}
                         initialProjectNotice={null}
                         initialLayersOpen={false}
+                        hideFileActions
                         onNew={createNew}
                         onOpenStored={openStored}
                         onOpenProject={openProject}

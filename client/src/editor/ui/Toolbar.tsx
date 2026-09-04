@@ -13,6 +13,7 @@ export function Toolbar({
     readout,
     compact,
     layersOpen,
+    hideFileActions = false,
     onNew,
     onOpenProject,
     onSaveProject,
@@ -28,6 +29,7 @@ export function Toolbar({
     readout: ReadoutStore
     compact: boolean
     layersOpen: boolean
+    hideFileActions?: boolean
     onNew: () => void
     onOpenProject: (file: File) => void
     onSaveProject: () => void
@@ -61,20 +63,24 @@ export function Toolbar({
                         onHistory={onHistory}
                         onTransform={onTransform}
                     />
-                    <span class={styles.sep} />
-                    <DocumentActions
-                        busy={busy}
-                        exporting={exportState === 'working'}
-                        layersOpen={layersOpen}
-                        onNew={onNew}
-                        onLibrary={onLibrary}
-                        onCanvasSize={onCanvasSize}
-                        onOpenProject={onOpenProject}
-                        onSaveProject={onSaveProject}
-                        onExport={onExport}
-                        onKeys={onKeys}
-                        onToggleLayers={onToggleLayers}
-                    />
+                    {!hideFileActions && (
+                        <>
+                            <span class={styles.sep} />
+                            <DocumentActions
+                                busy={busy}
+                                exporting={exportState === 'working'}
+                                layersOpen={layersOpen}
+                                onNew={onNew}
+                                onLibrary={onLibrary}
+                                onCanvasSize={onCanvasSize}
+                                onOpenProject={onOpenProject}
+                                onSaveProject={onSaveProject}
+                                onExport={onExport}
+                                onKeys={onKeys}
+                                onToggleLayers={onToggleLayers}
+                            />
+                        </>
+                    )}
                 </span>
             )}
         </div>

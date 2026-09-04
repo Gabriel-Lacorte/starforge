@@ -42,6 +42,7 @@ export function EditorCanvas({
     initialFrame,
     initialProjectNotice,
     initialLayersOpen,
+    hideFileActions = false,
     onNew,
     onOpenStored,
     onOpenProject,
@@ -55,6 +56,7 @@ export function EditorCanvas({
     initialFrame: string
     initialProjectNotice: ProjectNotice | null
     initialLayersOpen?: boolean
+    hideFileActions?: boolean
     onNew: (width: number, height: number, title: string) => void
     onOpenStored: (document: OpenedDocument) => void
     onOpenProject: (project: DecodedProject, notice: ProjectNotice) => void
@@ -268,6 +270,7 @@ export function EditorCanvas({
             readout={readout}
             compact={mobile}
             layersOpen={layersOpen}
+            hideFileActions={hideFileActions}
             onNew={() => {
                 show('new')
             }}

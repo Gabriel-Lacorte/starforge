@@ -25,6 +25,8 @@ export interface ReadoutState {
 
     readonly canUndo: boolean
     readonly canRedo: boolean
+
+    readonly selectionActive: boolean
 }
 
 export class ReadoutStore extends Store<ReadoutState> {
@@ -37,6 +39,7 @@ export class ReadoutStore extends Store<ReadoutState> {
             projectNotice,
             canUndo: false,
             canRedo: false,
+            selectionActive: false,
         })
     }
 }

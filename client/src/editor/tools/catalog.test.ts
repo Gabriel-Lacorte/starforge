@@ -104,11 +104,11 @@ describe('TOOL_CATALOG', () => {
 
     it('derives the context bar from what each definition reads', () => {
         const capabilities = (id: ToolId) => toolCapabilities(toolDefinition(id))
-        expect(capabilities('select')).toEqual([])
-        expect(capabilities('selectEllipse')).toEqual([])
-        expect(capabilities('lasso')).toEqual([])
+        expect(capabilities('select')).toEqual(['selectionMode'])
+        expect(capabilities('selectEllipse')).toEqual(['selectionMode'])
+        expect(capabilities('lasso')).toEqual(['selectionMode'])
         expect(capabilities('eyedropper')).toEqual([])
-        expect(capabilities('wand')).toEqual(['flood'])
+        expect(capabilities('wand')).toEqual(['flood', 'selectionMode'])
         expect(capabilities('pencil')).toEqual([
             'brush',
             'opacity',
@@ -175,6 +175,7 @@ describe('captured settings', () => {
             symmetryV: false,
             fillTolerance: 12,
             fillContiguous: false,
+            selectionMode: 'replace',
             onion: ONION_SHOWN,
         } as const
 

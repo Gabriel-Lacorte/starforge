@@ -1,10 +1,17 @@
-import { BRUSH_MAX_SIZE } from '@starforge/core'
+import { BRUSH_MAX_SIZE, type MaskMode } from '@starforge/core'
 import { TOOL_CATALOG } from '../tools/catalog'
 import { toolCapabilities, type ToolCapability } from '../tools/definition'
 import type { EditorStore } from '../store'
 import { useStore } from './useStore'
 import styles from './Toolbar.module.css'
 import { blurOnPointer } from './blurOnPointer'
+
+const SELECTION_MODES: readonly { value: MaskMode; label: string; aria: string }[] = [
+    { value: 'replace', label: 'replace', aria: 'Replace selection' },
+    { value: 'add', label: 'add', aria: 'Add to selection' },
+    { value: 'subtract', label: 'subtract', aria: 'Subtract from selection' },
+    { value: 'intersect', label: 'intersect', aria: 'Intersect selection' },
+]
 
 function Toggle({
     text,
@@ -194,6 +201,31 @@ export function ToolOptions({ store }: { store: EditorStore }) {
                         }}
                     />
                 </>
+            )}
+
+            {shows('selectionMode') && (
+                <div
+                    class={styles.modeGroup}
+                    role="group"
+                    aria-label="Selection mode"
+                    data-testid="selection-modes"
+                >
+                    {SELECTION_MODES.map((mode) => (
+                        <button
+                            key={mode.value}
+                            type="button"
+                            class={`${styles.modeBtn}${state.selectionMode === mode.value ? ` ${styles.on}` : ''}`}
+                            aria-label={mode.aria}
+                            aria-pressed={state.selectionMode === mode.value}
+                            onClick={(e) => {
+                                store.patch({ selectionMode: mode.value })
+                                blurOnPointer(e)
+                            }}
+                        >
+                            {mode.label}
+                        </button>
+                    ))}
+                </div>
             )}
         </div>
     )

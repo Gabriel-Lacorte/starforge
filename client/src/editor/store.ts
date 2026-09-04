@@ -1,4 +1,4 @@
-import { hexToRgba, type RGBA } from '@starforge/core'
+import { hexToRgba, type MaskMode, type RGBA } from '@starforge/core'
 import { Store } from '../store'
 import { ONION_HIDDEN, ONION_SHOWN, onionShowing, type OnionSettings } from '../render/onion'
 
@@ -44,6 +44,8 @@ export interface EditorState {
     readonly fillTolerance: number
     readonly fillContiguous: boolean
 
+    readonly selectionMode: MaskMode
+
     readonly onion: OnionSettings
 }
 
@@ -63,6 +65,7 @@ export class EditorStore extends Store<EditorState> {
             symmetryV: false,
             fillTolerance: 0,
             fillContiguous: true,
+            selectionMode: 'replace',
             onion: ONION_SHOWN,
         })
     }

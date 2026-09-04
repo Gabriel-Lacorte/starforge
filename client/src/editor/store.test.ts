@@ -105,3 +105,14 @@ describe('EditorStore onion skin', () => {
         expect(told).toBe(1)
     })
 })
+
+describe('EditorStore selection mode', () => {
+    it('starts selection tools in replace mode and remembers an explicit touch-friendly mode', () => {
+        const store = new EditorStore()
+
+        expect(store.state.selectionMode).toBe('replace')
+
+        store.patch({ selectionMode: 'subtract' })
+        expect(store.state.selectionMode).toBe('subtract')
+    })
+})

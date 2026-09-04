@@ -23,6 +23,7 @@ export interface EditorHandle {
     dispose(): void
     history(direction: 'undo' | 'redo'): void
     transform(kind: TransformKind): void
+    clearSelection(): void
     readonly canvas: CanvasController
     hasSelection(): boolean
     zoom(direction: 1 | -1): void
@@ -37,6 +38,7 @@ export function startEditor(
     readout: ReadoutStore,
     layers: LayersController,
     playback: PlaybackController,
+    isActive: () => boolean = () => true,
 ): EditorHandle {
     const sprite = session.doc
     const target = (): EditTarget => session.target.state
@@ -67,7 +69,12 @@ export function startEditor(
         sprite,
         target,
         session,
-        onChange: invalidate,
+        onChange: () => {
+            if (readout.state.selectionActive !== selection.active) {
+                readout.patch({ selectionActive: selection.active })
+            }
+            invalidate()
+        },
         invalidate: (layer, frameId, x, y, w, h) => {
             renderer.invalidate(sprite, layer, frameId, x, y, w, h)
         },
@@ -118,6 +125,7 @@ export function startEditor(
         store,
         readout,
         playback,
+        isActive,
         requestRender: invalidate,
     })
 
@@ -230,6 +238,10 @@ export function startEditor(
 
         transform(kind) {
             transforms.apply(kind)
+        },
+
+        clearSelection() {
+            selection.deselect()
         },
 
         canvas: canvas2d,

@@ -27,7 +27,14 @@ export function marqueeShape(definition: ToolDefinition): MarqueeShape | null {
 }
 
 export type ToolCapability =
-    'brush' | 'opacity' | 'pixelPerfect' | 'lockAlpha' | 'shapeFill' | 'symmetry' | 'flood'
+    | 'brush'
+    | 'opacity'
+    | 'pixelPerfect'
+    | 'lockAlpha'
+    | 'shapeFill'
+    | 'symmetry'
+    | 'flood'
+    | 'selectionMode'
 
 export interface ToolDefinition {
     readonly id: ToolId
@@ -105,6 +112,7 @@ export function toolCapabilities(definition: ToolDefinition): readonly ToolCapab
     if (definition.geometry === 'flood' || definition.geometry === 'select.wand') {
         capabilities.push('flood')
     }
+    if (marqueeShape(definition) !== null) capabilities.push('selectionMode')
 
     return capabilities
 }

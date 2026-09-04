@@ -1,0 +1,133 @@
+.strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--line);
+}
+
+.fgBg {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 4px;
+}
+
+.stack {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    flex: none;
+}
+
+.fg,
+.bg {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--line);
+}
+
+.fg {
+    left: 0;
+    top: 0;
+    z-index: 1;
+    box-shadow: inset 1px 1px 0 var(--edge-inset);
+}
+
+.bg {
+    right: 0;
+    bottom: 0;
+}
+
+.btn {
+    font: inherit;
+    flex: none;
+    min-height: var(--target);
+    padding: 0 10px;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.btn:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.rail {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    min-width: 0;
+    gap: 2px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+}
+
+.rail::-webkit-scrollbar {
+    display: none;
+}
+
+.swatch {
+    display: grid;
+    flex: none;
+    place-items: center;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+    cursor: pointer;
+    background: var(--face);
+    border: 1px solid var(--line);
+}
+
+.dot {
+    width: 24px;
+    height: 24px;
+    display: block;
+    box-shadow: inset 1px 1px 0 var(--edge-inset);
+}
+
+.swatch.on {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+}
+
+.swatch:focus-visible,
+.btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.mixers {
+    display: flex;
+    flex: none;
+    gap: 4px;
+}
+
+.selection {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    color: var(--dim);
+}
+
+@media (hover: hover) {
+    .btn:hover {
+        color: var(--accent);
+    }
+}
+
+@media (pointer: fine) {
+    .dot {
+        width: 24px;
+        height: 24px;
+    }
+}

@@ -49,7 +49,7 @@ export class SelectionInput {
         this.#pointerId = e.pointerId
         canvas.setPointerCapture(e.pointerId)
 
-        const mode = maskModeFor(e)
+        const mode = maskModeFor(e, store.state.selectionMode)
         const shape = this.shape ?? 'rect'
 
         if (shape === 'wand') {
@@ -136,10 +136,10 @@ export class SelectionInput {
     }
 }
 
-function maskModeFor(event: PointerEvent): MaskMode {
+function maskModeFor(event: PointerEvent, fallback: MaskMode): MaskMode {
     if (event.shiftKey && event.altKey) return 'intersect'
     if (event.shiftKey) return 'add'
     if (event.altKey) return 'subtract'
 
-    return 'replace'
+    return fallback
 }

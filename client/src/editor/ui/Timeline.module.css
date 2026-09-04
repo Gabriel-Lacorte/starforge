@@ -165,7 +165,7 @@
     }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1100px) {
     .timeline {
         gap: 6px;
         padding: 4px 6px;

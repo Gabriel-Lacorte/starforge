@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks'
 
-export const COMPACT_QUERY = '(max-width: 720px), (max-height: 480px)'
+export const COMPACT_QUERY = '(max-width: 1100px), (max-height: 600px)'
 
 export function useMobile(): boolean {
     const [phone, setPhone] = useState(() => window.matchMedia(COMPACT_QUERY).matches)

@@ -113,7 +113,7 @@
     color: var(--accent);
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1100px) {
     .statusbar {
         gap: 8px;
         padding: 0 8px;
@@ -160,7 +160,7 @@
     }
 }
 
-@media (max-height: 480px) {
+@media (max-height: 600px) {
     .statusbar {
         min-height: 24px;
         gap: 10px;

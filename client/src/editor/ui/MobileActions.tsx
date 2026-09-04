@@ -9,6 +9,7 @@ export function MobileActions({
     store,
     readout,
     layersOpen,
+    framesOpen,
     onToolOptions,
     onFrames,
     onFile,
@@ -18,6 +19,7 @@ export function MobileActions({
     store: EditorStore
     readout: ReadoutStore
     layersOpen: boolean
+    framesOpen: boolean
     onToolOptions: () => void
     onFrames: () => void
     onFile: () => void
@@ -81,8 +83,9 @@ export function MobileActions({
             </button>
             <button
                 type="button"
-                class={styles.btn}
+                class={`${styles.btn}${framesOpen ? ` ${styles.on}` : ''}`}
                 aria-label="Frames and playback"
+                aria-expanded={framesOpen}
                 data-testid="mobile-frames"
                 onClick={onFrames}
             >

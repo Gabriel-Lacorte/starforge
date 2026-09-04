@@ -108,7 +108,7 @@
     }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1100px) {
     .row {
         grid-template-columns: 13ch 1fr;
         gap: 6px;

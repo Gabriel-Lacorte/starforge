@@ -46,13 +46,13 @@
     }
 }
 
-@media (pointer: coarse) and (max-width: 720px) {
+@media (pointer: coarse) and (max-width: 1100px) {
     :root {
         --target: 36px;
     }
 }
 
-@media (max-height: 480px) {
+@media (max-height: 600px) {
     :root {
         --target: 32px;
     }

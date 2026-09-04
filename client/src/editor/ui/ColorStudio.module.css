@@ -33,7 +33,6 @@
     gap: 8px;
 }
 
-/* white to the chosen hue across, full brightness to black down */
 .area {
     position: relative;
     flex: 1;
@@ -280,8 +279,7 @@
     }
 }
 
-/* a sheet the thumb can reach, once the panel would crowd the canvas */
-@media (max-width: 720px), (max-height: 480px) {
+@media (max-width: 1100px), (max-height: 600px) {
     .dialog {
         width: 100vw;
         max-width: none;

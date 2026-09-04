@@ -12,6 +12,12 @@
     align-items: center;
     gap: 4px;
     padding: 4px 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+}
+
+.toolStrip > * {
+    flex: none;
 }
 
 .optionStrip {
@@ -205,8 +211,10 @@
 .range {
     appearance: none;
     -webkit-appearance: none;
-    width: 72px;
-    height: 12px;
+    width: 100%;
+    min-width: 120px;
+    max-width: 220px;
+    height: 16px;
     margin: 0;
     background: var(--bg);
     border: 1px solid var(--line);
@@ -219,15 +227,15 @@
 .range::-webkit-slider-thumb {
     appearance: none;
     -webkit-appearance: none;
-    width: 5px;
-    height: 10px;
+    width: 14px;
+    height: 20px;
     background: var(--text);
     border: 0;
 }
 
 .range::-moz-range-thumb {
-    width: 5px;
-    height: 10px;
+    width: 14px;
+    height: 20px;
     background: var(--text);
     border: 0;
     border-radius: 0;
@@ -257,6 +265,36 @@
 .num::-webkit-outer-spin-button {
     appearance: none;
     margin: 0;
+}
+
+.modeGroup {
+    display: flex;
+    align-items: center;
+    flex: none;
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+}
+
+.modeBtn {
+    min-height: var(--target);
+    padding: 0 7px;
+    color: var(--dim);
+    background: var(--face);
+    border: 0;
+    border-right: 1px solid var(--line);
+    cursor: pointer;
+}
+
+.modeBtn:last-child {
+    border-right: 0;
+}
+
+.modeBtn.on {
+    color: var(--accent);
+    background: var(--face-lo);
+    box-shadow: inset 1px 1px 0 var(--face-lo);
 }
 
 @media (hover: hover) {
@@ -295,12 +333,13 @@
 .textBtn:focus-visible,
 .num:focus-visible,
 .range:focus-visible,
-.stepper button:focus-visible {
+.stepper button:focus-visible,
+.modeBtn:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1100px) {
     .toolbar {
         padding: 0 6px;
     }
@@ -325,7 +364,7 @@
     }
 }
 
-@media (max-height: 480px) {
+@media (max-height: 600px) {
     .toolbar {
         padding: 0 6px;
     }

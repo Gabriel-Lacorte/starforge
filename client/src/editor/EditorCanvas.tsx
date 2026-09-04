@@ -17,7 +17,7 @@ import { LayersPanel } from './ui/LayersPanel'
 import { MobileActions } from './ui/MobileActions'
 import { MobileFileSheet } from './ui/MobileFileSheet'
 import { MobileSheet } from './ui/MobileSheet'
-import { PaletteBar } from './ui/PaletteBar'
+import { PaintControls } from './ui/PaintControls'
 import { StatusBar } from './ui/StatusBar'
 import { Timeline } from './ui/Timeline'
 import { ToolOptions } from './ui/ToolOptions'
@@ -34,6 +34,8 @@ const DEFAULT_NEW = 64
 
 export function EditorCanvas({
     sprite,
+    session: providedSession,
+    active = true,
     library,
     storageNotice,
     initialLayer,
@@ -44,6 +46,8 @@ export function EditorCanvas({
     onOpenProject,
 }: {
     sprite: Sprite
+    session?: DocumentSession
+    active?: boolean
     library: Library | null
     storageNotice: string | null
     initialLayer?: string
@@ -55,6 +59,8 @@ export function EditorCanvas({
 }) {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const overlayRef = useRef<HTMLCanvasElement>(null)
+    const activeRef = useRef(active)
+    activeRef.current = active
 
     const sessionRef = useRef<DocumentSession | null>(null)
     const storeRef = useRef<EditorStore | null>(null)
@@ -65,9 +71,11 @@ export function EditorCanvas({
     const playbackRef = useRef<PlaybackController | null>(null)
     const actionsRef = useRef<DocumentActions | null>(null)
 
-    sessionRef.current ??= new DocumentSession(sprite, {
-        target: { layer: initialLayer, frame: initialFrame },
-    })
+    sessionRef.current ??=
+        providedSession ??
+        new DocumentSession(sprite, {
+            target: { layer: initialLayer, frame: initialFrame },
+        })
     storeRef.current ??= new EditorStore()
     readoutRef.current ??= new ReadoutStore(initialProjectNotice ?? null)
 
@@ -133,7 +141,16 @@ export function EditorCanvas({
         const overlay = overlayRef.current
         if (!canvas || !overlay) return
 
-        const editor = startEditor(canvas, overlay, session, store, readout, layers, playback)
+        const editor = startEditor(
+            canvas,
+            overlay,
+            session,
+            store,
+            readout,
+            layers,
+            playback,
+            () => activeRef.current,
+        )
         editorRef.current = editor
 
         return () => {
@@ -276,8 +293,22 @@ export function EditorCanvas({
     )
 
     return (
-        <div class={styles.editor}>
+        <div class={styles.editor} data-compact={mobile ? 'true' : 'false'}>
             {!mobile && toolbar}
+            <PaintControls
+                store={store}
+                readout={readout}
+                palette={sprite.palette}
+                onOpenStudio={() => {
+                    show('studio')
+                }}
+                onOpenPalette={() => {
+                    show('palette')
+                }}
+                onClearSelection={() => {
+                    editorRef.current?.clearSelection()
+                }}
+            />
             <main class={styles.workspace}>
                 <div class={styles.canvasStack}>
                     <canvas
@@ -328,17 +359,6 @@ export function EditorCanvas({
                     revision={layers}
                 />
             )}
-            <PaletteBar
-                palette={sprite.palette}
-                store={store}
-                revision={layers}
-                onOpenStudio={() => {
-                    show('studio')
-                }}
-                onOpenPalette={() => {
-                    show('palette')
-                }}
-            />
             <StatusBar
                 sprite={sprite}
                 target={session.target}
@@ -353,16 +373,33 @@ export function EditorCanvas({
                 }}
             />
 
+            {mobile && sheet === 'frames' && (
+                <section
+                    class={styles.dockSection}
+                    aria-label="Frames and playback"
+                    data-testid="mobile-frames-section"
+                >
+                    <Timeline
+                        frames={frames}
+                        playback={playback}
+                        target={session.target}
+                        store={store}
+                        revision={layers}
+                    />
+                </section>
+            )}
+
             {mobile && (
                 <MobileActions
                     store={store}
                     readout={readout}
                     layersOpen={layersOpen}
+                    framesOpen={sheet === 'frames'}
                     onToolOptions={() => {
                         setSheet('options')
                     }}
                     onFrames={() => {
-                        setSheet('frames')
+                        setSheet((current) => (current === 'frames' ? null : 'frames'))
                     }}
                     onFile={() => {
                         setSheet('file')
@@ -383,23 +420,6 @@ export function EditorCanvas({
                     }}
                 >
                     <ToolOptions store={store} />
-                </MobileSheet>
-            )}
-
-            {mobile && sheet === 'frames' && (
-                <MobileSheet
-                    title="Frames"
-                    onClose={() => {
-                        setSheet(null)
-                    }}
-                >
-                    <Timeline
-                        frames={frames}
-                        playback={playback}
-                        target={session.target}
-                        store={store}
-                        revision={layers}
-                    />
                 </MobileSheet>
             )}
 

@@ -123,15 +123,11 @@
         display: none;
     }
 
-    /* Nothing in a status bar may wrap: the title is the only item allowed to
-       give ground, and it has an ellipsis to give it with. */
     .statusbar > * {
         flex: none;
         white-space: nowrap;
     }
 
-    /* The export filename comes from this, so it cannot be desktop-only. The
-       document size steps aside for it; the Size dialog still carries it. */
     .docTitle {
         flex: 0 1 auto;
         min-width: 4ch;
@@ -142,7 +138,6 @@
         display: none;
     }
 
-    /* The toolbar's brush stepper is on screen too; one of them is enough. */
     .brushSize {
         display: none;
     }

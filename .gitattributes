@@ -1,0 +1,8 @@
+* text=auto eol=lf
+
+core/src/fixtures/** -text
+
+*.png binary
+*.gif binary
+*.jpg binary
+*.woff2 binary

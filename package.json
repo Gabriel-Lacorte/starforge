@@ -14,7 +14,7 @@
         "test:watch": "vitest",
         "lint": "prettier --check . && eslint . && npm run -s lint:types",
         "lint:types": "tsc -p core --noEmit && tsc -b client && tsc -p tsconfig.e2e.json",
-        "format": "prettier --write .",
+        "lint:format": "prettier --write .",
         "bench": "vitest bench --run && npm run -s bench:render",
         "bench:render": "playwright test --project=bench --reporter=list"
     },

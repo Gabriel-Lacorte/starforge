@@ -11,6 +11,5 @@ coverage/
 *.log
 npm-debug.log*
 test-results/
-playwright-report/
 relay/data/*.sqlite
 relay/data/*.sqlite-*

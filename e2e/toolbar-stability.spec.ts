@@ -7,7 +7,7 @@ test('switching tools never resizes the canvas', async ({ page }) => {
 
     const size = () =>
         page.evaluate(() => {
-            const canvas = document.querySelector('[data-testid="canvas"]') as HTMLCanvasElement
+            const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="canvas"]')!
             return `${canvas.width}x${canvas.height}`
         })
 

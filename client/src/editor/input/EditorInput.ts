@@ -16,7 +16,7 @@ import type { EditorStore } from '../store'
 import type { Mods } from '../tools'
 import { panBy, stepZoom } from '../view'
 import { isGestureTool } from '../tools/registry'
-import { brushStepForKey, toolForKey } from './keymap'
+import { brushStepForKey, selectionModeForKey, toolForKey } from './keymap'
 import { SelectionInput } from './selectionInput'
 import { WheelZoom } from './wheelZoom'
 
@@ -442,6 +442,12 @@ export class EditorInput {
         if (step) {
             const size = Math.max(1, Math.min(BRUSH_MAX_SIZE, store.state.brushSize + step))
             store.patch({ brushSize: size })
+            return
+        }
+
+        const selectionMode = selectionModeForKey(key)
+        if (selectionMode) {
+            store.patch({ selectionMode })
             return
         }
 

@@ -60,4 +60,26 @@ describe('SelectionInput modes', () => {
         expect(selection.contains(1, 1)).toBe(false)
         input.dispose()
     })
+
+    it('clears the active selection on Delete and ignores it when empty', () => {
+        const { input, selection } = setup()
+        const del = (overrides: Partial<KeyboardEvent> = {}) =>
+            ({
+                key: 'Delete',
+                ctrlKey: false,
+                metaKey: false,
+                altKey: false,
+                shiftKey: false,
+                preventDefault: () => undefined,
+                ...overrides,
+            }) as KeyboardEvent
+        expect(input.keyDown(del())).toBe(false)
+
+        selection.beginMarquee(0, 0)
+        selection.endMarquee(2, 2)
+        expect(selection.active).toBe(true)
+        expect(input.keyDown(del())).toBe(true)
+        expect(selection.active).toBe(false)
+        input.dispose()
+    })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { brushStepForKey, toolForKey } from './keymap'
+import { brushStepForKey, selectionModeForKey, toolForKey } from './keymap'
 
 describe('toolForKey', () => {
     it('maps the static tool shortcuts', () => {
@@ -27,5 +27,20 @@ describe('brushStepForKey', () => {
         expect(brushStepForKey('[')).toBe(-1)
         expect(brushStepForKey(']')).toBe(1)
         expect(brushStepForKey('b')).toBeNull()
+    })
+})
+
+describe('selectionModeForKey', () => {
+    it('maps digits to touch-friendly selection modes', () => {
+        expect(selectionModeForKey('1')).toBe('replace')
+        expect(selectionModeForKey('2')).toBe('add')
+        expect(selectionModeForKey('3')).toBe('subtract')
+        expect(selectionModeForKey('4')).toBe('intersect')
+    })
+
+    it('returns null for tool shortcuts and anything else', () => {
+        expect(selectionModeForKey('m')).toBeNull()
+        expect(selectionModeForKey('x')).toBeNull()
+        expect(selectionModeForKey('5')).toBeNull()
     })
 })

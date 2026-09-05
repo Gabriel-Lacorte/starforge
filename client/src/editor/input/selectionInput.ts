@@ -132,6 +132,12 @@ export class SelectionInput {
             return true
         }
 
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault()
+            selection.deselect()
+            return true
+        }
+
         return false
     }
 }

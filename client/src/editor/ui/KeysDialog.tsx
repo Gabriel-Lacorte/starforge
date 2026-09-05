@@ -56,11 +56,22 @@ const GROUPS: readonly Group[] = [
         ],
     },
     {
+        name: 'Paint',
+        rows: [
+            { keys: 'X', what: 'Swap foreground and background' },
+            { keys: 'D', what: 'Reset to the default colours' },
+            { keys: '1  2  3  4', what: 'Selection mode: replace, add, subtract, intersect' },
+        ],
+    },
+    {
         name: 'Selection',
         rows: [
             { keys: 'Drag', what: 'Marquee, then drag inside it to move' },
+            { keys: 'Shift drag', what: 'Add to the selection' },
+            { keys: 'Alt drag', what: 'Subtract from the selection' },
             { keys: 'Arrows', what: 'Nudge by one pixel' },
             { keys: 'Enter', what: 'Stamp it down' },
+            { keys: 'Delete', what: 'Stamp it down and clear the selection' },
             { keys: 'Esc', what: 'Drop it without stamping' },
         ],
     },

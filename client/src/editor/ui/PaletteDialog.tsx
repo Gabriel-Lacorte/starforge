@@ -34,7 +34,17 @@ export function PaletteDialog({
     const colors = palette.palette.colors
     const index = Math.min(selected, colors.length - 1)
     const [draft, setDraft] = useState<RGBA>(() => hexToRgba(colors[0] ?? '#ffffff'))
+    const lastSelected = useRef(colors[0] ?? '#ffffff')
     const draftHex = rgbaToHex(draft)
+    const selectedHex = colors[index]
+    if (
+        selectedHex !== undefined &&
+        selectedHex !== lastSelected.current &&
+        draftHex === lastSelected.current
+    ) {
+        lastSelected.current = selectedHex
+        setDraft(hexToRgba(selectedHex))
+    }
     const duplicate = colors.includes(draftHex)
     const unchanged = colors[index] === draftHex
 
@@ -42,6 +52,7 @@ export function PaletteDialog({
         setSelected(at)
         const hex = colors[at]
         if (hex !== undefined) {
+            lastSelected.current = hex
             setDraft(hexToRgba(hex))
             store.pickColor(hexToRgba(hex))
         }
@@ -170,7 +181,11 @@ export function PaletteDialog({
                             disabled={colors.length <= 1}
                             onClick={() => {
                                 palette.remove(index)
-                                setSelected(clamp(index, colors.length - 1))
+                                const next = clamp(index, colors.length - 1)
+                                setSelected(next)
+                                const after = colors.filter((_, at) => at !== index)
+                                const following = after[clamp(next, after.length - 1)]
+                                if (following !== undefined) lastSelected.current = following
                             }}
                         >
                             <TrashIcon />
@@ -230,7 +245,10 @@ export function PaletteDialog({
                             aria-label="Replace selected colour"
                             data-testid="palette-replace"
                             disabled={unchanged}
-                            onClick={() => palette.setColor(index, draft)}
+                            onClick={() => {
+                                palette.setColor(index, draft)
+                                lastSelected.current = draftHex
+                            }}
                         >
                             Replace selected
                         </button>

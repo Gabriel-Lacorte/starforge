@@ -15,6 +15,50 @@ test('selection modes are available without keyboard modifiers', async ({ page }
     )
 })
 
+test('keyboard drives selection modes and clears', async ({ page }) => {
+    await openEditor(page)
+    await page.getByRole('button', { name: 'Select', exact: true }).click()
+
+    const modes = page.getByTestId('selection-modes')
+    await page.keyboard.press('2')
+    await expect(modes.getByRole('button', { name: 'Add to selection' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+    )
+
+    const canvas = page.getByTestId('canvas')
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('canvas is not visible')
+    await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.3)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.6, { steps: 8 })
+    await page.mouse.up()
+    await expect(page.getByTestId('selection-active')).toBeVisible()
+
+    await page.keyboard.press('Delete')
+    await expect(page.getByTestId('selection-active')).toBeHidden()
+})
+
+test('importing a palette while the editor is open keeps the draft coherent', async ({ page }) => {
+    await openEditor(page)
+    await page.getByTestId('open-palette').click()
+    const dialog = page.getByTestId('palette-dialog')
+    await expect(dialog).toBeVisible()
+
+    await dialog.locator('input[type="file"]').setInputFiles([
+        {
+            name: 'fresh.txt',
+            mimeType: 'text/plain',
+            buffer: Buffer.from('#111111\n#222222\n'),
+        },
+    ])
+    await expect(dialog.getByTestId('palette-name')).toHaveValue('fresh')
+    await expect(dialog.getByTestId('palette-swatch')).toHaveCount(2)
+    // Pristine draft follows the new selection, so Add stays correctly disabled.
+    await expect(dialog.getByTestId('palette-add')).toBeDisabled()
+    await expect(dialog).toBeVisible()
+})
+
 test('tablet portrait uses the compact controls without wrapping tools', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 })
     await openEditor(page)

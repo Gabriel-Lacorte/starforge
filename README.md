@@ -1,6 +1,6 @@
 # Starforge
 
-[Open the editor](https://starforge.lacorte.city). A Pixel Art & animation studio in your browser.
+[Open](https://starforge.lacorte.city) the Pixel Art & animation studio in your browser.
 
 ![Drawing and animating in Starforge](docs/media/hero.gif)
 

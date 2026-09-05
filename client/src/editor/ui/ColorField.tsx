@@ -72,7 +72,7 @@ export function ColorField({
     }
 
     return (
-        <div data-testid="color-field">
+        <div class={styles.form} data-testid="color-field">
             <div class={styles.field}>
                 <div
                     ref={areaRef}
@@ -179,23 +179,27 @@ export function ColorField({
 
             <div class={styles.recent}>
                 <span class="dim">recent</span>
-                <div class={styles.recentRow} data-testid="recent-colors">
-                    {recentColors.map((color) => (
-                        <button
-                            key={color}
-                            type="button"
-                            class={`chip chip-empty ${styles.recentChip}`}
-                            style={{
-                                backgroundImage: `linear-gradient(${rgbaToHex(color)}, ${rgbaToHex(color)})`,
-                            }}
-                            title={rgbaToHex(color)}
-                            aria-label={`Recent color ${rgbaToHex(color)}`}
-                            onClick={() => {
-                                setColor(color)
-                            }}
-                        />
-                    ))}
-                </div>
+                {recentColors.length === 0 ? (
+                    <span class={styles.recentEmpty}>pick colours and they show up here</span>
+                ) : (
+                    <div class={styles.recentRow} data-testid="recent-colors">
+                        {recentColors.map((color) => (
+                            <button
+                                key={color}
+                                type="button"
+                                class={`chip chip-empty ${styles.recentChip}`}
+                                style={{
+                                    backgroundImage: `linear-gradient(${rgbaToHex(color)}, ${rgbaToHex(color)})`,
+                                }}
+                                title={rgbaToHex(color)}
+                                aria-label={`Recent color ${rgbaToHex(color)}`}
+                                onClick={() => {
+                                    setColor(color)
+                                }}
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     )

@@ -1,5 +1,5 @@
 .dialog {
-    width: min(280px, calc(100vw - 24px));
+    width: min(320px, calc(100vw - 24px));
     margin: auto;
     padding: 0;
     color: var(--text);
@@ -24,19 +24,25 @@
 .body {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 10px;
+    gap: 12px;
+    padding: 12px;
 }
 
 .field {
     display: flex;
-    gap: 8px;
+    gap: 10px;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .area {
     position: relative;
     flex: 1;
-    height: 132px;
+    height: 160px;
     background-image:
         linear-gradient(to top, #000000, transparent),
         linear-gradient(to right, #ffffff, var(--pure));
@@ -84,14 +90,14 @@
     appearance: none;
     -webkit-appearance: none;
     width: 5px;
-    height: 130px;
+    height: 158px;
     background: var(--text);
     border: 1px solid var(--bg);
 }
 
 .track input::-moz-range-thumb {
     width: 5px;
-    height: 130px;
+    height: 158px;
     background: var(--text);
     border: 1px solid var(--bg);
     border-radius: 0;
@@ -99,7 +105,7 @@
 
 .hue {
     width: var(--target);
-    height: 132px;
+    height: 160px;
     background-image: linear-gradient(
         to bottom,
         #ff0000,
@@ -153,15 +159,22 @@
 
 .numbers {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
 }
 
-.hexField,
+.hexField {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: var(--dim);
+}
+
 .channel {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     min-width: 0;
     color: var(--dim);
 }
@@ -176,7 +189,7 @@
     min-width: 0;
     width: 100%;
     min-height: var(--target);
-    padding: 2px 4px;
+    padding: 4px 8px;
     color: var(--text);
     background: var(--bg);
     border: 1px solid var(--line);
@@ -194,15 +207,21 @@
 
 .recent {
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
+    align-items: center;
+    gap: 10px;
 }
 
 .recentRow {
     display: flex;
+    flex: 1;
     flex-wrap: wrap;
-    gap: 3px;
+    gap: 4px;
     min-height: var(--target);
+}
+
+.recentEmpty {
+    color: var(--dim);
+    line-height: var(--target);
 }
 
 .recentChip {
@@ -215,14 +234,14 @@
 .actions {
     display: flex;
     justify-content: space-between;
-    gap: 6px;
-    padding: 8px 10px;
+    gap: 8px;
+    padding: 10px 12px;
     border-top: 1px solid var(--line);
 }
 
 .action {
     min-height: var(--target);
-    padding: 0 12px;
+    padding: 0 16px;
     color: var(--text);
     background: var(--face);
     border: 1px solid var(--line);
@@ -285,9 +304,5 @@
         max-width: none;
         margin: auto 0 0;
         border-width: 1px 0 0;
-    }
-
-    .numbers {
-        grid-template-columns: repeat(4, 1fr);
     }
 }

@@ -4,16 +4,18 @@
     "type": "module",
     "workspaces": [
         "core",
-        "client"
+        "client",
+        "relay"
     ],
     "scripts": {
         "dev": "npm run dev -w client",
+        "relay": "vite-node relay/src/main.ts",
         "build": "npm run build -w client",
         "test": "vitest run",
         "test:e2e": "playwright test --project=chromium",
         "test:watch": "vitest",
         "lint": "prettier --check . && eslint . && npm run -s lint:types",
-        "lint:types": "tsc -p core --noEmit && tsc -b client && tsc -p tsconfig.e2e.json",
+        "lint:types": "tsc -p core --noEmit && tsc -b client && tsc -p tsconfig.e2e.json && tsc -p relay --noEmit",
         "lint:format": "prettier --write .",
         "bench": "vitest bench --run && npm run -s bench:render",
         "bench:render": "playwright test --project=bench --reporter=list"
@@ -27,6 +29,7 @@
         "prettier": "^3.9.6",
         "typescript": "~6.0.3",
         "typescript-eslint": "^8.66.0",
+        "vite-node": "^6.0.0",
         "vitest": "^4.0.0"
     }
 }

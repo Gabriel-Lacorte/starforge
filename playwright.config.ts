@@ -28,11 +28,19 @@ export default defineConfig({
         },
     ],
 
-    /* the editor needs the dev build: the bench handle only exists there */
-    webServer: {
-        command: `npm run dev -w client -- --port ${PORT} --strictPort`,
-        url: BASE_URL,
-        reuseExistingServer: !process.env.CI,
-        stdout: 'ignore',
-    },
+    webServer: [
+        {
+            command: `npm run dev -w client -- --port ${PORT} --strictPort`,
+            url: BASE_URL,
+            reuseExistingServer: !process.env.CI,
+            stdout: 'ignore',
+        },
+        {
+            command: 'npm run relay',
+            port: 8131,
+            reuseExistingServer: !process.env.CI,
+            stdout: 'ignore',
+            env: { PORT: '8131' },
+        },
+    ],
 })

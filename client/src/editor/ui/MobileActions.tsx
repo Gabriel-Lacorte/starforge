@@ -1,9 +1,22 @@
 import type { ReadoutStore } from '../readout'
 import type { EditorStore } from '../store'
-import { FileIcon, PanelIcon, PlayIcon, RedoIcon, TOOL_ICON, UndoIcon } from './icons'
+import { ZOOM_LEVELS } from '../view'
+import {
+    FileIcon,
+    KeysIcon,
+    PanelIcon,
+    PlayIcon,
+    PlusIcon,
+    RedoIcon,
+    TOOL_ICON,
+    UndoIcon,
+} from './icons'
 import { blurOnPointer } from './blurOnPointer'
 import { useStore } from './useStore'
 import styles from './MobileActions.module.css'
+
+const ZOOM_MIN = ZOOM_LEVELS[0]
+const ZOOM_MAX = ZOOM_LEVELS[ZOOM_LEVELS.length - 1]!
 
 export function MobileActions({
     store,
@@ -15,6 +28,8 @@ export function MobileActions({
     onFile,
     onToggleLayers,
     onHistory,
+    onZoom,
+    onKeys,
 }: {
     store: EditorStore
     readout: ReadoutStore
@@ -25,11 +40,12 @@ export function MobileActions({
     onFile: () => void
     onToggleLayers: () => void
     onHistory: (direction: 'undo' | 'redo') => void
+    onZoom: (direction: 1 | -1) => void
+    onKeys: () => void
 }) {
     const state = useStore(store)
-    const { canUndo, canRedo } = useStore(readout)
+    const { canUndo, canRedo, zoom } = useStore(readout)
     const ToolIcon = TOOL_ICON[state.tool]
-
     return (
         <div class={`bar ${styles.actions}`}>
             <button
@@ -90,6 +106,44 @@ export function MobileActions({
                 onClick={onFrames}
             >
                 <PlayIcon />
+            </button>
+            <button
+                type="button"
+                class={styles.btn}
+                aria-label="Zoom out"
+                data-testid="mobile-zoom-out"
+                disabled={zoom <= ZOOM_MIN}
+                onClick={(e) => {
+                    onZoom(-1)
+                    blurOnPointer(e)
+                }}
+            >
+                -
+            </button>
+            <button
+                type="button"
+                class={styles.btn}
+                aria-label="Zoom in"
+                data-testid="mobile-zoom-in"
+                disabled={zoom >= ZOOM_MAX}
+                onClick={(e) => {
+                    onZoom(1)
+                    blurOnPointer(e)
+                }}
+            >
+                <PlusIcon />
+            </button>
+            <button
+                type="button"
+                class={styles.btn}
+                aria-label="Keys and gestures"
+                data-testid="mobile-keys"
+                onClick={(e) => {
+                    onKeys()
+                    blurOnPointer(e)
+                }}
+            >
+                <KeysIcon />
             </button>
             <button
                 type="button"

@@ -416,6 +416,8 @@ export function EditorCanvas({
                         toggleLayers(!layersOpen)
                     }}
                     onHistory={(direction) => editorRef.current?.history(direction)}
+                    onZoom={(direction) => editorRef.current?.zoom(direction)}
+                    onKeys={() => show('keys')}
                 />
             )}
 

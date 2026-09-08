@@ -117,6 +117,24 @@ export default defineConfig(
         },
     },
     {
+        files: ['relay/src/**/*.ts'],
+        ignores: ['relay/src/**/*.test.ts'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    patterns: [
+                        {
+                            regex: '^(?!node:|@starforge/core|\\.)',
+                            message:
+                                'The relay has zero dependencies: node builtins, @starforge/core, and its own modules only.',
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    {
         files: ['**/*.test.ts'],
         rules: {
             '@typescript-eslint/no-non-null-assertion': 'off',

@@ -1,0 +1,14 @@
+{
+    "name": "@starforge/relay",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "start": "vite-node src/main.ts"
+    },
+    "dependencies": {
+        "@starforge/core": "*"
+    },
+    "devDependencies": {
+        "@types/node": "^24.13.3"
+    }
+}

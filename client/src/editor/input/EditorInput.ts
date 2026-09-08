@@ -17,6 +17,7 @@ import type { Mods } from '../tools'
 import { panBy, stepZoom } from '../view'
 import { isGestureTool } from '../tools/registry'
 import { brushStepForKey, selectionModeForKey, toolForKey } from './keymap'
+import { pinchStepForRatio } from './pinch'
 import { SelectionInput } from './selectionInput'
 import { WheelZoom } from './wheelZoom'
 
@@ -182,8 +183,9 @@ export class EditorInput {
         const anchor = viewport.toCanvas(midX, midY)
 
         const ratio = this.#pinchDistance === 0 ? 1 : distance / this.#pinchDistance
-        if (ratio > Math.SQRT2 || ratio < Math.SQRT1_2) {
-            stepZoom(viewport.view, ratio > 1 ? 1 : -1, anchor.x, anchor.y)
+        const step = pinchStepForRatio(ratio)
+        if (step !== 0) {
+            stepZoom(viewport.view, step, anchor.x, anchor.y)
             this.#pinchDistance = distance
             readout.patch({ zoom: viewport.view.zoom })
         }

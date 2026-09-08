@@ -1,4 +1,5 @@
 export type { SiteId, Stamp } from './stamp'
+export { isNewer, packStamp, stampLamport, stampSite } from './stamp'
 export {
     GeometryLockedError,
     Replica,

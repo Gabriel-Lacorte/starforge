@@ -16,6 +16,7 @@ Requires Node 20.19+.
 ```bash
 npm install
 npm run dev        # editor at localhost:5173
+npm run relay      # multiplayer relay at localhost:8131 (open /dev/net twice)
 npm run build      # production bundle
 npm test           # unit and property tests
 npm run test:e2e   # playwright: draw, reload, export
@@ -27,10 +28,11 @@ npm run lint       # prettier + eslint + tsc
 
 An npm workspace with two packages, split by what they are allowed to know:
 
-| Package   | Contains                                                                                                            | Depends on |
-| --------- | ------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `core/`   | document model, operations with inverses, ink kernels, flood fill, geometry, masks, frames, palettes, serialization | nothing    |
-| `client/` | canvas engine, tools, compositor, controllers, UI, storage                                                          | `core`     |
+| Package   | Contains                                                                                                                        | Depends on       |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `core/`   | document model, operations with inverses, ink kernels, flood fill, geometry, masks, frames, palettes, serialization, wire codec | nothing          |
+| `client/` | canvas engine, tools, compositor, controllers, UI, storage                                                                      | `core`           |
+| `relay/`  | WebSocket relay (handshake, framing, ephemeral broadcast room)                                                                  | `core`, `node:*` |
 
 ## Roadmap
 
@@ -40,11 +42,11 @@ palettes and the Color Studio, a hand-rolled GIF89a + LZW encoder with
 median-cut quantization and a live export preview, spritesheets, project
 files and portable PNG, documents that survive a reload.
 
-**In progress**: the multiplayer CRDT core (LWW per cell with Lamport clocks).
+**In progress**: relay running locally with ephemeral broadcast.
 
 **Next**:
 
-- a WebSocket relay and shareable rooms
+- shareable rooms
 - WebGL filters
 - a public gallery?
 

@@ -16,7 +16,6 @@ Requires Node 20.19+.
 ```bash
 npm install
 npm run dev        # editor at localhost:5173
-npm run relay      # multiplayer relay at localhost:8131 (open /dev/net twice)
 npm run build      # production bundle
 npm test           # unit and property tests
 npm run test:e2e   # playwright: draw, reload, export
@@ -24,15 +23,18 @@ npm run bench      # ink kernels on node, compositor in the browser
 npm run lint       # prettier + eslint + tsc
 ```
 
+## Deploy
+
+The relay ships as one container; Pi setup, tunnel, and rollback are in [docs/deploy-pi.md](docs/deploy-pi.md).
+
 ## Architecture
 
 An npm workspace with two packages, split by what they are allowed to know:
 
-| Package   | Contains                                                                                                                        | Depends on       |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| `core/`   | document model, operations with inverses, ink kernels, flood fill, geometry, masks, frames, palettes, serialization, wire codec | nothing          |
-| `client/` | canvas engine, tools, compositor, controllers, UI, storage                                                                      | `core`           |
-| `relay/`  | WebSocket relay (handshake, framing, ephemeral broadcast room)                                                                  | `core`, `node:*` |
+| Package   | Contains                                                                                                            | Depends on |
+| --------- | ------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `core/`   | document model, operations with inverses, ink kernels, flood fill, geometry, masks, frames, palettes, serialization | nothing    |
+| `client/` | canvas engine, tools, compositor, controllers, UI, storage                                                          | `core`     |
 
 ## Roadmap
 
@@ -40,13 +42,16 @@ An npm workspace with two packages, split by what they are allowed to know:
 with per-frame duration, playback and onion skin, mirror drawing,
 palettes and the Color Studio, a hand-rolled GIF89a + LZW encoder with
 median-cut quantization and a live export preview, spritesheets, project
-files and portable PNG, documents that survive a reload.
+files and portable PNG, documents that survive a reload. Shareable rooms
+over a local WebSocket relay (`POST /api/rooms`, `/r/:id` links) with
+SQLite-backed history, presence, and catch-up/resync.
 
-**In progress**: relay running locally with ephemeral broadcast.
+**Live**: multiplayer rooms via the relay — per-author undo, reconnect
+outbox, rate limits, heartbeat, and a containerized deploy.
 
 **Next**:
 
-- shareable rooms
+- devlog 5 polish — tour, UI scale, CI, codec/merge optimizations
 - WebGL filters
 - a public gallery?
 

@@ -38,20 +38,19 @@ An npm workspace with two packages, split by what they are allowed to know:
 
 ## Roadmap
 
-**Shipped**: canvas engine, the tool set above, layers, a frame timeline
-with per-frame duration, playback and onion skin, mirror drawing,
-palettes and the Color Studio, a hand-rolled GIF89a + LZW encoder with
-median-cut quantization and a live export preview, spritesheets, project
-files and portable PNG, documents that survive a reload. Shareable rooms
-over a local WebSocket relay (`POST /api/rooms`, `/r/:id` links) with
-SQLite-backed history, presence, and catch-up/resync.
+**Shipped**: canvas engine, the tool set above, layers, a frame timeline,
+playback and onion skin, mirror drawing, palettes and the Color Studio,
+a hand-rolled GIF89a + LZW encoder with median-cut quantization and a live export preview, spritesheets,
+project files and portable PNG, documents that survive a reload. Shareable rooms over WebSocket relay with
+SQLite history, presence, and catch-up/resync.
 
-**Live**: multiplayer rooms via the relay — per-author undo, reconnect
+**Live**: multiplayer rooms via the relay, undo, reconnect
 outbox, rate limits, heartbeat, and a containerized deploy.
 
 **Next**:
 
-- devlog 5 polish — tour, UI scale, CI, codec/merge optimizations
+- a tour
+- codec/merge optimizations
 - WebGL filters
 - a public gallery?
 

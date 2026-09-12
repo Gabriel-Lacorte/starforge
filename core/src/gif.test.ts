@@ -277,7 +277,7 @@ describe('GIF encoder', () => {
         const parsed = parseGif(gif)
 
         expect(parsed.frames).toHaveLength(4)
-        expect(parsed.frames[1]!.delay).toBe(Math.max(2, Math.round(60 / 10))) // 60ms → 6cs
+        expect(parsed.frames[1]!.delay).toBe(Math.max(2, Math.round(60 / 10)))
 
         for (let f = 0; f < frames.length; f++) {
             const { indices, transparentIndex } = parsed.frames[f]!

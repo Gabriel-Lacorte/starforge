@@ -69,8 +69,6 @@ test('two real editors converge after reversed duplicate delivery', async ({ pag
         .poll(() => canvasFingerprint(rightCanvas))
         .toBe(await canvasFingerprint(leftCanvas))
 
-    // Central sweep: canvas letterbox around the fitted sprite maps the
-    // corners out of bounds, so keep post-delivery strokes near the middle.
     await stroke(page, leftCanvas, [0.4, 0.4], [0.55, 0.55])
     await expect(page.getByTestId('crdt-queue-count')).toHaveText('1')
 })

@@ -99,7 +99,6 @@ async function run() {
     await browser.close()
     console.log(`> captured ${n} frames`)
 
-    // ── ffmpeg: build palette then GIF ──
     const palette = join(TMP, 'palette.png')
     console.log('> building palette')
     execFileSync(

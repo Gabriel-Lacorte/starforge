@@ -1,14 +1,19 @@
 import { expect, test } from '@playwright/test'
-import { canvasFingerprint } from './editor'
+import { canvasFingerprint, painted } from './editor'
 
-test('two browsers converge through the hand-rolled relay', async ({ browser }) => {
+test('two browsers converge through the hand-rolled relay', async ({ browser, request }) => {
+    const created = await request.post('/api/rooms', {
+        data: { title: 'netlab', width: 64, height: 64 },
+    })
+    expect(created.ok()).toBe(true)
+    const { id } = (await created.json()) as { id: string }
     const first = await browser.newContext()
     const second = await browser.newContext()
     const a = await first.newPage()
     const b = await second.newPage()
     try {
-        await a.goto('/dev/net')
-        await b.goto('/dev/net')
+        await a.goto(`/dev/net?room=${id}`)
+        await b.goto(`/dev/net?room=${id}`)
         const canvasA = a.getByTestId('canvas')
         const canvasB = b.getByTestId('canvas')
         await expect(canvasA).toBeVisible()
@@ -18,7 +23,11 @@ test('two browsers converge through the hand-rolled relay', async ({ browser }) 
 
         const boxA = await canvasA.boundingBox()
         const boxB = await canvasB.boundingBox()
-        if (!boxA || !boxB) throw new Error('lab canvas is not visible')
+        if (!boxA || !boxB || boxA.width === 0 || boxB.width === 0)
+            throw new Error('lab canvas is not visible')
+        await painted(a)
+        await painted(b)
+        const blank = await canvasFingerprint(canvasA)
         await a.mouse.move(boxA.x + boxA.width * 0.4, boxA.y + boxA.height * 0.5)
         await a.mouse.down()
         await a.mouse.move(boxA.x + boxA.width * 0.6, boxA.y + boxA.height * 0.5, { steps: 12 })
@@ -27,8 +36,24 @@ test('two browsers converge through the hand-rolled relay', async ({ browser }) 
         await b.mouse.down()
         await b.mouse.move(boxB.x + boxB.width * 0.5, boxB.y + boxB.height * 0.6, { steps: 12 })
         await b.mouse.up()
-
-        await expect.poll(() => canvasFingerprint(canvasB)).toBe(await canvasFingerprint(canvasA))
+        await painted(a)
+        await painted(b)
+        await expect
+            .poll(async () => canvasFingerprint(canvasA), { timeout: 15000 })
+            .not.toBe(blank)
+        await expect
+            .poll(async () => canvasFingerprint(canvasB), { timeout: 15000 })
+            .not.toBe(blank)
+        await expect
+            .poll(
+                async () => {
+                    const left = await canvasFingerprint(canvasA)
+                    const right = await canvasFingerprint(canvasB)
+                    return left === right && left !== blank ? 'converged' : `${left}/${right}`
+                },
+                { timeout: 15000 },
+            )
+            .toBe('converged')
     } finally {
         await first.close()
         await second.close()

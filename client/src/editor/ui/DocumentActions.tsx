@@ -1,6 +1,7 @@
 import { useRef } from 'preact/hooks'
 import { STARFORGE_FILE_ACCEPT } from '../../project/projectFile'
 import {
+    DuplicateIcon,
     ExportIcon,
     FileIcon,
     KeysIcon,
@@ -24,6 +25,7 @@ export function DocumentActions({
     onSaveProject,
     onExport,
     onKeys,
+    onShare,
     onToggleLayers,
 }: {
     busy: boolean
@@ -36,6 +38,7 @@ export function DocumentActions({
     onSaveProject: () => void
     onExport: () => void
     onKeys: () => void
+    onShare?: () => void
     onToggleLayers: () => void
 }) {
     const projectInput = useRef<HTMLInputElement>(null)
@@ -147,6 +150,21 @@ export function DocumentActions({
                 <KeysIcon />
                 <span class={styles.wide}>Keys</span>
             </button>
+            {onShare ? (
+                <button
+                    type="button"
+                    class={styles.textBtn}
+                    title="Share this room"
+                    data-testid="share"
+                    onClick={(e) => {
+                        onShare()
+                        blurOnPointer(e)
+                    }}
+                >
+                    <DuplicateIcon />
+                    <span class={styles.wide}>Share</span>
+                </button>
+            ) : null}
             <button
                 type="button"
                 class={`${styles.textBtn}${layersOpen ? ` ${styles.on}` : ''}`}

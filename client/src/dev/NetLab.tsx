@@ -1,17 +1,23 @@
 import { useEffect, useState } from 'preact/hooks'
 import type { DocumentSession } from '../document/session'
 import { EditorCanvas } from '../editor/EditorCanvas'
-import { connectNet, type NetLink, type NetStatus } from './netDemo'
+import { wsBase, relayHttpBase } from '../net/wsBase'
+import { connectNet, createNetRoom, type NetLink, type NetStatus } from './netDemo'
 import styles from './NetLab.module.css'
 
-function relayUrl(): string {
+function relayWsUrl(): string {
     const params = new URLSearchParams(window.location.search)
-    return params.get('relay') ?? 'ws://localhost:8131/wire'
+    return wsBase(window.location.origin, params.get('relay'))
 }
 
 function nickname(): string {
     const params = new URLSearchParams(window.location.search)
     return params.get('nick') ?? `painter-${String(Math.floor(Math.random() * 9000) + 1000)}`
+}
+
+function roomParam(): string | null {
+    const id = new URLSearchParams(window.location.search).get('room')
+    return id === null || id === '' ? null : id
 }
 
 export function NetLab() {
@@ -20,13 +26,27 @@ export function NetLab() {
     const [epoch, setEpoch] = useState(0)
 
     useEffect(() => {
-        let cancelled = false
+        const alive = { current: true }
         let active: NetLink | null = null
         setStatus({ phase: 'connecting', site: 0, error: null })
         setLink(null)
-        connectNet(relayUrl(), { room: 'lab', nickname: nickname(), color: 0xffcc33ff })
-            .then((net) => {
-                if (cancelled) {
+        const wsUrl = relayWsUrl()
+        void (async () => {
+            try {
+                const room =
+                    roomParam() ??
+                    (await createNetRoom(relayHttpBase(wsUrl), {
+                        title: 'netlab',
+                        width: 64,
+                        height: 64,
+                    }))
+
+                const net = await connectNet(wsUrl, {
+                    room,
+                    nickname: nickname(),
+                    color: 0xffcc33ff,
+                })
+                if (!alive.current) {
                     net.close()
                     return
                 }
@@ -36,17 +56,17 @@ export function NetLab() {
                 net.subscribe(() => {
                     setStatus({ ...net.status() })
                 })
-            })
-            .catch((error: unknown) => {
-                if (cancelled) return
+            } catch (error: unknown) {
+                if (!alive.current) return
                 setStatus({
                     phase: 'closed',
                     site: 0,
                     error: error instanceof Error ? error.message : 'could not reach the relay',
                 })
-            })
+            }
+        })()
         return () => {
-            cancelled = true
+            alive.current = false
             active?.close()
         }
     }, [epoch])

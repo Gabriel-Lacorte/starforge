@@ -32,12 +32,14 @@ export function CanvasSizeDialog({
     onApply,
     onCrop,
     onCancel,
+    roomOpen = false,
 }: {
     current: { width: number; height: number }
     canCrop: boolean
     onApply: (choice: CanvasSizeChoice) => void
     onCrop: () => void
     onCancel: () => void
+    roomOpen?: boolean
 }) {
     const ref = useRef<HTMLDialogElement>(null)
     const [width, setWidth] = useState(String(current.width))
@@ -53,6 +55,38 @@ export function CanvasSizeDialog({
     const h = parseSize(height)
     const unchanged = w === current.width && h === current.height
     const ready = w !== null && h !== null && !unchanged
+
+    if (roomOpen) {
+        return (
+            <dialog
+                ref={ref}
+                class={styles.dialog}
+                aria-label="Canvas size"
+                data-testid="canvas-size-dialog"
+                onCancel={(e) => {
+                    e.preventDefault()
+                    onCancel()
+                }}
+                onClick={(e) => {
+                    if (e.target === ref.current) onCancel()
+                }}
+                onKeyDown={(e) => {
+                    e.stopPropagation()
+                }}
+            >
+                <header class={styles.header}>Canvas size</header>
+                <p class={styles.body} data-testid="room-size-locked">
+                    Canvas size is locked while the room is open.
+                </p>
+                <div class={styles.actions}>
+                    <span class={styles.spacer} />
+                    <button type="button" class={styles.action} onClick={onCancel}>
+                        Close
+                    </button>
+                </div>
+            </dialog>
+        )
+    }
 
     return (
         <dialog

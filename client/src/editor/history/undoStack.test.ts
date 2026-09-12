@@ -249,3 +249,49 @@ describe('UndoStack', () => {
         expect(getCel(sprite, layer, frame)!.pixels).toEqual(final)
     })
 })
+
+describe('UndoStack room primitives', () => {
+    it('exposes the forward and inverse operations of an entry', () => {
+        const { sprite, layer, frame } = sprite32()
+        const command = strokeAt(sprite, layer, frame, [[3, 3]], RED)
+        const entry = entryFor(command)!
+        const patch = command.writes().length > 0
+        expect(patch).toBe(true)
+        expect(entry.forward.kind).toBe('pixel.patch')
+        expect(entry.inverse.kind).toBe('pixel.patch')
+    })
+
+    it('takeUndo pops without pushing and tracks bytes', () => {
+        const { sprite, layer, frame } = sprite32()
+        const stack = new UndoStack()
+        const entry = pushStroke(stack, strokeAt(sprite, layer, frame, [[0, 0]], RED))!
+        const bytes = stack.bytes
+        expect(bytes).toBe(entry.bytes)
+
+        const taken = stack.takeUndo()
+        expect(taken).toBe(entry)
+        expect(stack.canUndo).toBe(false)
+        expect(stack.canRedo).toBe(false)
+        expect(stack.bytes).toBe(0)
+        expect(stack.takeUndo()).toBeNull()
+    })
+
+    it('pushRedo holds a consumed entry for redo and takeRedo returns it', () => {
+        const { sprite, layer, frame } = sprite32()
+        const stack = new UndoStack()
+        const entry = pushStroke(stack, strokeAt(sprite, layer, frame, [[1, 1]], RED))!
+        const taken = stack.takeUndo()!
+        expect(taken).toBe(entry)
+
+        stack.pushRedo(taken)
+        expect(stack.canUndo).toBe(false)
+        expect(stack.canRedo).toBe(true)
+        expect(stack.bytes).toBe(entry.bytes)
+
+        const retaken = stack.takeRedo()
+        expect(retaken).toBe(entry)
+        expect(stack.canRedo).toBe(false)
+        expect(stack.bytes).toBe(0)
+        expect(stack.takeRedo()).toBeNull()
+    })
+})

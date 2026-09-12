@@ -84,9 +84,11 @@ export class Replica {
     >()
     private pendingDependents: StampedOperation[] = []
     private readonly doc: Sprite
+    private readonly siteId: SiteId
 
     constructor(doc: Sprite, site: SiteId) {
         this.doc = doc
+        this.siteId = site
         this.clock = new LamportClock(site)
         this.layerOrder.seed(doc.layers.map(({ id }) => id))
         this.frameOrder.seed(doc.frames.map(({ id }) => id))
@@ -209,6 +211,28 @@ export class Replica {
         this.clock.observe(message.stamp)
         if (!this.registers.accept(key, message.stamp)) return emptyResult()
         return unchanged ? emptyResult() : result(null, [operation])
+    }
+
+    filterInverse(operation: DocumentOperation): DocumentOperation | null {
+        if (operation.kind === 'pixel.patch') return this.filterInversePixels(operation)
+        if (
+            operation.kind === 'layer.add' ||
+            operation.kind === 'layer.remove' ||
+            operation.kind === 'layer.move' ||
+            operation.kind === 'frame.add' ||
+            operation.kind === 'frame.remove' ||
+            operation.kind === 'frame.move'
+        )
+            return operation
+        if (
+            operation.kind === 'document.resize' ||
+            operation.kind === 'document.scale' ||
+            operation.kind === 'document.restore'
+        )
+            return null
+        const key = registerKey(operation)
+        if (!key) return null
+        return stampSite(this.registers.stamp(key)) === this.siteId ? operation : null
     }
 
     private receiveRebalance(message: OrderRebalance): ReplicaResult {
@@ -624,6 +648,37 @@ export class Replica {
             const current =
                 this.stampsFor(operation.layer, operation.frame)?.read(y * this.doc.width + x) ?? 0
             if (!isNewer(stamp, current)) continue
+
+            xs.push(x)
+            ys.push(y)
+            colors.push(operation.colors[index]!)
+        }
+
+        return xs.length === 0
+            ? null
+            : {
+                  kind: 'pixel.patch',
+                  layer: operation.layer,
+                  frame: operation.frame,
+                  xs: Uint16Array.from(xs),
+                  ys: Uint16Array.from(ys),
+                  colors: Uint32Array.from(colors),
+              }
+    }
+
+    private filterInversePixels(operation: PixelPatchOperation): PixelPatchOperation | null {
+        const xs: number[] = []
+        const ys: number[] = []
+        const colors: number[] = []
+
+        for (let index = 0; index < operation.xs.length; index++) {
+            const x = operation.xs[index]!
+            const y = operation.ys[index]!
+            if (!inBounds(this.doc, x, y)) continue
+
+            const current =
+                this.stampsFor(operation.layer, operation.frame)?.read(y * this.doc.width + x) ?? 0
+            if (stampSite(current) !== this.siteId) continue
 
             xs.push(x)
             ys.push(y)

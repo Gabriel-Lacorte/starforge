@@ -4,6 +4,7 @@ import {
     createFrame,
     createLayer,
     createSprite,
+    documentFingerprint,
     getPixel,
     insertLayer,
     rgba,
@@ -258,5 +259,167 @@ describe('DocumentSession target', () => {
 
         session.undo()
         expect(sprite.layers.some((layer) => layer.id === session.target.state.layer)).toBe(true)
+    })
+})
+
+describe('DocumentSession collaborative undo', () => {
+    it('publishes only the cells still owned on room undo', () => {
+        const sprite = createSprite({ width: 16, height: 16 })
+        const session = new DocumentSession(sprite)
+        const layer = sprite.layers[0]!.id
+        const frame = sprite.frames[0]!.id
+        const published: DocumentOperation[] = []
+        session.setCollaborative({
+            filter: (op) =>
+                op.kind === 'pixel.patch'
+                    ? {
+                          ...op,
+                          xs: op.xs.slice(0, 1),
+                          ys: op.ys.slice(0, 1),
+                          colors: op.colors.slice(0, 1),
+                      }
+                    : op,
+            publish: (op) => published.push(op),
+        })
+        session.apply('paint', {
+            kind: 'pixel.patch',
+            layer,
+            frame,
+            xs: Uint16Array.of(0, 1),
+            ys: Uint16Array.of(0, 0),
+            colors: Uint32Array.of(7, 7),
+        })
+        session.undo()
+        expect(published.length).toBe(1)
+        const first = published[0]!
+        expect(first.kind).toBe('pixel.patch')
+        if (first.kind === 'pixel.patch') expect(first.xs.length).toBe(1)
+        expect(session.canRedo).toBe(true)
+    })
+
+    it('consumes the entry and publishes nothing when the filter empties it', () => {
+        const sprite = createSprite({ width: 16, height: 16 })
+        const session = new DocumentSession(sprite)
+        const layer = sprite.layers[0]!.id
+        const frame = sprite.frames[0]!.id
+        const published: DocumentOperation[] = []
+        session.setCollaborative({
+            filter: () => null,
+            publish: (op) => published.push(op),
+        })
+        const before = documentFingerprint(sprite)
+        session.apply('paint', {
+            kind: 'pixel.patch',
+            layer,
+            frame,
+            xs: Uint16Array.of(0),
+            ys: Uint16Array.of(0),
+            colors: Uint32Array.of(7),
+        })
+        session.undo()
+        expect(published).toEqual([])
+        expect(documentFingerprint(sprite)).not.toBe(before)
+        expect(session.canUndo).toBe(false)
+        expect(session.canRedo).toBe(true)
+    })
+
+    it('consumes a stale room inverse instead of throwing into the UI', () => {
+        const sprite = createSprite({ width: 16, height: 16 })
+        const session = new DocumentSession(sprite)
+        const layer = sprite.layers[0]!.id
+        const frame = sprite.frames[0]!.id
+        const published: DocumentOperation[] = []
+        session.setCollaborative({
+            filter: () => ({ kind: 'layer.remove', layer: 'ghost' }),
+            publish: (op) => published.push(op),
+        })
+        session.apply('paint', {
+            kind: 'pixel.patch',
+            layer,
+            frame,
+            xs: Uint16Array.of(0),
+            ys: Uint16Array.of(0),
+            colors: Uint32Array.of(7),
+        })
+        expect(() => session.undo()).not.toThrow()
+        expect(published).toEqual([])
+        expect(session.canUndo).toBe(false)
+        expect(session.canRedo).toBe(true)
+    })
+
+    it('consumes a stale room redo instead of throwing into the UI', () => {
+        const sprite = createSprite({ width: 16, height: 16 })
+        const session = new DocumentSession(sprite)
+        const layer = sprite.layers[0]!.id
+        const frame = sprite.frames[0]!.id
+        const published: DocumentOperation[] = []
+        let stale = false
+        session.setCollaborative({
+            filter: (op) => (stale ? { kind: 'layer.remove', layer: 'ghost' } : op),
+            publish: (op) => published.push(op),
+        })
+        session.apply('paint', {
+            kind: 'pixel.patch',
+            layer,
+            frame,
+            xs: Uint16Array.of(0),
+            ys: Uint16Array.of(0),
+            colors: Uint32Array.of(7),
+        })
+        session.undo()
+        expect(published).toHaveLength(1)
+        stale = true
+        expect(() => session.redo()).not.toThrow()
+        expect(published).toHaveLength(1)
+        expect(session.canUndo).toBe(true)
+        expect(session.canRedo).toBe(false)
+    })
+
+    it('redoes two room undos in order without dropping the redo stack', () => {
+        const sprite = createSprite({ width: 16, height: 16 })
+        const session = new DocumentSession(sprite)
+        const layer = sprite.layers[0]!.id
+        const frame = sprite.frames[0]!.id
+        const published: DocumentOperation[] = []
+        session.setCollaborative({
+            filter: (op) => op,
+            publish: (op) => published.push(op),
+        })
+        session.apply('paint one', {
+            kind: 'pixel.patch',
+            layer,
+            frame,
+            xs: Uint16Array.of(0),
+            ys: Uint16Array.of(0),
+            colors: Uint32Array.of(7),
+        })
+        session.apply('paint two', {
+            kind: 'pixel.patch',
+            layer,
+            frame,
+            xs: Uint16Array.of(1),
+            ys: Uint16Array.of(0),
+            colors: Uint32Array.of(8),
+        })
+        const full = documentFingerprint(sprite)
+        session.undo()
+        session.undo()
+        expect(session.canUndo).toBe(false)
+        expect(session.canRedo).toBe(true)
+        expect(getPixel(sprite, layer, frame, 0, 0)).toBe(0)
+        expect(getPixel(sprite, layer, frame, 1, 0)).toBe(0)
+
+        session.redo()
+        expect(getPixel(sprite, layer, frame, 0, 0)).toBe(7)
+        expect(getPixel(sprite, layer, frame, 1, 0)).toBe(0)
+        expect(documentFingerprint(sprite)).not.toBe(full)
+
+        session.redo()
+        expect(getPixel(sprite, layer, frame, 0, 0)).toBe(7)
+        expect(getPixel(sprite, layer, frame, 1, 0)).toBe(8)
+        expect(documentFingerprint(sprite)).toBe(full)
+        expect(session.canUndo).toBe(true)
+        expect(session.canRedo).toBe(false)
+        expect(published.length).toBe(4)
     })
 })

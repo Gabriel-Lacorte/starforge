@@ -194,7 +194,7 @@ export function PaletteDialog({
 
                     <p class={styles.note}>
                         Removing a swatch leaves the colour you are painting with alone. Importing
-                        replaces the whole palette in one step, which one undo puts back.
+                        replaces the whole palette in one step, which undo puts back.
                     </p>
                 </div>
 

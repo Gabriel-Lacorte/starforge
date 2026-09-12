@@ -87,9 +87,11 @@
     position: absolute;
     z-index: 20;
     inset-inline-start: 12px;
-    bottom: calc(100% + 6px);
+    /* Floats above the single-row timeline (~56px) so it never covers
+    the frame reel; dismiss removes it entirely. */
+    bottom: calc(100% + 64px);
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 10px;
     max-width: min(620px, calc(100vw - 24px));
     padding: 7px 10px;
@@ -101,6 +103,43 @@
         inset 0 1px 0 var(--edge-lit),
         3px 3px 0 var(--shadow-float);
     pointer-events: none;
+}
+
+.noticeBtns {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.noticeBtn {
+    min-height: var(--target);
+    padding: 2px 8px;
+    font: inherit;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.noticeBtn:hover {
+    background: var(--face-hi);
+}
+
+.noticeBtn:active {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.noticeBtn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
 }
 
 .projectNoticeLabel {
@@ -152,6 +191,10 @@
         flex-direction: column;
         gap: 3px;
         max-width: none;
+    }
+
+    .noticeBtns {
+        margin-left: 0;
     }
 }
 

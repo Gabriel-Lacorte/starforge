@@ -23,6 +23,25 @@ export interface NetLink {
     close(): void
 }
 
+/**
+ * Creates a throwaway lab room on the relay and returns its id. The caller
+ * connects with `connectNet`; separating the two keeps the lab's Reset
+ * button (new room per epoch) a one-liner.
+ */
+export async function createNetRoom(
+    httpBase: string,
+    init: { title: string; width: number; height: number },
+): Promise<string> {
+    const response = await fetch(`${httpBase}/api/rooms`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(init),
+    })
+    if (!response.ok) throw new Error(`could not create a net room (${String(response.status)})`)
+    const data = (await response.json()) as { id: string }
+    return data.id
+}
+
 export function connectNet(
     url: string,
     opts: { room: string; nickname: string; color: number },

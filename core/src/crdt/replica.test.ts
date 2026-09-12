@@ -1026,3 +1026,52 @@ describe('Replica', () => {
         ).toEqual([{ kind: 'frame.setDuration', frame: 'frame-2', duration: 180 }])
     })
 })
+
+describe('filterInverse', () => {
+    it('keeps only the cells the site still owns', () => {
+        const doc = sprite()
+        const left = new Replica(doc, 1)
+        const op = {
+            kind: 'pixel.patch',
+            layer: 'layer-1',
+            frame: 'frame-1',
+            xs: Uint16Array.of(0, 1, 2),
+            ys: Uint16Array.of(0, 0, 0),
+            colors: Uint32Array.of(1, 1, 1),
+        } as const
+        left.publish(op)
+        const other = new Replica(doc, 2)
+        const steal = {
+            kind: 'pixel.patch',
+            layer: 'layer-1',
+            frame: 'frame-1',
+            xs: Uint16Array.of(1),
+            ys: Uint16Array.of(0),
+            colors: Uint32Array.of(9),
+        } as const
+        left.receive(other.publish(steal).message!)
+        const filtered = left.filterInverse({
+            ...op,
+            colors: Uint32Array.of(0, 0, 0),
+        }) as PixelPatchOperation | null
+        expect(filtered).not.toBeNull()
+        expect([...filtered!.xs]).toEqual([0, 2])
+    })
+
+    it('drops a register inverse stolen by someone else', () => {
+        const doc = sprite()
+        const left = new Replica(doc, 1)
+        left.publish({ kind: 'layer.set', layer: 'layer-1', prop: 'opacity', value: 10 })
+        const right = new Replica(doc, 2)
+        const msg = right.publish({
+            kind: 'layer.set',
+            layer: 'layer-1',
+            prop: 'opacity',
+            value: 20,
+        }).message!
+        left.receive(msg)
+        expect(
+            left.filterInverse({ kind: 'layer.set', layer: 'layer-1', prop: 'opacity', value: 10 }),
+        ).toBeNull()
+    })
+})

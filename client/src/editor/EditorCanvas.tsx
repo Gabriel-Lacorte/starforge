@@ -35,6 +35,8 @@ const DEFAULT_NEW = 64
 export function EditorCanvas({
     sprite,
     session: providedSession,
+    store: providedStore,
+    readout: providedReadout,
     active = true,
     library,
     storageNotice,
@@ -43,12 +45,16 @@ export function EditorCanvas({
     initialProjectNotice,
     initialLayersOpen,
     hideFileActions = false,
+    roomOpen = false,
+    onShare,
     onNew,
     onOpenStored,
     onOpenProject,
 }: {
     sprite: Sprite
     session?: DocumentSession
+    store?: EditorStore
+    readout?: ReadoutStore
     active?: boolean
     library: Library | null
     storageNotice: string | null
@@ -57,6 +63,8 @@ export function EditorCanvas({
     initialProjectNotice: ProjectNotice | null
     initialLayersOpen?: boolean
     hideFileActions?: boolean
+    roomOpen?: boolean
+    onShare?: () => void
     onNew: (width: number, height: number, title: string) => void
     onOpenStored: (document: OpenedDocument) => void
     onOpenProject: (project: DecodedProject, notice: ProjectNotice) => void
@@ -80,8 +88,8 @@ export function EditorCanvas({
         new DocumentSession(sprite, {
             target: { layer: initialLayer, frame: initialFrame },
         })
-    storeRef.current ??= new EditorStore()
-    readoutRef.current ??= new ReadoutStore(initialProjectNotice ?? null)
+    storeRef.current ??= providedStore ?? new EditorStore()
+    readoutRef.current ??= providedReadout ?? new ReadoutStore(initialProjectNotice ?? null)
 
     const session = sessionRef.current
     const store = storeRef.current
@@ -290,6 +298,7 @@ export function EditorCanvas({
             onKeys={() => {
                 show('keys')
             }}
+            onShare={onShare}
             onHistory={(direction) => editorRef.current?.history(direction)}
             onTransform={(kind) => editorRef.current?.transform(kind)}
             onCanvasSize={() => {
@@ -378,6 +387,13 @@ export function EditorCanvas({
                 onRename={(title) => {
                     session.rename(title)
                 }}
+                onNoticeExport={
+                    storageNotice
+                        ? () => {
+                              actions.exportPng()
+                          }
+                        : undefined
+                }
             />
 
             {mobile && sheet === 'frames' && (
@@ -487,6 +503,7 @@ export function EditorCanvas({
                 library={library}
                 shelf={shelf}
                 canCrop={editorRef.current?.hasSelection() ?? false}
+                roomOpen={roomOpen}
                 onNew={(width, height, title) => {
                     closeDialog()
                     startFresh(width, height, title)

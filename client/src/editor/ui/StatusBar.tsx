@@ -8,6 +8,7 @@ import type { ReadoutStore } from '../readout'
 import type { PlaybackController } from '../frames/playbackController'
 import type { EditorStore } from '../store'
 import { LockedIcon } from './icons'
+import { blurOnPointer } from './blurOnPointer'
 import type { EditTarget, Store } from '../../store'
 import { useStore } from './useStore'
 import styles from './StatusBar.module.css'
@@ -53,6 +54,7 @@ export function StatusBar({
     onZoom,
     onFit,
     onRename,
+    onNoticeExport,
 }: {
     sprite: Sprite
     target: Store<EditTarget>
@@ -63,6 +65,7 @@ export function StatusBar({
     onZoom: (direction: 1 | -1) => void
     onFit: () => void
     onRename: (title: string) => void
+    onNoticeExport?: () => void
 }) {
     const [renaming, setRenaming] = useState(false)
     useStore(layers)
@@ -176,9 +179,37 @@ export function StatusBar({
                 <div
                     class={`mono ${styles.projectNotice}${projectNotice.phase === 'error' ? ` ${styles.projectNoticeError}` : ''}`}
                     data-testid="status-project"
+                    role={projectNotice.phase === 'error' ? 'alert' : 'status'}
                 >
                     <strong class={styles.projectNoticeLabel}>{projectNotice.label}</strong>
                     <span dir="auto">{projectNotice.detail}</span>
+                    <span class={styles.noticeBtns}>
+                        {onNoticeExport ? (
+                            <button
+                                type="button"
+                                class={styles.noticeBtn}
+                                data-testid="notice-export"
+                                onClick={(e) => {
+                                    onNoticeExport()
+                                    blurOnPointer(e)
+                                }}
+                            >
+                                Export
+                            </button>
+                        ) : null}
+                        <button
+                            type="button"
+                            class={styles.noticeBtn}
+                            aria-label="Dismiss notice"
+                            data-testid="notice-dismiss"
+                            onClick={(e) => {
+                                readout.patch({ projectNotice: null })
+                                blurOnPointer(e)
+                            }}
+                        >
+                            ×
+                        </button>
+                    </span>
                 </div>
             )}
 

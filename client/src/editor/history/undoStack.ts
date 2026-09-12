@@ -30,6 +30,14 @@ export class OperationEntry {
         this.bytes = entryBytes(forward, backward)
     }
 
+    get forward(): DocumentOperation {
+        return this.#forward
+    }
+
+    get inverse(): DocumentOperation {
+        return this.#backward
+    }
+
     undo(doc: Sprite): ChangeSet {
         const result = applyOperation(doc, this.#backward)
         this.#forward = result.inverse
@@ -72,6 +80,44 @@ export class UndoStack {
     push(entry: OperationEntry): void {
         for (const dropped of this.#redo) this.#bytes -= dropped.bytes
         this.#redo.length = 0
+        this.#undo.push(entry)
+        this.#bytes += entry.bytes
+
+        while (
+            this.#undo.length > 1 &&
+            (this.#undo.length > this.#maxEntries || this.#bytes > this.#maxBytes)
+        ) {
+            this.#bytes -= this.#undo.shift()!.bytes
+        }
+    }
+
+    takeUndo(): OperationEntry | null {
+        const entry = this.#undo.pop()
+        if (!entry) return null
+        this.#bytes -= entry.bytes
+        return entry
+    }
+
+    takeRedo(): OperationEntry | null {
+        const entry = this.#redo.pop()
+        if (!entry) return null
+        this.#bytes -= entry.bytes
+        return entry
+    }
+
+    pushRedo(entry: OperationEntry): void {
+        this.#redo.push(entry)
+        this.#bytes += entry.bytes
+
+        while (
+            this.#redo.length > 1 &&
+            (this.#redo.length > this.#maxEntries || this.#bytes > this.#maxBytes)
+        ) {
+            this.#bytes -= this.#redo.shift()!.bytes
+        }
+    }
+
+    pushUndo(entry: OperationEntry): void {
         this.#undo.push(entry)
         this.#bytes += entry.bytes
 

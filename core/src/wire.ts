@@ -147,7 +147,16 @@ export class ByteReader {
 
 export const WIRE_PROTOCOL = 1
 
-export const FrameType = { hello: 1, welcome: 2, op: 3, error: 8 } as const
+export const FrameType = {
+    hello: 1,
+    welcome: 2,
+    op: 3,
+    presence: 4,
+    peerJoin: 5,
+    peerLeave: 6,
+    resync: 7,
+    error: 8,
+} as const
 export type FrameType = (typeof FrameType)[keyof typeof FrameType]
 
 export const ErrorCode = {
@@ -156,6 +165,9 @@ export const ErrorCode = {
     documentTooLarge: 3,
     roomFull: 4,
     lamportExhausted: 5,
+    roomNotFound: 6,
+    rateLimited: 7,
+    tooManyRooms: 8,
 } as const
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode]
 
@@ -173,6 +185,7 @@ export interface Welcome {
     readonly site: number
     readonly seq: number
     readonly lamport: number
+    readonly peers?: readonly { site: number; nickname: string; color: number }[]
     readonly snapshot: Uint8Array
 }
 
@@ -189,7 +202,35 @@ export interface NetError {
     readonly message: string
 }
 
-export type NetFrame = Hello | Welcome | OpMsg | NetError
+export interface Presence {
+    readonly type: 'presence'
+    readonly site: number
+    readonly x: number
+    readonly y: number
+    readonly tool: number
+    readonly layer: string
+    readonly frame: string
+}
+
+export interface PeerJoin {
+    readonly type: 'peerJoin'
+    readonly site: number
+    readonly nickname: string
+    readonly color: number
+}
+
+export interface PeerLeave {
+    readonly type: 'peerLeave'
+    readonly site: number
+}
+
+export interface Resync {
+    readonly type: 'resync'
+    readonly seq: number
+    readonly snapshot: Uint8Array
+}
+
+export type NetFrame = Hello | Welcome | OpMsg | NetError | Presence | PeerJoin | PeerLeave | Resync
 
 export function encodeFrame(frame: NetFrame): Uint8Array<ArrayBuffer> {
     const out = new ByteWriter()
@@ -207,6 +248,12 @@ export function encodeFrame(frame: NetFrame): Uint8Array<ArrayBuffer> {
             out.u8(frame.site)
             out.u32(frame.seq)
             out.u32(frame.lamport)
+            out.varint((frame.peers ?? []).length)
+            for (const peer of frame.peers ?? []) {
+                out.u8(peer.site)
+                out.str(peer.nickname)
+                out.u32(peer.color)
+            }
             out.u32(frame.snapshot.length)
             out.raw(frame.snapshot)
             break
@@ -215,6 +262,31 @@ export function encodeFrame(frame: NetFrame): Uint8Array<ArrayBuffer> {
             out.u32(frame.seq)
             out.u32(frame.stamp)
             out.raw(frame.body)
+            break
+        case 'presence':
+            out.u8(FrameType.presence)
+            out.u8(frame.site)
+            out.i16(frame.x)
+            out.i16(frame.y)
+            out.u8(frame.tool)
+            out.str(frame.layer)
+            out.str(frame.frame)
+            break
+        case 'peerJoin':
+            out.u8(FrameType.peerJoin)
+            out.u8(frame.site)
+            out.str(frame.nickname)
+            out.u32(frame.color)
+            break
+        case 'peerLeave':
+            out.u8(FrameType.peerLeave)
+            out.u8(frame.site)
+            break
+        case 'resync':
+            out.u8(FrameType.resync)
+            out.u32(frame.seq)
+            out.u32(frame.snapshot.length)
+            out.raw(frame.snapshot)
             break
         case 'error':
             out.u8(FrameType.error)
@@ -242,13 +314,42 @@ export function decodeFrame(bytes: Uint8Array): NetFrame {
             const site = at.u8()
             const seq = at.u32()
             const lamport = at.u32()
+            const peerCount = at.varint()
+            const peers: { site: number; nickname: string; color: number }[] = []
+            for (let i = 0; i < peerCount; i++) {
+                peers.push({ site: at.u8(), nickname: at.str(), color: at.u32() })
+            }
             const length = at.u32()
-            return { type: 'welcome', site, seq, lamport, snapshot: at.raw(length) }
+            return { type: 'welcome', site, seq, lamport, peers, snapshot: at.raw(length) }
         }
         case FrameType.op: {
             const seq = at.u32()
             const stamp = at.u32()
             return { type: 'op', seq, stamp, body: at.raw(at.remaining) }
+        }
+        case FrameType.presence:
+            return {
+                type: 'presence',
+                site: at.u8(),
+                x: at.i16(),
+                y: at.i16(),
+                tool: at.u8(),
+                layer: at.str(),
+                frame: at.str(),
+            }
+        case FrameType.peerJoin:
+            return {
+                type: 'peerJoin',
+                site: at.u8(),
+                nickname: at.str(),
+                color: at.u32(),
+            }
+        case FrameType.peerLeave:
+            return { type: 'peerLeave', site: at.u8() }
+        case FrameType.resync: {
+            const seq = at.u32()
+            const length = at.u32()
+            return { type: 'resync', seq, snapshot: at.raw(length) }
         }
         case FrameType.error:
             return { type: 'error', code: at.u16(), message: at.str() }

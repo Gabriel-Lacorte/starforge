@@ -1,0 +1,33 @@
+.mark {
+    image-rendering: pixelated;
+    width: 15px;
+    height: 13px;
+}
+
+.brand {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.tag {
+    color: var(--dim);
+}
+
+.tag::before {
+    content: '*';
+    margin-right: 8px;
+    color: var(--face-hi);
+}
+
+@media (max-width: 1100px) {
+    .tag {
+        display: none;
+    }
+}
+
+@media (max-height: 600px) {
+    .tag {
+        display: none;
+    }
+}

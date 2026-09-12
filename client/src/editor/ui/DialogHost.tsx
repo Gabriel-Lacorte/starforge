@@ -31,6 +31,7 @@ export interface DialogHostProps {
     shelf: Shelf | null
 
     canCrop: boolean
+    roomOpen?: boolean
     onNew: (width: number, height: number, title: string) => void
     onExport: (choice: ExportChoice) => void
     onCanvasSize: (choice: CanvasSizeChoice) => void
@@ -71,6 +72,7 @@ export function DialogHost(props: DialogHostProps) {
                 onApply={props.onCanvasSize}
                 onCrop={props.onCrop}
                 onCancel={close}
+                roomOpen={props.roomOpen}
             />
         )
     }

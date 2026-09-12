@@ -20,6 +20,7 @@ export function Toolbar({
     onExport,
     onToggleLayers,
     onKeys,
+    onShare,
     onHistory,
     onTransform,
     onCanvasSize,
@@ -36,6 +37,7 @@ export function Toolbar({
     onExport: () => void
     onToggleLayers: () => void
     onKeys: () => void
+    onShare?: () => void
     onHistory: (direction: 'undo' | 'redo') => void
     onTransform: (kind: TransformKind) => void
     onCanvasSize: () => void
@@ -77,6 +79,7 @@ export function Toolbar({
                                 onSaveProject={onSaveProject}
                                 onExport={onExport}
                                 onKeys={onKeys}
+                                onShare={onShare}
                                 onToggleLayers={onToggleLayers}
                             />
                         </>

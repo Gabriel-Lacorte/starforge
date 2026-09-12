@@ -20,6 +20,11 @@ export interface SessionOptions {
     readonly undo?: UndoLimits
 }
 
+export interface CollaborativeHooks {
+    filter(op: DocumentOperation): DocumentOperation | null
+    publish(op: DocumentOperation): void
+}
+
 export class DocumentSession {
     readonly doc: Sprite
     readonly author: string
@@ -31,6 +36,7 @@ export class DocumentSession {
         (operation: DocumentOperation, origin: 'local' | 'remote') => void
     >()
     #beforeChange: (() => void) | null = null
+    #collab: CollaborativeHooks | null = null
 
     constructor(doc: Sprite, options: SessionOptions = {}) {
         this.doc = doc
@@ -61,6 +67,10 @@ export class DocumentSession {
 
     setBeforeChange(resolve: () => void): void {
         this.#beforeChange = resolve
+    }
+
+    setCollaborative(hooks: CollaborativeHooks | null): void {
+        this.#collab = hooks
     }
 
     setTarget(next: Partial<EditTarget>): void {
@@ -112,13 +122,67 @@ export class DocumentSession {
     }
 
     undo(): void {
+        if (this.#collab) {
+            this.undoInRoom()
+            return
+        }
         const change = this.#undo.undo(this.doc)
         if (change) this.#emit(change)
     }
 
     redo(): void {
+        if (this.#collab) {
+            this.redoInRoom()
+            return
+        }
         const change = this.#undo.redo(this.doc)
         if (change) this.#emit(change)
+    }
+
+    private undoInRoom(): void {
+        const hooks = this.#collab
+        if (!hooks) return
+        const entry = this.#undo.takeUndo()
+        if (!entry) return
+        const filtered = hooks.filter(entry.inverse)
+        if (!filtered) {
+            this.#undo.pushRedo(entry)
+            return
+        }
+        let applied: ReturnType<typeof applyOperation>
+        try {
+            applied = applyOperation(this.doc, filtered)
+        } catch {
+            this.#undo.pushRedo(entry)
+            return
+        }
+        this.#emit(applied.change)
+        this.#emitOperation(filtered, 'local')
+        this.#undo.pushRedo(new OperationEntry('redo', applied.inverse, filtered))
+        hooks.publish(filtered)
+    }
+
+    private redoInRoom(): void {
+        const hooks = this.#collab
+        if (!hooks) return
+        const entry = this.#undo.takeRedo()
+        if (!entry) return
+        const filtered = hooks.filter(entry.forward)
+        if (!filtered) {
+            this.#undo.pushUndo(entry)
+            return
+        }
+        let applied: ReturnType<typeof applyOperation>
+        try {
+            applied = applyOperation(this.doc, filtered)
+        } catch {
+            this.#undo.pushUndo(entry)
+            return
+        }
+        this.#emit(applied.change)
+        this.#emitOperation(filtered, 'local')
+        this.#undo.pushUndo(new OperationEntry('undo', filtered, applied.inverse))
+        hooks.publish(filtered)
     }
 
     #emit(change: ChangeSet): void {

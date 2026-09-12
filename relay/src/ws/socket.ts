@@ -12,6 +12,7 @@ export class WsSocket implements Peer {
     #closed = false
     onMessage: (opcode: number, payload: Uint8Array) => void = () => undefined
     onClose: (code: number) => void = () => undefined
+    onPong: () => void = () => undefined
 
     constructor(socket: Socket, maxBytes: number) {
         this.#socket = socket
@@ -56,7 +57,11 @@ export class WsSocket implements Peer {
             } else if (frame.opcode === 0x9) {
                 if (!this.#closed) this.#socket.write(encodeServerFrame(0xa, frame.payload))
             } else if (frame.opcode === 0xa) {
-                continue
+                try {
+                    this.onPong()
+                } catch {
+                    this.close(1011)
+                }
             } else {
                 try {
                     this.onMessage(frame.opcode, frame.payload)

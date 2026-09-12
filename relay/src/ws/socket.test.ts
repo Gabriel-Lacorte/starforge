@@ -56,6 +56,7 @@ describe('ws socket', () => {
         await new Promise<void>((resolve) => {
             server.listen(0, () => resolve())
         })
+
         const address = server.address()
         if (address === null || typeof address === 'string') throw new Error('no port')
         const port = address.port
@@ -66,6 +67,7 @@ describe('ws socket', () => {
                 resolve(new WsSocket(socket, 1024))
             })
         })
+
         const client = net.connect(port, '127.0.0.1')
         sockets.push(client)
         await new Promise<void>((resolve) => {
@@ -115,5 +117,36 @@ describe('ws socket', () => {
         client.write(maskedFrame(0x2, [1]))
         const close = await readN(client, 4)
         expect([...close]).toEqual([0x88, 0x02, 0x03, 0xf3])
+    })
+
+    it('fires onPong when the client sends a pong', async () => {
+        const server = net.createServer()
+        servers.push(server)
+        await new Promise<void>((resolve) => {
+            server.listen(0, () => resolve())
+        })
+        const address = server.address()
+        if (address === null || typeof address === 'string') throw new Error('no port')
+        const port = address.port
+
+        const connected = new Promise<WsSocket>((resolve) => {
+            server.on('connection', (socket) => {
+                sockets.push(socket)
+                resolve(new WsSocket(socket, 1024))
+            })
+        })
+        const client = net.connect(port, '127.0.0.1')
+        sockets.push(client)
+        await new Promise<void>((resolve) => {
+            client.on('connect', () => resolve())
+        })
+        const peer = await connected
+
+        expect(() => peer.onPong()).not.toThrow()
+        const fired = new Promise<void>((resolve) => {
+            peer.onPong = () => resolve()
+        })
+        client.write(maskedFrame(0xa, []))
+        await fired
     })
 })

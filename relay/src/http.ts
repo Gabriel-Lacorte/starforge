@@ -3,6 +3,7 @@ import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import http from 'node:http'
 import type { Socket } from 'node:net'
 import { join, normalize, extname } from 'node:path'
+import { ErrorCode } from '@starforge/core'
 import {
     HttpError,
     acceptKey,
@@ -10,11 +11,13 @@ import {
     originAllowed,
     parseHandshake,
 } from './ws/handshake.js'
+import { clientIp, type RoomRegistry } from './rooms.js'
 
 export interface HttpDeps {
     readonly distDir: string | null
     readonly origins: readonly string[]
-    readonly onSocket: (socket: Socket) => void
+    readonly rooms: RoomRegistry
+    readonly onSocket: (socket: Socket, ip: string) => void
 }
 
 const TEXT_TYPES: Record<string, string> = {
@@ -56,6 +59,14 @@ async function handleRequest(
             'x-content-type-options': 'nosniff',
         })
         res.end('{"ok":true}')
+        return
+    }
+    if (req.method === 'POST' && url.pathname === '/api/rooms') {
+        await handleCreateRoom(req, res, deps)
+        return
+    }
+    if (req.method === 'GET' && url.pathname.startsWith('/api/rooms/')) {
+        handleGetRoom(url, res, deps)
         return
     }
     if (req.method !== 'GET') {
@@ -118,6 +129,113 @@ function pipeFile(file: string, res: ServerResponse): void {
     stream.pipe(res)
 }
 
+const MAX_ROOM_BODY = 8 * 1024 * 1024
+
+function json(res: ServerResponse, status: number, value: unknown): void {
+    res.writeHead(status, {
+        'content-type': 'application/json',
+        'x-content-type-options': 'nosniff',
+    })
+    res.end(JSON.stringify(value))
+}
+
+function errorName(code: number): string {
+    switch (code) {
+        case ErrorCode.documentTooLarge:
+            return 'document_too_large'
+        case ErrorCode.tooManyRooms:
+            return 'too_many_rooms'
+        case ErrorCode.invalidOperation:
+            return 'invalid_operation'
+        default:
+            return 'invalid_operation'
+    }
+}
+
+function readJsonBody(
+    req: IncomingMessage,
+): Promise<{ ok: true; text: string } | { ok: false; destroyed: boolean }> {
+    return new Promise((resolve, reject) => {
+        const chunks: Buffer[] = []
+        let size = 0
+        let over = false
+
+        req.on('data', (chunk: Buffer) => {
+            if (over) return
+            size += chunk.length
+            if (size > MAX_ROOM_BODY) {
+                over = true
+                chunks.length = 0
+                req.destroy()
+                resolve({ ok: false, destroyed: true })
+                return
+            }
+            chunks.push(chunk)
+        })
+
+        req.on('end', () => {
+            if (over) resolve({ ok: false, destroyed: false })
+            else resolve({ ok: true, text: Buffer.concat(chunks).toString('utf8') })
+        })
+
+        req.on('error', reject)
+    })
+}
+
+async function handleCreateRoom(
+    req: IncomingMessage,
+    res: ServerResponse,
+    deps: HttpDeps,
+): Promise<void> {
+    const body = await readJsonBody(req)
+    if (!body.ok) {
+        if (!body.destroyed && !res.headersSent) json(res, 413, { error: 'snapshot_too_large' })
+        return
+    }
+
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(body.text) as unknown
+    } catch {
+        json(res, 400, { error: 'invalid_operation' })
+        return
+    }
+    const record = (typeof parsed === 'object' && parsed !== null ? parsed : {}) as Record<
+        string,
+        unknown
+    >
+
+    const title = typeof record.title === 'string' ? record.title : ''
+    const snapshot =
+        typeof record.snapshot === 'string'
+            ? record.snapshot
+            : record.snapshot === undefined
+              ? undefined
+              : JSON.stringify(record.snapshot)
+
+    const result = deps.rooms.create(clientIp(req, req.socket), {
+        title,
+        width: record.width as number,
+        height: record.height as number,
+        ...(snapshot === undefined ? {} : { snapshot }),
+    })
+    if ('id' in result) {
+        json(res, 201, { id: result.id })
+        return
+    }
+    json(res, result.error.status, { error: errorName(result.error.code) })
+}
+
+function handleGetRoom(url: URL, res: ServerResponse, deps: HttpDeps): void {
+    const id = url.pathname.slice('/api/rooms/'.length)
+    const info = id.length > 0 && !id.includes('/') ? deps.rooms.roomInfo(id) : null
+    if (info === null) {
+        json(res, 404, { error: 'room_not_found' })
+        return
+    }
+    json(res, 200, info)
+}
+
 function handleUpgrade(req: IncomingMessage, socket: Socket, deps: HttpDeps): void {
     const url = new URL(req.url ?? '/', 'http://localhost')
     if (url.pathname !== '/wire') {
@@ -125,6 +243,7 @@ function handleUpgrade(req: IncomingMessage, socket: Socket, deps: HttpDeps): vo
         socket.destroy()
         return
     }
+
     let key: string
     try {
         key = parseHandshake(req).key
@@ -135,6 +254,7 @@ function handleUpgrade(req: IncomingMessage, socket: Socket, deps: HttpDeps): vo
         socket.destroy()
         return
     }
+
     const originHeader: unknown = req.headers.origin
     const origin =
         typeof originHeader === 'string'
@@ -147,6 +267,7 @@ function handleUpgrade(req: IncomingMessage, socket: Socket, deps: HttpDeps): vo
         socket.destroy()
         return
     }
+
     socket.write(handshakeResponse(acceptKey(key)))
-    deps.onSocket(socket)
+    deps.onSocket(socket, clientIp(req, socket))
 }

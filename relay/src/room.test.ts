@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+    ErrorCode,
     decodeFrame,
     decodeSprite,
     encodeFrame,
@@ -7,6 +8,7 @@ import {
     type Hello,
 } from '@starforge/core'
 import type { Peer } from './ws/socket.js'
+import { ConnLimits } from './limits.js'
 import { Room } from './room.js'
 
 class FakePeer implements Peer {
@@ -47,7 +49,7 @@ function roomIds(room: Room): { layer: string; frame: string; probeSite: number 
 }
 
 describe('room', () => {
-    it('broadcasts a pixel op to the other member only', () => {
+    it('echoes every op to all members including the sender', () => {
         const room = new Room()
         const a = new FakePeer()
         const b = new FakePeer()
@@ -71,10 +73,12 @@ describe('room', () => {
             joinedA.site,
             encodeFrame({ type: 'op', seq: 0, stamp, body: encodeOperation(op) }),
         )
-        expect(a.sent.length).toBe(0)
+        expect(a.sent.length).toBe(1)
         expect(b.sent.length).toBe(1)
+        const echo = decodeFrame(a.sent[0]!)
         const forwarded = decodeFrame(b.sent[0]!)
-        if (forwarded.type !== 'op') throw new Error('expected op')
+        if (echo.type !== 'op' || forwarded.type !== 'op') throw new Error('expected ops')
+        expect(echo.stamp).toBe(stamp)
         expect(forwarded.stamp).toBe(stamp)
     })
 
@@ -164,5 +168,193 @@ describe('room', () => {
             actives.add(r.site)
         }
         expect(actives.size).toBe(5)
+    })
+
+    it('replays missed ops in order, then goes live', () => {
+        const room = new Room()
+        const a = new FakePeer()
+        const b = new FakePeer()
+        const ja = room.join(a, hello())
+        if (!('site' in ja)) throw new Error('join failed')
+        const { layer, frame } = roomIds(room)
+        const stamp = (1 << 8) | ja.site
+        const op = {
+            kind: 'pixel.patch' as const,
+            layer,
+            frame,
+            xs: Uint16Array.of(0),
+            ys: Uint16Array.of(0),
+            colors: Uint32Array.of(0xffffffff),
+        }
+        room.onBytes(ja.site, encodeFrame({ type: 'op', seq: 0, stamp, body: encodeOperation(op) }))
+        room.onBytes(ja.site, encodeFrame({ type: 'op', seq: 0, stamp, body: encodeOperation(op) }))
+        const jb = room.join(b, { ...hello(), since: 0 })
+        if (!('site' in jb)) throw new Error('join failed')
+        expect(b.sent.length).toBe(3)
+        const first = decodeFrame(b.sent[0]!)
+        if (first.type !== 'welcome') throw new Error('expected welcome')
+        expect(first.seq).toBe(2)
+        expect(first.peers!.length).toBe(1)
+        const op1 = decodeFrame(b.sent[1]!)
+        const op2 = decodeFrame(b.sent[2]!)
+        if (op1.type !== 'op' || op2.type !== 'op') throw new Error('expected ops')
+        expect(op1.seq).toBe(1)
+        expect(op2.seq).toBe(2)
+    })
+
+    it('sends resync instead of a gap larger than the retained tail', () => {
+        const appended: number[] = []
+        let snapshots = 0
+        const room = new Room(undefined, {
+            append: (seq) => appended.push(seq),
+            snapshot: () => {
+                snapshots++
+            },
+        })
+        const a = new FakePeer()
+        const ja = room.join(a, hello())
+        if (!('site' in ja)) throw new Error('join failed')
+        const { layer, frame } = roomIds(room)
+        const stamp = (1 << 8) | ja.site
+        for (let i = 0; i < 1005; i++) {
+            const op = {
+                kind: 'pixel.patch' as const,
+                layer,
+                frame,
+                xs: Uint16Array.of(i % 64),
+                ys: Uint16Array.of(Math.floor(i / 64) % 64),
+                colors: Uint32Array.of(0xff0000ff + (i % 7)),
+            }
+            room.onBytes(
+                ja.site,
+                encodeFrame({ type: 'op', seq: 0, stamp, body: encodeOperation(op) }),
+            )
+        }
+        expect(snapshots).toBeGreaterThan(0)
+        expect(appended.length).toBe(1005)
+        const b = new FakePeer()
+        const jb = room.join(b, { ...hello(), since: 0 })
+        if (!('site' in jb)) throw new Error('join failed')
+        expect(b.sent.length).toBe(2)
+        const second = decodeFrame(b.sent[1]!)
+        if (second.type !== 'resync') throw new Error('expected resync')
+        expect(second.seq).toBe(1005)
+    }, 30000)
+})
+
+describe('room abuse gates', () => {
+    function joinedRoom(): {
+        room: Room
+        peer: FakePeer
+        site: number
+        layer: string
+        frame: string
+    } {
+        const room = new Room()
+        const peer = new FakePeer()
+        const joined = room.join(peer, hello())
+        if (!('site' in joined)) throw new Error('join failed')
+        const { layer, frame } = roomIds(room)
+        peer.sent.length = 0
+        return { room, peer, site: joined.site, layer, frame }
+    }
+
+    function pixelOp(layer: string, frame: string) {
+        return {
+            kind: 'pixel.patch' as const,
+            layer,
+            frame,
+            xs: Uint16Array.of(0),
+            ys: Uint16Array.of(0),
+            colors: Uint32Array.of(0xffffffff),
+        }
+    }
+
+    function opBytes(stamp: number, layer: string, frame: string): Uint8Array {
+        return encodeFrame({
+            type: 'op',
+            seq: 0,
+            stamp,
+            body: encodeOperation(pixelOp(layer, frame)),
+        })
+    }
+
+    it('rejects ops with invalid stamps without broadcasting or mutating the doc', () => {
+        const { room, peer, site, layer, frame } = joinedRoom()
+        const before = room.snapshotBytes()
+        for (const stamp of [0, site, 1 << 8]) {
+            peer.sent.length = 0
+            room.onBytes(site, opBytes(stamp, layer, frame))
+            expect(peer.sent.length).toBe(1)
+            const err = decodeFrame(peer.sent[0]!)
+            if (err.type !== 'error') throw new Error('expected error')
+            expect(err.code).toBe(ErrorCode.invalidOperation)
+            expect(peer.closed).toBe(null)
+        }
+        expect(room.snapshotBytes()).toEqual(before)
+    })
+
+    it('rejects a stamp minted for another site without broadcasting or mutating the doc', () => {
+        const room = new Room()
+        const a = new FakePeer()
+        const b = new FakePeer()
+        const ja = room.join(a, hello())
+        const jb = room.join(b, hello())
+        if (!('site' in ja) || !('site' in jb)) throw new Error('join failed')
+        const { layer, frame } = roomIds(room)
+        const before = room.snapshotBytes()
+        a.sent.length = 0
+        b.sent.length = 0
+        const foreign = (2 << 8) | (ja.site === 99 ? 100 : 99)
+        room.onBytes(ja.site, opBytes(foreign, layer, frame))
+        expect(a.sent.length).toBe(1)
+        const err = decodeFrame(a.sent[0]!)
+        if (err.type !== 'error') throw new Error('expected error')
+        expect(err.code).toBe(ErrorCode.invalidOperation)
+        expect(a.closed).toBe(null)
+        expect(b.sent.length).toBe(0)
+        expect(room.snapshotBytes()).toEqual(before)
+    })
+
+    it('sheds load with ERROR rateLimited and keeps the connection open', () => {
+        const { room, peer, site, layer, frame } = joinedRoom()
+        const limits = new ConnLimits()
+        for (let i = 0; i < 60; i++) expect(limits.admit(1)).toBe(true)
+        const before = room.snapshotBytes()
+        room.onBytes(site, opBytes((1 << 8) | site, layer, frame), limits)
+        expect(peer.sent.length).toBe(1)
+        const err = decodeFrame(peer.sent[0]!)
+        if (err.type !== 'error') throw new Error('expected error')
+        expect(err.code).toBe(ErrorCode.rateLimited)
+        expect(peer.closed).toBe(null)
+        expect(room.snapshotBytes()).toEqual(before)
+    })
+
+    it('drops oversized raw frames before decode', () => {
+        const { room, peer, site } = joinedRoom()
+        const limits = new ConnLimits()
+        room.onBytes(site, new Uint8Array(300 * 1024), limits)
+        expect(peer.sent.length).toBe(1)
+        const err = decodeFrame(peer.sent[0]!)
+        if (err.type !== 'error') throw new Error('expected error')
+        expect(err.code).toBe(ErrorCode.rateLimited)
+        expect(peer.closed).toBe(null)
+    })
+
+    it('does not charge the op budget for frames that fail to decode', () => {
+        const { room, peer, site, layer, frame } = joinedRoom()
+        const limits = new ConnLimits()
+        const garbage = new Uint8Array([0xff, 0x00, 0x01])
+        for (let i = 0; i < 61; i++) {
+            peer.sent.length = 0
+            room.onBytes(site, garbage, limits)
+            const err = decodeFrame(peer.sent[0]!)
+            if (err.type !== 'error') throw new Error('expected error')
+            expect(err.code).toBe(ErrorCode.invalidOperation)
+        }
+        peer.sent.length = 0
+        room.onBytes(site, opBytes((1 << 8) | site, layer, frame), limits)
+        const echo = decodeFrame(peer.sent[0]!)
+        if (echo.type !== 'op') throw new Error(`expected op echo, got ${echo.type}`)
     })
 })

@@ -102,7 +102,7 @@ test('paint colours sit with tool controls and use a full-width opacity slider',
     page.on('console', (message) => {
         if (message.text().includes('same key')) keyWarnings.push(message.text())
     })
-    await page.setViewportSize({ width: 1200, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
     await openEditor(page)
 
     const palette = page.getByTestId('paint-colors')

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { openEditor, painted } from './editor'
 
 test('switching tools never resizes the canvas', async ({ page }) => {
-    await page.setViewportSize({ width: 1200, height: 800 })
+    await page.setViewportSize({ width: 1280, height: 800 })
     await openEditor(page)
 
     const size = () =>

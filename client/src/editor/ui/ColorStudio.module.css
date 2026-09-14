@@ -298,7 +298,7 @@
     }
 }
 
-@media (max-width: 1100px), (max-height: 600px) {
+@media (max-width: 1200px), (max-height: 600px) {
     .dialog {
         width: 100vw;
         max-width: none;

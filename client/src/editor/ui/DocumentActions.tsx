@@ -20,6 +20,7 @@ export function DocumentActions({
     layersOpen,
     shareBusy = false,
     hideKeys = false,
+    separators = true,
     onNew,
     onLibrary,
     onCanvasSize,
@@ -42,6 +43,7 @@ export function DocumentActions({
     onKeys: () => void
     shareBusy?: boolean
     hideKeys?: boolean
+    separators?: boolean
     onShare?: () => void
     onToggleLayers: () => void
 }) {
@@ -141,7 +143,7 @@ export function DocumentActions({
                 <ExportIcon />
                 Export
             </button>
-            <span class={styles.sep} aria-hidden="true" />
+            {separators ? <span class={styles.sep} aria-hidden="true" /> : null}
             {!hideKeys ? (
                 <button
                     type="button"
@@ -154,7 +156,7 @@ export function DocumentActions({
                     }}
                 >
                     <KeysIcon />
-                    <span class={styles.wide}>Keys</span>
+                    Keys
                 </button>
             ) : null}
             {onShare ? (
@@ -171,10 +173,10 @@ export function DocumentActions({
                     }}
                 >
                     <DuplicateIcon />
-                    <span class={styles.wide}>Share</span>
+                    Share
                 </button>
             ) : null}
-            <span class={styles.sep} aria-hidden="true" />
+            {separators ? <span class={styles.sep} aria-hidden="true" /> : null}
             <button
                 type="button"
                 class={`${styles.textBtn}${layersOpen ? ` ${styles.on}` : ''}`}
@@ -188,7 +190,7 @@ export function DocumentActions({
                 }}
             >
                 <PanelIcon />
-                <span class={styles.wide}>Layers</span>
+                Layers
             </button>
         </>
     )

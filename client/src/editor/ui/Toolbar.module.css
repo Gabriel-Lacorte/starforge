@@ -339,7 +339,7 @@
     outline-offset: 1px;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
     .toolbar {
         padding: 0 6px;
     }
@@ -357,10 +357,6 @@
 
     .textBtn {
         padding: 0 8px;
-    }
-
-    .wide {
-        display: none;
     }
 }
 

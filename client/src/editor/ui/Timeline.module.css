@@ -165,7 +165,7 @@
     }
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
     .timeline {
         flex-wrap: wrap;
         gap: 6px;
@@ -176,9 +176,15 @@
         display: none;
     }
 
+    .tools {
+        margin-left: auto;
+    }
+
     .reel {
         order: 5;
         flex-basis: 100%;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 4px;
     }
 }
 

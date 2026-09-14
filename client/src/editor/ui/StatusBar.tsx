@@ -78,6 +78,10 @@ export function StatusBar({
     const frameNumber = sprite.frames.findIndex((f) => f.id === playback.frame) + 1
     const activeTool = TOOL_CATALOG.find((tool) => tool.id === state.tool)
     const hasBrush = activeTool ? toolCapabilities(activeTool).includes('brush') : false
+    const touch =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(pointer: coarse)').matches
 
     const hoverView: HoverView | null = hover
         ? (hover.color & 0xff) !== 0
@@ -262,15 +266,21 @@ export function StatusBar({
                 >
                     -
                 </button>
-                <button
-                    type="button"
-                    class={`mono ${styles.zoom}`}
-                    title="Fit the document to the window"
-                    data-testid="zoom"
-                    onClick={onFit}
-                >
-                    {zoom * 100}%
-                </button>
+                {touch ? (
+                    <span class={`mono ${styles.zoom}`} data-testid="zoom">
+                        {zoom * 100}%
+                    </span>
+                ) : (
+                    <button
+                        type="button"
+                        class={`mono ${styles.zoom}`}
+                        title="Fit the document to the window"
+                        data-testid="zoom"
+                        onClick={onFit}
+                    >
+                        {zoom * 100}%
+                    </button>
+                )}
                 <button
                     type="button"
                     class={styles.zoomBtn}

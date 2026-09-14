@@ -1,9 +1,8 @@
 name: CI
 
+# Automatic runs are off while the account has no Actions credits: without
+# this, every push shows as failed. Restore push/pull_request to re-enable.
 on:
-    push:
-        branches: [main]
-    pull_request:
     workflow_dispatch:
 
 concurrency:

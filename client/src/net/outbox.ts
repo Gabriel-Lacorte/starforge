@@ -1,20 +1,10 @@
-/** One unacknowledged outbound op: the exact bytes the wire has not confirmed. */
 export interface OutboxEntry {
     readonly stamp: number
     readonly body: Uint8Array
 }
 
-/** Cap on unacked ops; beyond it the oldest entry is dropped first. */
 export const MAX_PENDING = 500
 
-/**
- * Offline outbox: every locally published op waits here until its sender
- * echo comes back and `ack`s it by stamp. A reconnect replays whatever is
- * still pending with the SAME stamps and bytes — duplicates converge (LWW
- * keeps the newest write, the relay just ticks its seq again), so there is
- * no dedupe table. A RESYNC drops everything: in-flight ops are not
- * recovered across a snapshot rejoin (documented boundary).
- */
 export class Outbox {
     private entries: OutboxEntry[] = []
 

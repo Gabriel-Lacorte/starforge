@@ -21,7 +21,7 @@ export class GifError extends Error {
 
 export interface GifResult {
     bytes: Uint8Array<ArrayBuffer>
-    /* palette entries the animation actually needs, ≤ 256 (transparent slot counts) */
+    /* palette entries the animation actually needs, <= 256 */
     colorsUsed: number
 }
 
@@ -74,7 +74,6 @@ export function encodeGifWithStats(
     out.write(0) /* background color index */
     out.write(0) /* pixel aspect ratio */
 
-    /* the global color table, padded to gctSize entries with black */
     for (let i = 0; i < gctSize; i++) {
         out.write(rgbFlat[i * 3] ?? 0)
         out.write(rgbFlat[i * 3 + 1] ?? 0)
@@ -128,10 +127,6 @@ export function encodeGifWithStats(
     return { bytes: out.result(), colorsUsed: paletteCount }
 }
 
-/*
- * Growable byte buffer — avoids the number[] → Uint8Array.from() round-trip and
- * the spread-bomb that hits the engine arg limit on large outputs.
- */
 class ByteWriter {
     #buf: Uint8Array
     #pos = 0

@@ -26,6 +26,13 @@ describe('operation codec', () => {
         expect(body.length).toBeLessThan(3600)
     })
 
+    it('rejects a pixel patch whose cell count exceeds the frame', () => {
+        const hostile = Uint8Array.from([
+            0, 0, 0, 0, 1, 108, 0, 0, 0, 1, 102, 0xff, 0xff, 0xff, 0xff, 0x0f, 0,
+        ])
+        expect(() => decodeOperation(hostile)).toThrow(RangeError)
+    })
+
     it('splits a patch with more than 255 colours into sendable chunks', () => {
         const cells = 300
         const op = {

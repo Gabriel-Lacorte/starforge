@@ -158,6 +158,7 @@ export function encodePatchBody(op: PixelPatchOperation): Uint8Array<ArrayBuffer
 
 function decodePatchBody(at: ByteReader, layer: string, frame: string): PixelPatchOperation {
     const count = at.varint()
+    if (count > at.remaining) throw new RangeError('pixel count exceeds frame')
     const tableSize = at.u8()
     const table: number[] = []
     for (let i = 0; i < tableSize; i++) table.push(at.u32())

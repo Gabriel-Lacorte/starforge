@@ -22,3 +22,18 @@ test('a dead relay shows offline with a working retry', async ({ page, request }
     await expect(page.getByTestId('room-status')).toContainText('open')
     await expect(page.getByTestId('room-offline')).toHaveCount(0)
 })
+
+test('a dead relay socket surfaces a stuck hint instead of hanging silently', async ({
+    page,
+    request,
+}) => {
+    const created = await request.post('/api/rooms', {
+        data: { title: 'e2e', width: 64, height: 64 },
+    })
+    expect(created.ok()).toBe(true)
+    const { id } = (await created.json()) as { id: string }
+    await page.goto(`/r/${id}?relay=ws://127.0.0.1:9`)
+    await expect(page.getByTestId('room-stuck')).toContainText('Still trying', { timeout: 20000 })
+    await expect(page.getByTestId('room-retry')).toBeVisible()
+    await expect(page.getByTestId('canvas')).toHaveCount(0)
+})

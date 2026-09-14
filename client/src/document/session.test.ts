@@ -422,4 +422,28 @@ describe('DocumentSession collaborative undo', () => {
         expect(session.canRedo).toBe(false)
         expect(published.length).toBe(4)
     })
+
+    it('consumes the undo entry without publishing when the filter empties it', () => {
+        const session = new DocumentSession(createSprite({ width: 16, height: 16, title: 't' }))
+        let published = 0
+        session.setCollaborative({
+            filter: (): DocumentOperation | null => null,
+            publish: (): void => {
+                published += 1
+            },
+        })
+        const layer = session.doc.layers[0]!.id
+        const frame = session.doc.frames[0]!.id
+        session.apply('paint', {
+            kind: 'pixel.patch',
+            layer,
+            frame,
+            xs: Uint16Array.of(2),
+            ys: Uint16Array.of(3),
+            colors: Uint32Array.of(0xff0000ff),
+        })
+        session.undo()
+        expect(published).toBe(0)
+        expect(session.canUndo).toBe(false)
+    })
 })

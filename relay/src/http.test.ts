@@ -174,6 +174,27 @@ describe('relay http', () => {
         const sitemapBody = await sitemap.text()
         expect(sitemapBody).toContain('https://starforge.lacorte.city/about')
     })
+
+    it('derives crawler URLs from the first configured origin', async () => {
+        const server = createServer({
+            distDir: null,
+            origins: ['https://example.test/'],
+            rooms: new RoomRegistry(new RoomStore(':memory:')),
+            onSocket: (): void => undefined,
+        })
+        servers.push(server)
+        await new Promise<void>((resolve) => {
+            server.listen(0, () => resolve())
+        })
+        const address = server.address()
+        if (address === null || typeof address === 'string') throw new Error('no port')
+        const base = `http://127.0.0.1:${String(address.port)}`
+        const robotsBody = await (await fetch(`${base}/robots.txt`)).text()
+        expect(robotsBody).toContain('Sitemap: https://example.test/sitemap.xml')
+        const sitemapBody = await (await fetch(`${base}/sitemap.xml`)).text()
+        expect(sitemapBody).toContain('https://example.test/about')
+        expect(sitemapBody).not.toContain('lacorte.city')
+    })
 })
 
 interface RoomPayload {

@@ -32,10 +32,26 @@ const TEXT_TYPES: Record<string, string> = {
     '.woff2': 'font/woff2',
 }
 
-const ROBOTS_TXT = 'User-agent: *\nAllow: /\nSitemap: https://starforge.lacorte.city/sitemap.xml\n'
+const FALLBACK_BASE = 'https://starforge.lacorte.city'
 
-const SITEMAP_XML =
-    '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://starforge.lacorte.city/</loc></url><url><loc>https://starforge.lacorte.city/about</loc></url></urlset>'
+function publicBase(deps: HttpDeps): string {
+    const first = deps.origins[0]?.replace(/\/+$/, '')
+    return first === undefined || first === '' ? FALLBACK_BASE : first
+}
+
+function robotsTxt(base: string): string {
+    return `User-agent: *\nAllow: /\nSitemap: ${base}/sitemap.xml\n`
+}
+
+function sitemapXml(base: string): string {
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
+        `<url><loc>${base}/</loc></url>` +
+        `<url><loc>${base}/about</loc></url>` +
+        '</urlset>'
+    )
+}
 
 export function createServer(deps: HttpDeps): Server {
     const server = http.createServer((req, res) => {
@@ -72,7 +88,7 @@ async function handleRequest(
             'content-type': 'text/plain; charset=utf-8',
             'x-content-type-options': 'nosniff',
         })
-        res.end(ROBOTS_TXT)
+        res.end(robotsTxt(publicBase(deps)))
         return
     }
 
@@ -81,7 +97,7 @@ async function handleRequest(
             'content-type': 'application/xml; charset=utf-8',
             'x-content-type-options': 'nosniff',
         })
-        res.end(SITEMAP_XML)
+        res.end(sitemapXml(publicBase(deps)))
         return
     }
 

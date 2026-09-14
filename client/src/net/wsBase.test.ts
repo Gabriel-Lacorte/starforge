@@ -10,9 +10,21 @@ describe('wsBase', () => {
         expect(wsBase('https://atelier.example', null)).toBe('wss://atelier.example/wire')
     })
 
-    it('lets a ?relay= override win as-is', () => {
-        expect(wsBase('https://atelier.example', 'ws://localhost:8131/wire')).toBe(
+    it('lets a ?relay= override win as-is from a loopback page', () => {
+        expect(wsBase('http://localhost:5199', 'ws://localhost:8131/wire')).toBe(
             'ws://localhost:8131/wire',
+        )
+    })
+
+    it('ignores a cross-host ?relay= on a production page', () => {
+        expect(wsBase('https://atelier.example', 'wss://evil.example/wire')).toBe(
+            'wss://atelier.example/wire',
+        )
+    })
+
+    it('honours a same-host ?relay= on a production page', () => {
+        expect(wsBase('https://atelier.example', 'wss://atelier.example:8443/wire')).toBe(
+            'wss://atelier.example:8443/wire',
         )
     })
 })

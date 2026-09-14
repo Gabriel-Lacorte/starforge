@@ -16,6 +16,7 @@ import { RoomConnection, type ConnStatus } from './connection'
 import { Outbox } from './outbox'
 import { PresenceStore, toolFromWire, toolToWire } from './presence'
 import type { RoomProfile } from './profile'
+import { localStoragePendingStore, type PendingStore } from './pendingStore'
 
 export interface RoomCreateInit {
     readonly title: string
@@ -62,15 +63,45 @@ export interface HoverSource {
 export interface RoomConnectionLike {
     onFrame: (frame: NetFrame) => void
     onError: (message: string) => void
+
     send(frame: NetFrame): void
     status(): ConnStatus
     subscribe(listener: () => void): () => void
     close(): void
     connect?(): void
-    /** Highest OP `seq` seen; the hello factory reads it on every redial. */
+
     readonly lastSeq: number
-    /** Re-anchors the tracked seq (a RESYNC moves it to the snapshot). */
     resetSeq(seq: number): void
+}
+
+export interface SeqStore {
+    load(roomId: string): number
+    save(roomId: string, seq: number): void
+}
+
+const SEQ_KEY = 'starforge:lastSeq:'
+
+function localStorageSeqStore(): SeqStore {
+    return {
+        load(roomId: string): number {
+            try {
+                if (typeof localStorage === 'undefined') return 0
+                const raw = localStorage.getItem(`${SEQ_KEY}${roomId}`)
+                const parsed = raw === null ? 0 : Number(raw)
+                return Number.isInteger(parsed) && parsed > 0 ? parsed : 0
+            } catch {
+                return 0
+            }
+        },
+        save(roomId: string, seq: number): void {
+            try {
+                if (typeof localStorage === 'undefined') return
+                localStorage.setItem(`${SEQ_KEY}${roomId}`, String(seq))
+            } catch {
+                /* private mode */
+            }
+        },
+    }
 }
 
 export interface RoomControllerOptions {
@@ -80,11 +111,10 @@ export interface RoomControllerOptions {
     readonly connection?: RoomConnectionLike
     readonly store?: ToolSource
     readonly readout?: HoverSource
-    /**
-     * Seeds the line after a RESYNC remount so the fresh hello resumes at
-     * the snapshot seq instead of replaying the compacted tail from 0.
-     */
+
     readonly since?: number
+    readonly seqStore?: SeqStore
+    readonly pendingStore?: PendingStore
 }
 
 const PRESENCE_MS = 50
@@ -101,11 +131,6 @@ function splitPixelPatchIfNeeded(op: DocumentOperation): DocumentOperation[] {
     return splitPixelPatch(op)
 }
 
-/**
- * Paints a shared room: resolves a `DocumentSession` on WELCOME, publishes
- * local ops as OP frames, applies remote ops through a `Replica`, and gossips
- * presence every 50 ms while the cursor moves.
- */
 export class RoomController {
     session: DocumentSession | null = null
     readonly peers = new PresenceStore()
@@ -117,6 +142,8 @@ export class RoomController {
     private readonly connection: RoomConnectionLike
     private readonly toolStore: ToolSource | undefined
     private readonly readout: HoverSource | undefined
+    private readonly seqStore: SeqStore
+    private readonly roomId: string
     private replica: Replica | null = null
     private site: number | null = null
     private currentError: string | null = null
@@ -125,21 +152,18 @@ export class RoomController {
     private timer: ReturnType<typeof setInterval> | null = null
     private lastPresenceKey: string | null = null
     private operationUnsub: (() => void) | null = null
-    /** Locally published ops the wire has not echoed back yet. */
+
     private readonly outbox = new Outbox()
-    /**
-     * The op the operation listener just forwarded. Room undo/redo delivers
-     * the same op object twice — once here as a `local` event and once via
-     * `hooks.publish` — and this collapses the duplicate so the same bytes
-     * are stamped and sent exactly once.
-     */
+
     private forwardedLocal: DocumentOperation | null = null
     private wasOpen = false
+    private readonly pendingStore: PendingStore
 
     constructor(opts: RoomControllerOptions) {
         this.profile = opts.profile
         this.toolStore = opts.store
         this.readout = opts.readout
+        this.roomId = opts.room
         if (opts.connection !== undefined) {
             this.connection = opts.connection
         } else {
@@ -154,7 +178,13 @@ export class RoomController {
             }))
             this.connection = live
         }
-        if (opts.since !== undefined) this.connection.resetSeq(opts.since)
+        this.seqStore = opts.seqStore ?? localStorageSeqStore()
+        const seeded = opts.since ?? this.seqStore.load(opts.room)
+        if (seeded > 0) this.connection.resetSeq(seeded)
+        this.pendingStore = opts.pendingStore ?? localStoragePendingStore()
+        for (const entry of this.pendingStore.load(opts.room)) {
+            this.outbox.add(entry.stamp, entry.body)
+        }
         this.connection.onFrame = (frame): void => {
             this.handleFrame(frame)
         }
@@ -222,7 +252,7 @@ export class RoomController {
                 this.handleWelcome(frame)
                 break
             case 'op':
-                this.handleOp(frame.stamp, frame.body)
+                this.handleOp(frame.seq, frame.stamp, frame.body)
                 break
             case 'presence':
                 this.peers.applyPresence(
@@ -273,6 +303,7 @@ export class RoomController {
             author: `net-${String(site)}-${this.profile.nickname}`,
         })
         this.site = site
+        this.seqStore.save(this.roomId, frame.seq)
         this.session = session
         this.replica = new Replica(session.doc, site)
         for (const peer of frame.peers ?? []) {
@@ -286,14 +317,16 @@ export class RoomController {
             filter: (op): DocumentOperation | null => this.replica?.filterInverse(op) ?? null,
             publish: (op): void => this.publishAlreadyApplied(op),
         })
+        this.resendPending()
         const pending = this.pending
         this.pending = null
         pending?.resolve(session)
         this.notify()
     }
 
-    private handleOp(stamp: number, body: Uint8Array): void {
-        this.outbox.ack(stamp)
+    private handleOp(seq: number, stamp: number, body: Uint8Array): void {
+        this.seqStore.save(this.roomId, seq)
+        if (this.outbox.ack(stamp)) this.persistPending()
         const replica = this.replica
         const session = this.session
         if (replica === null || session === null) return
@@ -344,6 +377,7 @@ export class RoomController {
                 stamp = out.message.stamp
                 body = encodeOperation(chunk)
                 this.outbox.add(stamp, body)
+                this.persistPending()
             } catch (error) {
                 if (error instanceof GeometryLockedError) {
                     this.note(GEOMETRY_NOTICE)
@@ -362,8 +396,10 @@ export class RoomController {
             const doc = decodeSprite(JSON.parse(new TextDecoder().decode(snapshot)) as unknown)
 
             this.outbox.clear()
+            this.persistPending()
             this.forwardedLocal = null
             this.connection.resetSeq(seq)
+            this.seqStore.save(this.roomId, seq)
             this.onResync(doc, seq)
             this.notify()
         } catch {
@@ -384,6 +420,10 @@ export class RoomController {
             this.outbox.add(entry.stamp, entry.body)
             this.connection.send({ type: 'op', seq: 0, stamp: entry.stamp, body: entry.body })
         }
+    }
+
+    private persistPending(): void {
+        this.pendingStore.save(this.roomId, this.outbox.pending)
     }
 
     private handleError(message: string): void {

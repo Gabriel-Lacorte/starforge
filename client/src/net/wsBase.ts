@@ -1,6 +1,34 @@
+function isLoopbackHost(host: string): boolean {
+    return (
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === '[::1]' ||
+        host === '::1' ||
+        host.endsWith('.localhost')
+    )
+}
+
+function hostnameOf(value: string): string | null {
+    try {
+        return new URL(value).hostname.toLowerCase()
+    } catch {
+        return null
+    }
+}
+
 export function wsBase(origin: string, relay: string | null): string {
+    const fallback = `${origin.replace(/^http/, 'ws')}/wire`
     if (relay !== null && relay.trim() !== '') {
         const trimmed = relay.trim()
+
+        const pageHost = hostnameOf(origin)
+        if (pageHost === null) return fallback
+        if (!isLoopbackHost(pageHost)) {
+            const target = trimmed.includes('://') ? trimmed : `http://${trimmed}`
+            const targetHost = hostnameOf(target)
+            if (targetHost === null || targetHost !== pageHost) return fallback
+        }
+
         if (/^wss?:\/\//i.test(trimmed)) {
             try {
                 const parsed = new URL(trimmed)
@@ -12,6 +40,7 @@ export function wsBase(origin: string, relay: string | null): string {
             }
             return trimmed
         }
+
         try {
             const parsed = new URL(trimmed.includes('://') ? trimmed : `http://${trimmed}`)
             return `${parsed.protocol === 'https:' ? 'wss:' : 'ws:'}//${parsed.host}/wire`
@@ -19,7 +48,8 @@ export function wsBase(origin: string, relay: string | null): string {
             return trimmed
         }
     }
-    return `${origin.replace(/^http/, 'ws')}/wire`
+
+    return fallback
 }
 
 export function relayHttpBase(wsUrl: string): string {

@@ -9,8 +9,10 @@ import {
     type NetFrame,
     type Sprite,
 } from '@starforge/core'
+import type { DocumentSession } from '../document/session'
 import type { ToolId } from '../editor/store'
 import type { ConnStatus } from './connection'
+import type { PendingStore } from './pendingStore'
 import { createRoom, RoomController } from './roomController'
 
 class FakeConnection {
@@ -467,6 +469,164 @@ describe('room controller', () => {
         expect([...inverse.xs]).toEqual([0])
         expect([...inverse.ys]).toEqual([0])
         expect([...inverse.colors]).toEqual([0])
+        controller.close()
+    })
+
+    function memorySeqStore(initial = 0): {
+        load(roomId: string): number
+        save(roomId: string, seq: number): void
+        saved: { room: string; seq: number }[]
+    } {
+        let value = initial
+        const saved: { room: string; seq: number }[] = []
+        return {
+            load: (): number => value,
+            save: (room: string, seq: number): void => {
+                value = seq
+                saved.push({ room, seq })
+            },
+            saved,
+        }
+    }
+
+    it('seeds the hello seq from the seq store', () => {
+        const store = memorySeqStore(41)
+        const conn = new FakeConnection()
+        const controller = new RoomController({
+            url: 'ws://x/wire',
+            room: 'abc',
+            profile: { nickname: 'ada', color: 1 },
+            connection: conn,
+            seqStore: store,
+        })
+        expect(conn.lastSeq).toBe(41)
+        controller.close()
+    })
+
+    it('persists seq on welcome and on op', async () => {
+        const doc = sprite16()
+        const store = memorySeqStore()
+        const conn = new FakeConnection()
+        const controller = new RoomController({
+            url: 'ws://x/wire',
+            room: 'abc',
+            profile: { nickname: 'ada', color: 1 },
+            connection: conn,
+            seqStore: store,
+        })
+        const pending = controller.connect()
+        conn.onFrame({
+            type: 'welcome',
+            site: 1,
+            seq: 7,
+            lamport: 0,
+            peers: [],
+            snapshot: snapshotBytes(doc),
+        })
+        await pending
+        expect(store.saved).toContainEqual({ room: 'abc', seq: 7 })
+        const session = controller.session!
+        const layer = session.doc.layers[0]!.id
+        const frame = session.doc.frames[0]!.id
+        conn.onFrame({
+            type: 'op',
+            seq: 9,
+            stamp: (5 << 8) | 2,
+            body: encodeOperation({
+                kind: 'pixel.patch',
+                layer,
+                frame,
+                xs: Uint16Array.of(4),
+                ys: Uint16Array.of(5),
+                colors: Uint32Array.of(0x0000ffff),
+            }),
+        })
+        expect(store.saved).toContainEqual({ room: 'abc', seq: 9 })
+        controller.close()
+    })
+
+    function memoryPendingStore(initial: { stamp: number; body: Uint8Array }[] = []): PendingStore {
+        let kept = [...initial]
+        return {
+            load: (): { stamp: number; body: Uint8Array }[] => [...kept],
+            save: (_room: string, ops: readonly { stamp: number; body: Uint8Array }[]): void => {
+                kept = [...ops]
+            },
+        }
+    }
+
+    function paintOne(session: DocumentSession): void {
+        const layer = session.doc.layers[0]!.id
+        const frame = session.doc.frames[0]!.id
+        session.apply('paint', {
+            kind: 'pixel.patch',
+            layer,
+            frame,
+            xs: Uint16Array.of(2),
+            ys: Uint16Array.of(3),
+            colors: Uint32Array.of(0xff0000ff),
+        })
+    }
+
+    it('replays persisted ops with their original stamps after a fresh join', async () => {
+        const doc = sprite16()
+        const store = memoryPendingStore()
+        const connA = new FakeConnection()
+        const first = new RoomController({
+            url: 'ws://x/wire',
+            room: 'abc',
+            profile: { nickname: 'ada', color: 1 },
+            connection: connA,
+            pendingStore: store,
+        })
+        const pendingA = first.connect()
+        connA.onFrame(welcomeFrame(doc, 1))
+        await pendingA
+        paintOne(first.session!)
+        const sentA = opsOf(connA)
+        expect(sentA).toHaveLength(1)
+        const stamp = sentA[0]!.stamp
+        expect(store.load('abc')).toHaveLength(1)
+        first.close()
+
+        const connB = new FakeConnection()
+        const second = new RoomController({
+            url: 'ws://x/wire',
+            room: 'abc',
+            profile: { nickname: 'ada', color: 1 },
+            connection: connB,
+            pendingStore: store,
+        })
+        const pendingB = second.connect()
+        connB.onFrame(welcomeFrame(doc, 2))
+        await pendingB
+        const sentB = opsOf(connB)
+        expect(sentB).toHaveLength(1)
+        expect(sentB[0]!.stamp).toBe(stamp)
+        expect(sentB[0]!.body).toEqual(sentA[0]!.body)
+        second.close()
+    })
+
+    it('forgets persisted ops once the relay echoes them', async () => {
+        const doc = sprite16()
+        const store = memoryPendingStore()
+        const conn = new FakeConnection()
+        const controller = new RoomController({
+            url: 'ws://x/wire',
+            room: 'abc',
+            profile: { nickname: 'ada', color: 1 },
+            connection: conn,
+            pendingStore: store,
+        })
+        const pending = controller.connect()
+        conn.onFrame(welcomeFrame(doc, 1))
+        await pending
+        paintOne(controller.session!)
+        const sent = opsOf(conn)
+        expect(sent).toHaveLength(1)
+        expect(store.load('abc')).toHaveLength(1)
+        conn.onFrame({ type: 'op', seq: 3, stamp: sent[0]!.stamp, body: sent[0]!.body })
+        expect(store.load('abc')).toHaveLength(0)
         controller.close()
     })
 })

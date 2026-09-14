@@ -9,14 +9,12 @@ export function PaintControls({
     store,
     readout,
     palette,
-    onOpenStudio,
     onOpenPalette,
     onClearSelection,
 }: {
     store: EditorStore
     readout: ReadoutStore
     palette: Palette
-    onOpenStudio: () => void
     onOpenPalette: () => void
     onClearSelection?: () => void
 }) {
@@ -49,18 +47,6 @@ export function PaintControls({
                     }}
                 >
                     swap
-                </button>
-                <button
-                    type="button"
-                    class={styles.btn}
-                    aria-label="Reset foreground and background"
-                    title="Reset foreground and background"
-                    onClick={(e) => {
-                        store.resetColors()
-                        blurOnPointer(e)
-                    }}
-                >
-                    reset
                 </button>
             </span>
             <div class={styles.rail} role="listbox" aria-label="Paint colours">
@@ -95,20 +81,11 @@ export function PaintControls({
                 <button
                     type="button"
                     class={styles.btn}
-                    title="Mix a colour of your own"
-                    data-testid="open-studio"
-                    onClick={onOpenStudio}
-                >
-                    Color
-                </button>
-                <button
-                    type="button"
-                    class={styles.btn}
-                    title="Edit, reorder and import palettes"
+                    title="Mix colours and edit palettes"
                     data-testid="open-palette"
                     onClick={onOpenPalette}
                 >
-                    Palette
+                    Colors
                 </button>
             </span>
             {selectionActive && (

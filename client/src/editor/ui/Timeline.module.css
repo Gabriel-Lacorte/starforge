@@ -167,12 +167,18 @@
 
 @media (max-width: 1100px) {
     .timeline {
+        flex-wrap: wrap;
         gap: 6px;
         padding: 4px 6px;
     }
 
     .label {
         display: none;
+    }
+
+    .reel {
+        order: 5;
+        flex-basis: 100%;
     }
 }
 

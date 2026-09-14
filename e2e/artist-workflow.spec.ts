@@ -110,9 +110,10 @@ test('paint colours sit with tool controls and use a full-width opacity slider',
     await expect(
         palette.getByRole('button', { name: 'Swap foreground and background' }),
     ).toBeVisible()
+    await expect(palette.getByRole('button', { name: 'Colors' })).toBeVisible()
     await expect(
         palette.getByRole('button', { name: 'Reset foreground and background' }),
-    ).toBeVisible()
+    ).toHaveCount(0)
 
     expect(
         await palette.evaluate(

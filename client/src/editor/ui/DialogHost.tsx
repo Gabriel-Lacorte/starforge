@@ -4,14 +4,13 @@ import type { EditorStore } from '../store'
 import type { LayersController } from '../layers/layersController'
 import type { Library, LibraryEntry } from '../../storage/library'
 import { CanvasSizeDialog, type CanvasSizeChoice } from './CanvasSizeDialog'
-import { ColorStudio } from './ColorStudio'
 import { ExportDialog, type ExportChoice } from './ExportDialog'
 import { KeysDialog } from './KeysDialog'
 import { LibraryDialog, type RecoveredDocument } from './LibraryDialog'
 import { NewSpriteDialog } from './NewSpriteDialog'
 import { PaletteDialog } from './PaletteDialog'
 
-export type DialogId = 'new' | 'export' | 'studio' | 'palette' | 'size' | 'keys' | 'library'
+export type DialogId = 'new' | 'export' | 'palette' | 'size' | 'keys' | 'library'
 
 export interface Shelf {
     readonly entries: readonly LibraryEntry[]
@@ -84,18 +83,6 @@ export function DialogHost(props: DialogHostProps) {
                 store={props.store}
                 revision={props.revision}
                 onImport={props.onImportPalette}
-                onClose={close}
-            />
-        )
-    }
-
-    if (open === 'studio') {
-        return (
-            <ColorStudio
-                store={props.store}
-                palette={sprite.palette}
-                layers={props.revision}
-                onAddToPalette={(color) => props.palette.add(color)}
                 onClose={close}
             />
         )

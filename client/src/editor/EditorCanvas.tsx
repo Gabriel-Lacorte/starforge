@@ -318,9 +318,6 @@ export function EditorCanvas({
                 store={store}
                 readout={readout}
                 palette={sprite.palette}
-                onOpenStudio={() => {
-                    show('studio')
-                }}
                 onOpenPalette={() => {
                     show('palette')
                 }}

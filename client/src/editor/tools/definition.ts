@@ -64,11 +64,11 @@ export interface ToolSettings {
     readonly seed: number
 }
 
-export function captureSettings(state: EditorState, seed: number): ToolSettings {
+export function captureSettings(state: EditorState, tool: ToolId, seed: number): ToolSettings {
     return {
         color: state.color,
         inkOpacity: state.inkOpacity,
-        brushSize: state.brushSize,
+        brushSize: tool === 'eraser' ? state.eraserSize : state.brushSize,
         pixelPerfect: state.pixelPerfect,
         lockAlpha: state.lockAlpha,
         shapeFill: state.shapeFill,

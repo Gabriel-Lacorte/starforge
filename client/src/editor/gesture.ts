@@ -142,7 +142,7 @@ export class GestureController {
         }
         this.#target = target
         this.#mask = this.#deps.selection?.() ?? null
-        this.#settings = captureSettings(this.#deps.store.state, this.#seed++)
+        this.#settings = captureSettings(this.#deps.store.state, tool, this.#seed++)
         this.#mirror = toolDefinition(tool).geometry === 'freehand'
         this.#inkBase.clear()
         const command = new Command(tool)

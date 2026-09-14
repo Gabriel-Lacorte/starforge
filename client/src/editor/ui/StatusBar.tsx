@@ -148,9 +148,15 @@ export function StatusBar({
                     {state.tool}
                 </span>
                 {hasBrush && (
-                    <span class={`mono dim ${styles.brushSize}`} data-testid="status-brush">
-                        brush {state.brushSize}
-                    </span>
+                    <>
+                        <span class={`mono dim ${styles.brushSize}`} data-testid="status-brush">
+                            {state.tool === 'eraser' ? 'eraser' : 'brush'}{' '}
+                            {state.tool === 'eraser' ? state.eraserSize : state.brushSize}
+                        </span>
+                        <span class={`mono ${styles.brushSizeNum}`} data-testid="status-brush-num">
+                            {state.tool === 'eraser' ? state.eraserSize : state.brushSize}
+                        </span>
+                    </>
                 )}
             </span>
 

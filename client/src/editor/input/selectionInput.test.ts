@@ -1,4 +1,4 @@
-import { createSprite } from '@starforge/core'
+import { createSprite, documentFingerprint } from '@starforge/core'
 import { describe, expect, it } from 'vitest'
 import { DocumentSession } from '../../document/session'
 import { SelectionController } from '../selection/selectionController'
@@ -28,7 +28,7 @@ function setup() {
     const pointer = (overrides: Partial<PointerEvent> = {}) =>
         ({ pointerId: 1, shiftKey: false, altKey: false, ...overrides }) as PointerEvent
 
-    return { input, selection, store, pointer }
+    return { input, selection, session, store, pointer, layer, frame }
 }
 
 describe('SelectionInput modes', () => {
@@ -58,6 +58,31 @@ describe('SelectionInput modes', () => {
 
         expect(selection.contains(0, 0)).toBe(true)
         expect(selection.contains(1, 1)).toBe(false)
+        input.dispose()
+    })
+
+    it('commits a drag move on pointer up so undo works without deselecting', () => {
+        const { input, selection, session, pointer, layer, frame } = setup()
+        session.apply('paint', {
+            kind: 'pixel.patch',
+            layer,
+            frame,
+            xs: Uint16Array.of(1),
+            ys: Uint16Array.of(1),
+            colors: Uint32Array.of(0xff0000ff),
+        })
+        selection.beginMarquee(0, 0)
+        selection.endMarquee(2, 2)
+        const painted = documentFingerprint(session.doc)
+
+        input.pointerDown(pointer(), { x: 1, y: 1 })
+        input.pointerMove(pointer(), { x: 2, y: 1 })
+        input.pointerUp(pointer(), { x: 2, y: 1 })
+
+        expect(selection.floating).toBe(false)
+        expect(documentFingerprint(session.doc)).not.toBe(painted)
+        session.undo()
+        expect(documentFingerprint(session.doc)).toBe(painted)
         input.dispose()
     })
 

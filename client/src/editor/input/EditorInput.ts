@@ -442,8 +442,13 @@ export class EditorInput {
 
         const step = brushStepForKey(e.key)
         if (step) {
-            const size = Math.max(1, Math.min(BRUSH_MAX_SIZE, store.state.brushSize + step))
-            store.patch({ brushSize: size })
+            if (store.state.tool === 'eraser') {
+                const size = Math.max(1, Math.min(BRUSH_MAX_SIZE, store.state.eraserSize + step))
+                store.patch({ eraserSize: size })
+            } else {
+                const size = Math.max(1, Math.min(BRUSH_MAX_SIZE, store.state.brushSize + step))
+                store.patch({ brushSize: size })
+            }
             return
         }
 

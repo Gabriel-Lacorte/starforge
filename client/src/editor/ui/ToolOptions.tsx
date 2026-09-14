@@ -51,34 +51,38 @@ export function ToolOptions({ store }: { store: EditorStore }) {
     const capabilities: readonly ToolCapability[] = active ? toolCapabilities(active) : []
     const shows = (capability: ToolCapability) => capabilities.includes(capability)
 
-    const brushTo = (size: number) => {
-        store.patch({ brushSize: Math.max(1, Math.min(BRUSH_MAX_SIZE, size)) })
+    const eraser = state.tool === 'eraser'
+    const size = eraser ? state.eraserSize : state.brushSize
+    const label = eraser ? 'eraser' : 'brush'
+    const sizeTo = (next: number) => {
+        const clamped = Math.max(1, Math.min(BRUSH_MAX_SIZE, next))
+        store.patch(eraser ? { eraserSize: clamped } : { brushSize: clamped })
     }
 
     return (
         <div class={styles.optionStrip}>
             {shows('brush') && (
-                <span class={styles.opt} title="Brush size">
-                    brush
+                <span class={styles.opt} title={`${label} size`}>
+                    {label}
                     <span class={styles.stepper}>
                         <button
                             type="button"
-                            aria-label="Brush smaller"
+                            aria-label={`${label} smaller`}
                             onClick={(e) => {
-                                brushTo(state.brushSize - 1)
+                                sizeTo(size - 1)
                                 blurOnPointer(e)
                             }}
                         >
                             -
                         </button>
                         <span class="mono" data-testid="brush-size">
-                            {state.brushSize}
+                            {size}
                         </span>
                         <button
                             type="button"
-                            aria-label="Brush larger"
+                            aria-label={`${label} larger`}
                             onClick={(e) => {
-                                brushTo(state.brushSize + 1)
+                                sizeTo(size + 1)
                                 blurOnPointer(e)
                             }}
                         >

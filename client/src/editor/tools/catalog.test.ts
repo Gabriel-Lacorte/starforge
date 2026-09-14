@@ -168,6 +168,7 @@ describe('captured settings', () => {
             recentColors: [],
             inkOpacity: 128,
             brushSize: 3,
+            eraserSize: 5,
             pixelPerfect: false,
             lockAlpha: true,
             shapeFill: true,
@@ -179,7 +180,7 @@ describe('captured settings', () => {
             onion: ONION_SHOWN,
         } as const
 
-        expect(captureSettings(state, 7)).toEqual({
+        expect(captureSettings(state, 'pencil', 7)).toEqual({
             color: RED,
             inkOpacity: 128,
             brushSize: 3,
@@ -192,6 +193,7 @@ describe('captured settings', () => {
             fillContiguous: false,
             seed: 7,
         })
+        expect(captureSettings(state, 'eraser', 7).brushSize).toBe(5)
     })
 
     it('sends the erase ink to full transparency and everything else to the chosen color', () => {

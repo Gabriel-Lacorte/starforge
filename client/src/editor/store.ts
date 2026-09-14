@@ -34,6 +34,7 @@ export interface EditorState {
     readonly inkOpacity: number
 
     readonly brushSize: number
+    readonly eraserSize: number
     readonly pixelPerfect: boolean
     readonly lockAlpha: boolean
     readonly shapeFill: boolean
@@ -58,6 +59,7 @@ export class EditorStore extends Store<EditorState> {
             recentColors: [],
             inkOpacity: 255,
             brushSize: 1,
+            eraserSize: 1,
             pixelPerfect: true,
             lockAlpha: false,
             shapeFill: false,

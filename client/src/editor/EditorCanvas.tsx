@@ -46,6 +46,7 @@ export function EditorCanvas({
     initialLayersOpen,
     hideFileActions = false,
     roomOpen = false,
+    shareBusy = false,
     onShare,
     onNew,
     onOpenStored,
@@ -64,6 +65,7 @@ export function EditorCanvas({
     initialLayersOpen?: boolean
     hideFileActions?: boolean
     roomOpen?: boolean
+    shareBusy?: boolean
     onShare?: () => void
     onNew: (width: number, height: number, title: string) => void
     onOpenStored: (document: OpenedDocument) => void
@@ -194,7 +196,7 @@ export function EditorCanvas({
         if (!storageNotice) return
 
         readout.patch({
-            projectNotice: { phase: 'error', label: 'not stored locally', detail: storageNotice },
+            projectNotice: { phase: 'error', label: 'not saved', detail: storageNotice },
         })
     }, [storageNotice, readout])
 
@@ -299,6 +301,7 @@ export function EditorCanvas({
                 show('keys')
             }}
             onShare={onShare}
+            shareBusy={shareBusy}
             onHistory={(direction) => editorRef.current?.history(direction)}
             onTransform={(kind) => editorRef.current?.transform(kind)}
             onCanvasSize={() => {
@@ -485,6 +488,15 @@ export function EditorCanvas({
                         setSheet(null)
                         show('keys')
                     }}
+                    shareBusy={shareBusy}
+                    onShare={
+                        onShare === undefined
+                            ? undefined
+                            : () => {
+                                  setSheet(null)
+                                  onShare()
+                              }
+                    }
                     onToggleLayers={() => {
                         setSheet(null)
                         rememberPanelFocus()

@@ -97,6 +97,26 @@ textarea {
     font-variant-numeric: tabular-nums;
 }
 
+.pulse {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    animation: pulse-blink 1.06s steps(2, jump-none) infinite;
+}
+
+@keyframes pulse-blink {
+    50% {
+        opacity: 0.2;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pulse {
+        animation: none;
+    }
+}
+
 .tool-ico {
     width: 24px;
     height: 24px;

@@ -13,6 +13,14 @@
     border-bottom: 1px solid var(--line);
 }
 
+.topbar a {
+    color: var(--dim);
+}
+
+.topbar a:hover {
+    color: var(--accent);
+}
+
 .mark {
     image-rendering: pixelated;
     width: 15px;
@@ -58,8 +66,22 @@
 }
 
 .loading {
+    flex: 1;
     display: grid;
     place-items: center;
     min-height: 0;
     color: var(--dim);
+}
+
+.loadingRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.shareError {
+    margin: 0;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
 }

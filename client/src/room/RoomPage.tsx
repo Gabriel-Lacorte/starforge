@@ -17,6 +17,8 @@ export interface RoomMeta {
     readonly title?: string
 }
 
+const STUCK_AFTER_MS = 10000
+
 async function defaultFetchMeta(roomId: string): Promise<RoomMeta> {
     const response = await fetch(`${location.origin}/api/rooms/${roomId}`)
     if (!response.ok) return { found: false }
@@ -33,9 +35,13 @@ async function defaultFetchMeta(roomId: string): Promise<RoomMeta> {
 export function RoomPage({
     roomId,
     fetchMeta = defaultFetchMeta,
+    startSharing = false,
+    onExit,
 }: {
     roomId: string
     fetchMeta?: (roomId: string) => Promise<RoomMeta>
+    startSharing?: boolean
+    onExit: () => void
 }) {
     const storeRef = useRef<EditorStore | null>(null)
     storeRef.current ??= new EditorStore()
@@ -49,6 +55,7 @@ export function RoomPage({
 
     const [missing, setMissing] = useState(false)
     const [offline, setOffline] = useState(false)
+    const [stuck, setStuck] = useState(false)
     const [title, setTitle] = useState<string | null>(null)
     const [session, setSession] = useState<DocumentSession | null>(null)
     const [status, setStatus] = useState<ConnStatus>('connecting')
@@ -56,7 +63,7 @@ export function RoomPage({
     const [peers, setPeers] = useState<RoomPeer[]>([])
     const [epoch, setEpoch] = useState(0)
     const [profile, setProfile] = useState<RoomProfile>(profileRef.current)
-    const [shareOpen, setShareOpen] = useState(false)
+    const [shareOpen, setShareOpen] = useState(startSharing)
 
     useEffect(() => {
         const alive = { current: true }
@@ -66,6 +73,7 @@ export function RoomPage({
 
         setMissing(false)
         setOffline(false)
+        setStuck(false)
         setSession(null)
         setStatus('connecting')
         setError(null)
@@ -145,9 +153,20 @@ export function RoomPage({
         }
     }, [roomId, epoch, fetchMeta])
 
+    useEffect(() => {
+        if (session !== null || missing || offline) return
+
+        const timer = setTimeout(() => {
+            setStuck(true)
+        }, STUCK_AFTER_MS)
+        return () => {
+            clearTimeout(timer)
+        }
+    }, [session, missing, offline, roomId, epoch])
+
     const leave = () => {
         controllerRef.current?.close()
-        location.assign('/')
+        onExit()
     }
 
     const backHome = () => {
@@ -212,7 +231,11 @@ export function RoomPage({
             <header class={`bar ${styles.controls}`}>
                 <div class={styles.left}>
                     <Brand />
+                    <a class={styles.about} href="/about">
+                        About
+                    </a>
                     <div class={styles.title}>
+                        {session === null ? <span class="pulse" aria-hidden="true" /> : null}
                         <strong>Room</strong>
                         <span>{title ?? roomId}</span>
                         <button
@@ -235,6 +258,13 @@ export function RoomPage({
                 <div class={styles.right}>
                     <strong data-testid="room-status">{status}</strong>
                     <div class={styles.peers} aria-label="Painting now">
+                        <span class={styles.peer} data-testid="peer-self" title="You">
+                            <span
+                                class={styles.dot}
+                                style={{ background: shareColorCss(profile.color) }}
+                            />
+                            {profile.nickname}
+                        </span>
                         {peers.map((peer) => (
                             <span key={peer.site} class={styles.peer} data-testid="peer">
                                 <span
@@ -262,7 +292,7 @@ export function RoomPage({
                         readout={readout}
                         active
                         library={null}
-                        storageNotice="Rooms live on the relay — export to keep a copy."
+                        storageNotice={null}
                         initialFrame={session.doc.frames[0]!.id}
                         initialProjectNotice={null}
                         roomOpen
@@ -276,9 +306,23 @@ export function RoomPage({
                 </div>
             ) : (
                 <div class={styles.center}>
-                    <p class={styles.state} role="status">
-                        joining the room...
-                    </p>
+                    {stuck ? (
+                        <section
+                            class={styles.card}
+                            data-testid="room-stuck"
+                            aria-label="Still connecting"
+                        >
+                            <h2>Still trying to reach the relay</h2>
+                            <p>Joining is taking longer than expected. The relay may be down :C</p>
+                            <button type="button" data-testid="room-retry" onClick={retry}>
+                                Retry
+                            </button>
+                        </section>
+                    ) : (
+                        <p class={styles.joining} role="status">
+                            joining the room...
+                        </p>
+                    )}
                 </div>
             )}
             {shareOpen ? (

@@ -19,6 +19,8 @@ export function MobileFileSheet({
     onSaveProject,
     onExport,
     onKeys,
+    shareBusy = false,
+    onShare,
     onToggleLayers,
 }: {
     readout: ReadoutStore
@@ -33,6 +35,8 @@ export function MobileFileSheet({
     onSaveProject: () => void
     onExport: () => void
     onKeys: () => void
+    shareBusy?: boolean
+    onShare?: () => void
     onToggleLayers: () => void
 }) {
     const { canUndo, canRedo, exportState, projectNotice } = useStore(readout)
@@ -52,6 +56,8 @@ export function MobileFileSheet({
                 busy={busy}
                 exporting={exportState === 'working'}
                 layersOpen={layersOpen}
+                shareBusy={shareBusy}
+                hideKeys
                 onNew={onNew}
                 onLibrary={onLibrary}
                 onCanvasSize={onCanvasSize}
@@ -59,6 +65,7 @@ export function MobileFileSheet({
                 onSaveProject={onSaveProject}
                 onExport={onExport}
                 onKeys={onKeys}
+                onShare={onShare}
                 onToggleLayers={onToggleLayers}
             />
         </MobileSheet>

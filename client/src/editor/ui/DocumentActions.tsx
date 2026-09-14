@@ -18,6 +18,8 @@ export function DocumentActions({
     busy,
     exporting,
     layersOpen,
+    shareBusy = false,
+    hideKeys = false,
     onNew,
     onLibrary,
     onCanvasSize,
@@ -38,6 +40,8 @@ export function DocumentActions({
     onSaveProject: () => void
     onExport: () => void
     onKeys: () => void
+    shareBusy?: boolean
+    hideKeys?: boolean
     onShare?: () => void
     onToggleLayers: () => void
 }) {
@@ -72,7 +76,7 @@ export function DocumentActions({
                 }}
             >
                 <LibraryIcon />
-                Drawings<span aria-hidden="true">…</span>
+                Drawings
             </button>
             <button
                 type="button"
@@ -86,7 +90,7 @@ export function DocumentActions({
                 }}
             >
                 <SizeIcon />
-                Size<span aria-hidden="true">…</span>
+                Size
             </button>
             <button
                 ref={openButton}
@@ -135,27 +139,32 @@ export function DocumentActions({
                 onClick={onExport}
             >
                 <ExportIcon />
-                Export<span aria-hidden="true">…</span>
+                Export
             </button>
-            <button
-                type="button"
-                class={styles.textBtn}
-                title="Keys and gestures"
-                data-testid="keys"
-                onClick={(e) => {
-                    onKeys()
-                    blurOnPointer(e)
-                }}
-            >
-                <KeysIcon />
-                <span class={styles.wide}>Keys</span>
-            </button>
+            <span class={styles.sep} aria-hidden="true" />
+            {!hideKeys ? (
+                <button
+                    type="button"
+                    class={styles.textBtn}
+                    title="Keys and gestures"
+                    data-testid="keys"
+                    onClick={(e) => {
+                        onKeys()
+                        blurOnPointer(e)
+                    }}
+                >
+                    <KeysIcon />
+                    <span class={styles.wide}>Keys</span>
+                </button>
+            ) : null}
             {onShare ? (
                 <button
                     type="button"
                     class={styles.textBtn}
                     title="Share this room"
                     data-testid="share"
+                    disabled={shareBusy}
+                    aria-busy={shareBusy}
                     onClick={(e) => {
                         onShare()
                         blurOnPointer(e)
@@ -165,6 +174,7 @@ export function DocumentActions({
                     <span class={styles.wide}>Share</span>
                 </button>
             ) : null}
+            <span class={styles.sep} aria-hidden="true" />
             <button
                 type="button"
                 class={`${styles.textBtn}${layersOpen ? ` ${styles.on}` : ''}`}

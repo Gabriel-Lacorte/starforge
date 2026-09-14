@@ -1,9 +1,11 @@
-import { createSprite, type DecodedProject, type Sprite } from '@starforge/core'
+import { createSprite, encodeSprite, type DecodedProject, type Sprite } from '@starforge/core'
 import { useEffect, useState } from 'preact/hooks'
 import { Brand } from './Brand'
+import { About } from './About'
 import { createStarterSprite } from './document/starterSprite'
 import { EditorCanvas } from './editor/EditorCanvas'
 import { RoomPage } from './room/RoomPage'
+import { createRoom } from './net/roomController'
 import styles from './App.module.css'
 import { migrateLocalDocument, Library } from './storage/library'
 import type { ProjectNotice } from './editor/readout'
@@ -29,15 +31,44 @@ function freshDocument(sprite: Sprite, activeLayer: string, activeFrame: string)
 const ROOM_RE = /^\/r\/([A-Za-z0-9_-]{12})\/?$/
 
 export function App() {
-    const pathname = window.location.pathname
-    const roomMatch = ROOM_RE.exec(pathname)
-    const isRoomPath = pathname === '/r' || pathname.startsWith('/r/')
+    const [path, setPath] = useState(window.location.pathname)
+    const isAbout = path === '/about'
+    const isRoomPath = path === '/r' || path.startsWith('/r/')
+
+    const roomMatch = ROOM_RE.exec(path)
+    const inSolo = roomMatch === null && !isRoomPath && !isAbout
+
     const [library, setLibrary] = useState<Library | null>(null)
     const [doc, setDoc] = useState<OpenDocument | null>(null)
     const [failure, setFailure] = useState<string | null>(null)
 
+    const [sharing, setSharing] = useState(false)
+    const [shareError, setShareError] = useState<string | null>(null)
+    const [freshShare, setFreshShare] = useState(false)
+
     useEffect(() => {
-        if (roomMatch !== null || isRoomPath) return
+        const onPopState = (): void => {
+            setPath(window.location.pathname)
+        }
+        window.addEventListener('popstate', onPopState)
+        return () => {
+            window.removeEventListener('popstate', onPopState)
+        }
+    }, [])
+
+    const navigate = (to: string): void => {
+        const url = new URL(to, window.location.origin)
+        if (url.pathname !== window.location.pathname) {
+            window.history.pushState(null, '', url.pathname + url.search)
+        }
+        setSharing(false)
+        setShareError(null)
+        setPath(url.pathname)
+    }
+
+    useEffect(() => {
+        if (!inSolo) return
+
         let opened: Library | null = null
         const alive = { current: true }
 
@@ -85,17 +116,59 @@ export function App() {
             alive.current = false
             opened?.close()
         }
-    }, [])
+    }, [inSolo])
+
+    const shareDrawing = () => {
+        if (!doc || sharing) return
+
+        setSharing(true)
+        setShareError(null)
+
+        const current = doc
+        void createRoom(location.origin, {
+            title: current.sprite.meta.title,
+            width: current.sprite.width,
+            height: current.sprite.height,
+            snapshot: JSON.stringify(encodeSprite(current.sprite)),
+        }).then(
+            ({ id }) => {
+                setFreshShare(true)
+                navigate(`/r/${id}`)
+            },
+            (error: unknown) => {
+                setSharing(false)
+                setShareError(
+                    error instanceof Error ? error.message : 'could not share this drawing',
+                )
+            },
+        )
+    }
 
     return (
         <div class={styles.app}>
-            {roomMatch ? (
-                <RoomPage roomId={roomMatch[1]!} />
+            {isAbout ? (
+                <About />
+            ) : roomMatch ? (
+                <RoomPage
+                    key={roomMatch[1]!}
+                    roomId={roomMatch[1]!}
+                    startSharing={freshShare}
+                    onExit={() => {
+                        setFreshShare(false)
+                        navigate('/')
+                    }}
+                />
             ) : (
                 <>
                     <header class={`bar ${styles.topbar}`}>
                         <Brand />
+                        <a href="/about">About</a>
                     </header>
+                    {shareError ? (
+                        <p role="alert" data-testid="share-error" class={styles.shareError}>
+                            {shareError}
+                        </p>
+                    ) : null}
                     {isRoomPath ? (
                         <main class={styles.loading} role="alert">
                             <section data-testid="room-missing">
@@ -114,6 +187,8 @@ export function App() {
                             initialLayer={doc.activeLayer}
                             initialFrame={doc.activeFrame}
                             initialProjectNotice={doc.projectNotice}
+                            shareBusy={sharing}
+                            onShare={shareDrawing}
                             onNew={(width, height, title) => {
                                 const sprite = createSprite({ width, height, title })
                                 setDoc(
@@ -146,7 +221,10 @@ export function App() {
                         />
                     ) : (
                         <main class={styles.loading} role="status">
-                            opening your drawing
+                            <span class={styles.loadingRow}>
+                                <span class="pulse" aria-hidden="true" />
+                                opening your drawing
+                            </span>
                         </main>
                     )}
                 </>

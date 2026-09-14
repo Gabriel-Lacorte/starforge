@@ -3,7 +3,6 @@ import type { RoomPeer } from '../../net/presence'
 import type { RoomProfile } from '../../net/profile'
 import styles from './SharePanel.module.css'
 
-/** Eight preset identity colors (RGBA), gold second to match the default profile. */
 export const SHARE_SWATCHES: readonly number[] = [
     0xff5533ff, 0xffcc33ff, 0x66dd66ff, 0x33ccffff, 0x8866ffff, 0xff66ccff, 0xffffffff, 0x222228ff,
 ]
@@ -22,10 +21,6 @@ function fromColorInput(value: string): number | null {
     return (Number.parseInt(match[1]!, 16) * 256 + 0xff) >>> 0
 }
 
-/**
- * Presentational room-sharing dialog: nickname, color, link, members, leave.
- * All state lives in RoomPage; this panel only reports intent.
- */
 export function SharePanel({
     profile,
     peers,

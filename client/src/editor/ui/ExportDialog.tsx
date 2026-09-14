@@ -302,7 +302,7 @@ export function ExportDialog({
                                 />
                             ) : (
                                 <span class="mono dim">
-                                    {previewError ? 'preview unavailable' : 'rendering…'}
+                                    {previewError ? 'preview unavailable' : 'rendering...'}
                                 </span>
                             )}
                         </div>

@@ -265,7 +265,7 @@ export function PaletteDialog({
                     data-testid="palette-import"
                     onClick={() => fileInput.current?.click()}
                 >
-                    Import…
+                    Import
                 </button>
                 <input
                     ref={fileInput}

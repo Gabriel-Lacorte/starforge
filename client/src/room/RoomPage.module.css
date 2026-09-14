@@ -23,6 +23,15 @@
     min-width: 0;
 }
 
+.about {
+    color: var(--dim);
+    white-space: nowrap;
+}
+
+.about:hover {
+    color: var(--accent);
+}
+
 .right {
     display: flex;
     align-items: center;
@@ -41,7 +50,11 @@
     align-items: center;
     gap: 10px;
     min-width: 0;
+    margin-left: 6px;
+    padding-left: 14px;
     white-space: nowrap;
+    border-left: 1px solid var(--line);
+    box-shadow: 1px 0 0 var(--edge-lit);
 }
 
 .title strong {
@@ -88,6 +101,11 @@
     color: var(--text);
 }
 
+.joining {
+    color: var(--dim);
+    white-space: nowrap;
+}
+
 .error {
     color: var(--text);
     white-space: nowrap;
@@ -118,7 +136,17 @@
 
 .actions {
     display: flex;
-    gap: 4px;
+    align-items: center;
+    gap: 8px;
+}
+
+.actions a {
+    color: var(--dim);
+    white-space: nowrap;
+}
+
+.actions a:hover {
+    color: var(--accent);
 }
 
 .actions button {
@@ -198,6 +226,33 @@
 
 .card a {
     color: var(--text);
+}
+
+.card button {
+    min-height: var(--target);
+    padding: 2px 12px;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.card button:hover:not(:disabled) {
+    background: var(--face-hi);
+}
+
+.card button:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.card button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
 }
 
 @media (max-width: 900px) {

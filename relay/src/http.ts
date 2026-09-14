@@ -32,6 +32,11 @@ const TEXT_TYPES: Record<string, string> = {
     '.woff2': 'font/woff2',
 }
 
+const ROBOTS_TXT = 'User-agent: *\nAllow: /\nSitemap: https://starforge.lacorte.city/sitemap.xml\n'
+
+const SITEMAP_XML =
+    '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://starforge.lacorte.city/</loc></url><url><loc>https://starforge.lacorte.city/about</loc></url></urlset>'
+
 export function createServer(deps: HttpDeps): Server {
     const server = http.createServer((req, res) => {
         void handleRequest(req, res, deps).catch(() => {
@@ -61,6 +66,25 @@ async function handleRequest(
         res.end('{"ok":true}')
         return
     }
+
+    if (req.method === 'GET' && url.pathname === '/robots.txt') {
+        res.writeHead(200, {
+            'content-type': 'text/plain; charset=utf-8',
+            'x-content-type-options': 'nosniff',
+        })
+        res.end(ROBOTS_TXT)
+        return
+    }
+
+    if (req.method === 'GET' && url.pathname === '/sitemap.xml') {
+        res.writeHead(200, {
+            'content-type': 'application/xml; charset=utf-8',
+            'x-content-type-options': 'nosniff',
+        })
+        res.end(SITEMAP_XML)
+        return
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/rooms') {
         await handleCreateRoom(req, res, deps)
         return
@@ -69,6 +93,7 @@ async function handleRequest(
         handleGetRoom(url, res, deps)
         return
     }
+
     if (req.method !== 'GET') {
         res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
         res.end('not found')

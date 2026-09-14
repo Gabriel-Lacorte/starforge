@@ -37,6 +37,14 @@ interface PersistHooks {
     snapshot(seq: number, bytes: Uint8Array): void
 }
 
+function isPresenceFrame(bytes: Uint8Array): boolean {
+    try {
+        return decodeFrame(bytes).type === 'presence'
+    } catch {
+        return false
+    }
+}
+
 export class Room {
     private doc: Sprite
     private members = new Map<number, Member>()
@@ -152,13 +160,15 @@ export class Room {
         const member = this.members.get(site)
         if (!member) return
         if (limits !== undefined && !limits.admitBytes(bytes.length)) {
-            member.peer.send(
-                encodeFrame({
-                    type: 'error',
-                    code: ErrorCode.rateLimited,
-                    message: 'rate limited',
-                }),
-            )
+            if (!isPresenceFrame(bytes)) {
+                member.peer.send(
+                    encodeFrame({
+                        type: 'error',
+                        code: ErrorCode.rateLimited,
+                        message: 'rate limited',
+                    }),
+                )
+            }
             return
         }
 
@@ -258,20 +268,10 @@ export class Room {
             }
             throw error
         }
-        const lamport = stampLamport(frame.stamp)
-        if (lamport > 0xffffff) {
-            member.peer.send(
-                encodeFrame({
-                    type: 'error',
-                    code: ErrorCode.lamportExhausted,
-                    message: 'lamport exhausted',
-                }),
-            )
-            for (const [, other] of this.members) other.peer.close(1011)
-            return
-        }
 
+        const lamport = stampLamport(frame.stamp)
         if (lamport > this.maxLamport) this.maxLamport = lamport
+
         applyOperation(this.doc, op)
         this.seq += 1
         this.log.push({ seq: this.seq, stamp: frame.stamp, body: frame.body })
@@ -282,6 +282,7 @@ export class Room {
             this.log = []
             this.persist?.snapshot(this.seq, this.snapshotBytes())
         }
+
         const out = encodeFrame({ type: 'op', seq: this.seq, stamp: frame.stamp, body: frame.body })
         for (const [, other] of this.members) {
             other.peer.send(out)

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
     ErrorCode,
     decodeFrame,
@@ -240,6 +240,78 @@ describe('room', () => {
         if (second.type !== 'resync') throw new Error('expected resync')
         expect(second.seq).toBe(1005)
     }, 30000)
+
+    it('answers rate_limited once the op budget is spent', () => {
+        vi.useFakeTimers()
+        try {
+            vi.setSystemTime(0)
+            const room = new Room()
+            const a = new FakePeer()
+            const joined = room.join(a, hello())
+            if (!('site' in joined)) throw new Error('join failed')
+            const { layer, frame } = roomIds(room)
+            const limits = new ConnLimits()
+            const stamp = (1 << 8) | joined.site
+            const bytes = encodeFrame({
+                type: 'op',
+                seq: 0,
+                stamp,
+                body: encodeOperation({
+                    kind: 'pixel.patch',
+                    layer,
+                    frame,
+                    xs: Uint16Array.of(1),
+                    ys: Uint16Array.of(1),
+                    colors: Uint32Array.of(0xff0000ff),
+                }),
+            })
+            for (let i = 0; i < 60; i++) room.onBytes(joined.site, bytes, limits)
+            a.sent.length = 0
+            room.onBytes(joined.site, bytes, limits)
+            expect(a.sent.length).toBe(1)
+            const err = decodeFrame(a.sent[0]!)
+            if (err.type !== 'error') throw new Error('expected error')
+            expect(err.code).toBe(ErrorCode.rateLimited)
+            expect(a.closed).toBe(null)
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it('drops presence past the byte budget without erroring', () => {
+        vi.useFakeTimers()
+        try {
+            vi.setSystemTime(0)
+            const room = new Room()
+            const a = new FakePeer()
+            const b = new FakePeer()
+            const joinedA = room.join(a, hello())
+            const joinedB = room.join(b, hello())
+            if (!('site' in joinedA) || !('site' in joinedB)) throw new Error('join failed')
+            const limits = new ConnLimits()
+            expect(limits.admitBytes(262144)).toBe(true)
+            a.sent.length = 0
+            b.sent.length = 0
+            room.onBytes(
+                joinedA.site,
+                encodeFrame({
+                    type: 'presence',
+                    site: joinedA.site,
+                    x: 3,
+                    y: 4,
+                    tool: 0,
+                    layer: 'l',
+                    frame: 'f',
+                }),
+                limits,
+            )
+            expect(b.sent.length).toBe(0)
+            expect(a.sent.length).toBe(0)
+            expect(a.closed).toBe(null)
+        } finally {
+            vi.useRealTimers()
+        }
+    })
 })
 
 describe('room abuse gates', () => {

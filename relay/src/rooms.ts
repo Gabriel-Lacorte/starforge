@@ -25,6 +25,8 @@ const ROOM_MIN_SIZE = 16
 const ROOM_MAX_SIZE = 256
 const ROOMS_PER_HOUR_PER_IP = 20
 
+export const MAX_CONNECTIONS = 2048
+
 export function newId(): string {
     return randomBytes(9).toString('base64url')
 }
@@ -112,10 +114,14 @@ export class RoomRegistry {
     private readonly entries = new Map<string, RegistryEntry>()
     private readonly allowCreate: (ip: string, now?: number) => boolean
 
-    constructor(store: RoomStore, opts?: { now?: () => number }) {
+    private readonly maxConnections: number
+    private liveSockets = 0
+
+    constructor(store: RoomStore, opts?: { now?: () => number; maxConnections?: number }) {
         this.store = store
         this.clock = opts?.now ?? (() => Date.now())
         this.allowCreate = createThrottle(ROOMS_PER_HOUR_PER_IP)
+        this.maxConnections = opts?.maxConnections ?? MAX_CONNECTIONS
     }
 
     private now(): number {
@@ -337,6 +343,12 @@ export class RoomRegistry {
     }
 
     attach(raw: Socket, _ip: string, config: RelayConfig): void {
+        if (this.liveSockets >= this.maxConnections) {
+            raw.destroy()
+            return
+        }
+        this.liveSockets += 1
+
         const peer = new WsSocket(raw, config.maxMessageBytes)
         let room: Room | undefined
         let site: number | null = null
@@ -417,6 +429,7 @@ export class RoomRegistry {
         peer.onClose = () => {
             clearTimeout(timer)
             clearInterval(heartbeat)
+            this.liveSockets -= 1
             if (site !== null && room !== undefined) room.leave(site)
         }
     }

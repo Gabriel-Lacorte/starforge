@@ -5,6 +5,7 @@ import type { Socket } from 'node:net'
 import { ErrorCode, WIRE_PROTOCOL, decodeFrame, encodeFrame } from '@starforge/core'
 import { RoomStore } from './store.js'
 import { RoomRegistry, clientIp } from './rooms.js'
+import type { RelayConfig } from './config.js'
 
 function registry() {
     const store = new RoomStore(':memory:')
@@ -57,6 +58,43 @@ describe('room registry', () => {
             expect(over.error.code).toBe(ErrorCode.tooManyRooms)
             expect(rooms.roomInfo(oldest)).not.toBeNull()
             expect(rooms.get(oldest)).toBeDefined()
+        } finally {
+            store.close()
+        }
+    })
+
+    it('refuses connections past the cap and frees the slot on close', async () => {
+        const store = new RoomStore(':memory:')
+        try {
+            const rooms = new RoomRegistry(store, { now: () => 1000, maxConnections: 1 })
+            const config: RelayConfig = {
+                port: 0,
+                origins: [],
+                dataDir: ':memory:',
+                maxMessageBytes: 1024 * 1024,
+                maxMembers: 16,
+            }
+            const first = new net.Socket()
+            rooms.attach(first, '1.2.3.4', config)
+            const second = new net.Socket()
+            const refused = new Promise<void>((resolve) => {
+                second.once('close', () => resolve())
+            })
+            rooms.attach(second, '1.2.3.4', config)
+            await refused
+            expect(second.destroyed).toBe(true)
+            const freed = new Promise<void>((resolve) => {
+                first.once('close', () => resolve())
+            })
+            first.destroy()
+            await freed
+            const third = new net.Socket()
+            try {
+                rooms.attach(third, '1.2.3.4', config)
+                expect(third.destroyed).toBe(false)
+            } finally {
+                third.destroy()
+            }
         } finally {
             store.close()
         }

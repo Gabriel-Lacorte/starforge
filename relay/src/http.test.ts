@@ -148,6 +148,32 @@ describe('relay http', () => {
         const missing = await get('/missing.js')
         expect(missing.status).toBe(404)
     })
+
+    it('serves robots.txt and sitemap.xml without a dist dir', async () => {
+        const server = createServer({
+            distDir: null,
+            origins: [],
+            rooms: new RoomRegistry(new RoomStore(':memory:')),
+            onSocket: (): void => undefined,
+        })
+        servers.push(server)
+        await new Promise<void>((resolve) => {
+            server.listen(0, () => resolve())
+        })
+        const address = server.address()
+        if (address === null || typeof address === 'string') throw new Error('no port')
+        const base = `http://127.0.0.1:${String(address.port)}`
+        const robots = await fetch(`${base}/robots.txt`)
+        expect(robots.status).toBe(200)
+        expect(robots.headers.get('content-type')).toContain('text/plain')
+        const robotsBody = await robots.text()
+        expect(robotsBody).toContain('Sitemap: https://starforge.lacorte.city/sitemap.xml')
+        const sitemap = await fetch(`${base}/sitemap.xml`)
+        expect(sitemap.status).toBe(200)
+        expect(sitemap.headers.get('content-type')).toContain('application/xml')
+        const sitemapBody = await sitemap.text()
+        expect(sitemapBody).toContain('https://starforge.lacorte.city/about')
+    })
 })
 
 interface RoomPayload {

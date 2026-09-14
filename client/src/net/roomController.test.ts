@@ -667,17 +667,31 @@ describe('createRoom', () => {
         const fetchImpl = (() =>
             Promise.resolve({
                 ok: false,
-                status: 400,
-                json: (): Promise<unknown> => Promise.resolve({ error: 'document_too_large' }),
+                status: 429,
+                json: (): Promise<unknown> => Promise.resolve({ error: 'too_many_rooms' }),
             })) as unknown as typeof fetch
         await expect(createRoom('https://relay.example', init, fetchImpl)).rejects.toThrow(
-            /canvas too large/,
+            /too many rooms/,
         )
     })
 
-    it('rethrows a network rejection as-is', async () => {
+    it('says the relay is down on a 502 instead of an invalid room', async () => {
+        const fetchImpl = (() =>
+            Promise.resolve({
+                ok: false,
+                status: 502,
+                json: (): Promise<unknown> => Promise.resolve({}),
+            })) as unknown as typeof fetch
+        await expect(createRoom('https://relay.example', init, fetchImpl)).rejects.toThrow(
+            /could not reach the relay/,
+        )
+    })
+
+    it('translates a network rejection into a relay-down message', async () => {
         const failure = new Error('network down')
         const fetchImpl = ((): Promise<never> => Promise.reject(failure)) as unknown as typeof fetch
-        await expect(createRoom('https://relay.example', init, fetchImpl)).rejects.toBe(failure)
+        await expect(createRoom('https://relay.example', init, fetchImpl)).rejects.toThrow(
+            /could not reach the relay/,
+        )
     })
 })

@@ -30,16 +30,24 @@ export async function createRoom(
     init: RoomCreateInit,
     fetchImpl: typeof fetch = fetch,
 ): Promise<{ id: string }> {
-    const response = await fetchImpl(`${apiBase}/api/rooms`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(init),
-    })
+    let response
+    try {
+        response = await fetchImpl(`${apiBase}/api/rooms`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(init),
+        })
+    } catch {
+        throw new Error('could not reach the relay, the relay may be down :C')
+    }
     if (response.ok) {
         const data = (await response.json()) as { id: string }
         return { id: data.id }
     }
     if (response.status === 429) throw new Error('too many rooms created, try again later')
+    if (response.status >= 500) {
+        throw new Error('could not reach the relay, the relay may be down :C')
+    }
     let code: unknown
     try {
         code = ((await response.json()) as { error?: unknown }).error

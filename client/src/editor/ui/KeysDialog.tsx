@@ -12,10 +12,6 @@ interface Group {
     readonly rows: readonly Binding[]
 }
 
-/**
- * Read off the catalogue rather than kept by hand: the toolbar badges come from
- * the same source, so the two cannot drift apart again.
- */
 function toolRows(): readonly Binding[] {
     const byKey = new Map<string, string[]>()
     for (const tool of TOOL_CATALOG) {
@@ -50,6 +46,7 @@ const GROUPS: readonly Group[] = [
         name: 'Editing',
         rows: [
             { keys: 'Ctrl Z', what: 'Undo' },
+            { keys: 'Two-finger tap', what: 'Undo' },
             { keys: 'Ctrl Shift Z', what: 'Redo' },
             { keys: 'Alt click', what: 'Pick up the colour under the cursor' },
             { keys: 'Esc', what: 'Abandon the stroke in progress' },
@@ -84,8 +81,43 @@ const GROUPS: readonly Group[] = [
     },
 ]
 
+const TOUCH_GROUPS: readonly Group[] = [
+    {
+        name: 'Paint',
+        rows: [
+            { keys: 'Tap', what: 'Paint a dot' },
+            { keys: 'Drag', what: 'Paint a stroke' },
+        ],
+    },
+    {
+        name: 'View',
+        rows: [
+            { keys: 'Pinch', what: 'Zoom' },
+            { keys: 'Two-finger drag', what: 'Pan' },
+        ],
+    },
+    {
+        name: 'Editing',
+        rows: [{ keys: 'Two-finger tap', what: 'Undo' }],
+    },
+    {
+        name: 'Selection',
+        rows: [{ keys: 'Drag', what: 'Marquee, then drag inside it to move' }],
+    },
+]
+
+function isCoarsePointer(): boolean {
+    return (
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(pointer: coarse)').matches
+    )
+}
+
 export function KeysDialog({ onClose }: { onClose: () => void }) {
     const ref = useRef<HTMLDialogElement>(null)
+    const touch = isCoarsePointer()
+    const groups = touch ? TOUCH_GROUPS : GROUPS
 
     useEffect(() => {
         ref.current?.showModal()
@@ -115,7 +147,7 @@ export function KeysDialog({ onClose }: { onClose: () => void }) {
             <header class={styles.header}>Keys and gestures</header>
 
             <div class={styles.body}>
-                {GROUPS.map((group) => (
+                {groups.map((group) => (
                     <section key={group.name} class={styles.group}>
                         <h2 class={styles.groupName}>{group.name}</h2>
                         <dl class={styles.rows}>
@@ -128,7 +160,7 @@ export function KeysDialog({ onClose }: { onClose: () => void }) {
                         </dl>
                     </section>
                 ))}
-                <p class={styles.note}>On a Mac, Ctrl is Cmd.</p>
+                {!touch ? <p class={styles.note}>On a Mac, Ctrl is Cmd.</p> : null}
             </div>
 
             <div class={styles.actions}>

@@ -3,7 +3,9 @@ import type { ReadoutStore } from '../readout'
 import { DocumentActions } from './DocumentActions'
 import { HistoryActions } from './HistoryActions'
 import { MobileSheet } from './MobileSheet'
+import { TouchIcon } from './icons'
 import styles from './MobileFileSheet.module.css'
+import toolbarStyles from './Toolbar.module.css'
 import { useStore } from './useStore'
 
 export function MobileFileSheet({
@@ -58,6 +60,7 @@ export function MobileFileSheet({
                 layersOpen={layersOpen}
                 shareBusy={shareBusy}
                 hideKeys
+                separators={false}
                 onNew={onNew}
                 onLibrary={onLibrary}
                 onCanvasSize={onCanvasSize}
@@ -68,6 +71,18 @@ export function MobileFileSheet({
                 onShare={onShare}
                 onToggleLayers={onToggleLayers}
             />
+            <button
+                type="button"
+                class={toolbarStyles.textBtn}
+                data-testid="mobile-gestures"
+                onClick={() => {
+                    onClose()
+                    onKeys()
+                }}
+            >
+                <TouchIcon />
+                Gestures
+            </button>
         </MobileSheet>
     )
 }

@@ -19,6 +19,7 @@ import { isGestureTool } from '../tools/registry'
 import { brushStepForKey, selectionModeForKey, toolForKey } from './keymap'
 import { pinchStepForRatio } from './pinch'
 import { SelectionInput } from './selectionInput'
+import { TwoFingerTap } from './twoFingerTap'
 import { WheelZoom } from './wheelZoom'
 
 export interface InputDeps {
@@ -51,6 +52,7 @@ export class EditorInput {
     #lastY = 0
 
     readonly #touches = new Map<number, { x: number; y: number }>()
+    readonly #twoFinger = new TwoFingerTap()
     #pinchDistance = 0
     #pinchX = 0
     #pinchY = 0
@@ -210,6 +212,7 @@ export class EditorInput {
             this.#touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
             canvas.setPointerCapture(e.pointerId)
 
+            if (this.#touches.size >= 2) this.#twoFinger.press(e.pointerId, this.#touches)
             if (this.#pinching) {
                 e.preventDefault()
                 this.#beginPinch()
@@ -262,6 +265,7 @@ export class EditorInput {
         if (e.pointerType === 'touch' && this.#touches.has(e.pointerId)) {
             this.#touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
             if (this.#pinching) {
+                if (this.#twoFinger.drifted(this.#touches)) this.#twoFinger.cancel()
                 e.preventDefault()
                 this.#movePinch()
                 return
@@ -315,7 +319,13 @@ export class EditorInput {
     #onPointerUp = (e: PointerEvent): void => {
         const { viewport, gestures } = this.#deps
 
-        if (this.#touches.delete(e.pointerId) && this.#touches.size > 0) return
+        if (e.pointerType === 'touch') {
+            this.#touches.delete(e.pointerId)
+            if (this.#twoFinger.release(e.pointerId)) gestures.history('undo')
+            if (this.#touches.size > 0) return
+        } else if (this.#touches.delete(e.pointerId) && this.#touches.size > 0) {
+            return
+        }
 
         if (this.#panning) {
             this.#panning = false
@@ -339,6 +349,7 @@ export class EditorInput {
     }
 
     #onPointerCancel = (e: PointerEvent): void => {
+        this.#twoFinger.cancel()
         if (this.#touches.delete(e.pointerId) && this.#touches.size > 0) return
 
         if (this.#panning) {

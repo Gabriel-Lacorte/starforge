@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks'
 import type { ReadoutStore } from '../readout'
+import { UndoIcon } from './icons'
 import { useStore } from './useStore'
 import styles from './FirstVisitHint.module.css'
 
@@ -39,9 +40,22 @@ export function FirstVisitHint({ readout }: { readout: ReadoutStore }) {
         setVisible(false)
     }
 
+    const touch =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(pointer: coarse)').matches
+
     return (
         <p role="status" class={styles.hint} data-testid="first-visit-hint">
-            press <kbd>?</kbd> for shortcuts * <kbd>B</kbd> draws
+            {touch ? (
+                <>
+                    pinch to zoom * <UndoIcon /> two-finger tap undoes
+                </>
+            ) : (
+                <>
+                    press <kbd>?</kbd> for shortcuts * <kbd>B</kbd> draws
+                </>
+            )}
             <button type="button" class={styles.close} aria-label="Dismiss hint" onClick={dismiss}>
                 x
             </button>

@@ -1,0 +1,119 @@
+.page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.nav {
+    display: flex;
+    gap: 12px;
+}
+
+.main {
+    width: 100%;
+    max-width: 44rem;
+    margin: auto;
+    padding: 0 1rem 3rem;
+    line-height: 1.6;
+}
+
+.main section + section {
+    margin-top: 2rem;
+}
+
+.page a {
+    color: var(--accent);
+}
+
+.page a:hover {
+    color: var(--accent-hi);
+}
+
+.hero {
+    padding: 3rem 0 2rem;
+    text-align: center;
+}
+
+.kicker {
+    margin: 0;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.title {
+    margin: 0.5rem 0 0;
+    font-size: 40px;
+    line-height: 1.1;
+    color: var(--text);
+}
+
+.tagline {
+    max-width: 32rem;
+    margin: 1rem auto 0;
+    color: var(--dim);
+}
+
+.ctaRow {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 1.5rem 0 0;
+}
+
+.cta {
+    padding: 6px 16px;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    text-decoration: none;
+}
+
+.cta:active {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.feature {
+    padding: 10px 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+}
+
+.feature strong {
+    color: var(--accent);
+}
+
+.steps {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: var(--text);
+}
+
+.steps li + li {
+    margin-top: 4px;
+}

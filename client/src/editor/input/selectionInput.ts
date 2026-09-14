@@ -82,6 +82,7 @@ export class SelectionInput {
     pointerUp(e: PointerEvent, p: { x: number; y: number }): boolean {
         if (this.#mode === 'none' || e.pointerId !== this.#pointerId) return false
         if (this.#mode === 'marquee') this.#deps.selection.endMarquee(p.x, p.y)
+        else this.#deps.selection.commit()
         this.#mode = 'none'
         return true
     }

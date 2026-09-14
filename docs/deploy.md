@@ -6,7 +6,6 @@ WebSocket relay on `8131`.
 The relay drains connections on `SIGTERM` / `SIGINT` so rollouts do
 not drop flying ops.
 
-
 ## 1. Pi Prep
 
 On Raspberry Pi OS (64-bit):

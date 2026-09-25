@@ -40,6 +40,12 @@ export class ByteWriter {
         )
     }
 
+    f64(value: number): void {
+        const view = new DataView(new ArrayBuffer(8))
+        view.setFloat64(0, value, false)
+        for (let i = 0; i < 8; i++) this.bytes.push(view.getUint8(i))
+    }
+
     i16(value: number): void {
         this.u16(value & 0xffff)
     }
@@ -111,6 +117,12 @@ export class ByteReader {
         )
     }
 
+    f64(): number {
+        const at = this.take(8)
+        const view = new DataView(this.bytes.buffer)
+        return view.getFloat64(at + this.bytes.byteOffset, false)
+    }
+
     i16(): number {
         const raw = this.u16()
         return raw > 0x7fff ? raw - 0x10000 : raw
@@ -145,7 +157,7 @@ export class ByteReader {
     }
 }
 
-export const WIRE_PROTOCOL = 1
+export const WIRE_PROTOCOL = 2
 
 export const FrameType = {
     hello: 1,
@@ -194,12 +206,20 @@ export interface OpMsg {
     readonly seq: number
     readonly stamp: number
     readonly body: Uint8Array
+    /** Fractional position for ordered structural ops (layer/frame add & move). */
+    readonly orderKey?: number
 }
 
 export interface NetError {
     readonly type: 'error'
     readonly code: number
     readonly message: string
+}
+
+export interface StrokePreview {
+    readonly color: number
+    readonly cells: readonly number[]
+    readonly full: boolean
 }
 
 export interface Presence {
@@ -210,6 +230,9 @@ export interface Presence {
     readonly tool: number
     readonly layer: string
     readonly frame: string
+    readonly nickname: string
+    readonly color: number
+    readonly preview?: StrokePreview
 }
 
 export interface PeerJoin {
@@ -261,6 +284,8 @@ export function encodeFrame(frame: NetFrame): Uint8Array<ArrayBuffer> {
             out.u8(FrameType.op)
             out.u32(frame.seq)
             out.u32(frame.stamp)
+            out.u8(frame.orderKey === undefined ? 0 : 1)
+            if (frame.orderKey !== undefined) out.f64(frame.orderKey)
             out.raw(frame.body)
             break
         case 'presence':
@@ -271,6 +296,17 @@ export function encodeFrame(frame: NetFrame): Uint8Array<ArrayBuffer> {
             out.u8(frame.tool)
             out.str(frame.layer)
             out.str(frame.frame)
+            out.str(frame.nickname)
+            out.u32(frame.color)
+            if (frame.preview !== undefined) {
+                out.u8(1)
+                out.u32(frame.preview.color)
+                out.u8(frame.preview.full ? 1 : 0)
+                out.varint(frame.preview.cells.length)
+                for (const cell of frame.preview.cells) out.varint(cell)
+            } else {
+                out.u8(0)
+            }
             break
         case 'peerJoin':
             out.u8(FrameType.peerJoin)
@@ -325,18 +361,56 @@ export function decodeFrame(bytes: Uint8Array): NetFrame {
         case FrameType.op: {
             const seq = at.u32()
             const stamp = at.u32()
-            return { type: 'op', seq, stamp, body: at.raw(at.remaining) }
+            const hasOrderKey = at.u8() === 1
+            return {
+                type: 'op',
+                seq,
+                stamp,
+                body: at.raw(at.remaining),
+                ...(hasOrderKey ? { orderKey: at.f64() } : {}),
+            }
         }
-        case FrameType.presence:
+        case FrameType.presence: {
+            const site = at.u8()
+            const x = at.i16()
+            const y = at.i16()
+            const tool = at.u8()
+            const layer = at.str()
+            const frameName = at.str()
+            const nickname = at.str()
+            const color = at.u32()
+            const hasPreview = at.u8() === 1
+            if (!hasPreview) {
+                return {
+                    type: 'presence',
+                    site,
+                    x,
+                    y,
+                    tool,
+                    layer,
+                    frame: frameName,
+                    nickname,
+                    color,
+                }
+            }
+            const previewColor = at.u32()
+            const full = at.u8() === 1
+            const count = at.varint()
+            const cells: number[] = []
+            for (let i = 0; i < count; i++) cells.push(at.varint())
             return {
                 type: 'presence',
-                site: at.u8(),
-                x: at.i16(),
-                y: at.i16(),
-                tool: at.u8(),
-                layer: at.str(),
-                frame: at.str(),
+                site,
+                x,
+                y,
+                tool,
+                layer,
+                frame: frameName,
+                nickname,
+                color,
+                preview: { color: previewColor, cells, full },
             }
+        }
         case FrameType.peerJoin:
             return {
                 type: 'peerJoin',

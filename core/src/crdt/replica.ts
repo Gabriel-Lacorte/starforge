@@ -110,6 +110,10 @@ export class Replica {
         }
     }
 
+    observeLamport(lamport: number): void {
+        this.clock.observeLamport(lamport)
+    }
+
     publish(
         operation: DocumentOperation,
         options?: { readonly alreadyApplied?: boolean },

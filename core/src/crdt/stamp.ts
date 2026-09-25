@@ -61,4 +61,10 @@ export class LamportClock {
     observe(stamp: Stamp): void {
         this.lamport = Math.max(this.lamport, stampLamport(stamp))
     }
+
+    observeLamport(lamport: number): void {
+        if (Number.isFinite(lamport) && lamport > this.lamport && lamport <= MAX_LAMPORT) {
+            this.lamport = lamport
+        }
+    }
 }

@@ -32,7 +32,7 @@ describe('wire envelope', () => {
 })
 
 describe('room frames', () => {
-    it('round-trips presence with a negative cursor', () => {
+    it('round-trips presence with a negative cursor and identity', () => {
         const frame = {
             type: 'presence',
             site: 3,
@@ -41,6 +41,24 @@ describe('room frames', () => {
             tool: 0,
             layer: 'l1',
             frame: 'f1',
+            nickname: 'ada',
+            color: 0xffcc33ff,
+        } as const
+        expect(decodeFrame(encodeFrame(frame))).toEqual(frame)
+    })
+
+    it('round-trips presence carrying a live stroke preview', () => {
+        const frame = {
+            type: 'presence',
+            site: 3,
+            x: 4,
+            y: 5,
+            tool: 0,
+            layer: 'l1',
+            frame: 'f1',
+            nickname: 'ada',
+            color: 0xffcc33ff,
+            preview: { color: 0xff0000ff, cells: [3, 512, 65535], full: false },
         } as const
         expect(decodeFrame(encodeFrame(frame))).toEqual(frame)
     })

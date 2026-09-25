@@ -111,7 +111,7 @@ describe('room registry', () => {
         expect(second.roomInfo(created.id)).toMatchObject({ title: 'keep', members: 0 })
     })
 
-    it('drops a room whose op log is corrupt on rehydrate', () => {
+    it('keeps a room whose op log has one poison row, skipping only that op', () => {
         const store = new RoomStore(':memory:')
         try {
             const first = new RoomRegistry(store, { now: () => 1000 })
@@ -123,8 +123,8 @@ describe('room registry', () => {
             if (!('id' in created)) throw new Error('create failed')
             store.appendOp(created.id, { seq: 1, stamp: 1, body: new Uint8Array([0, 1, 2, 3]) })
             const second = new RoomRegistry(store, { now: () => 2000 })
-            expect(second.rehydrate()).toEqual({ rooms: 0, dropped: 1 })
-            expect(second.roomInfo(created.id)).toBeNull()
+            expect(second.rehydrate()).toEqual({ rooms: 1, dropped: 0 })
+            expect(second.roomInfo(created.id)).toMatchObject({ title: 'poison', members: 0 })
         } finally {
             store.close()
         }

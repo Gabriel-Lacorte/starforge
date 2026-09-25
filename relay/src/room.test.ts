@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+    WIRE_PROTOCOL,
     ErrorCode,
     decodeFrame,
     decodeSprite,
@@ -27,7 +28,7 @@ class FakePeer implements Peer {
 function hello(): Hello {
     return {
         type: 'hello',
-        protocol: 1,
+        protocol: WIRE_PROTOCOL,
         room: 'lab',
         nickname: 'ada',
         color: 0xffcc33ff,
@@ -302,6 +303,8 @@ describe('room', () => {
                     tool: 0,
                     layer: 'l',
                     frame: 'f',
+                    nickname: 'ada',
+                    color: 1,
                 }),
                 limits,
             )

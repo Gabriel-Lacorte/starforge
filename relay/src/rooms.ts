@@ -104,8 +104,8 @@ interface RegistryEntry {
 }
 
 interface PersistHooks {
-    append(seq: number, stamp: number, body: Uint8Array): void
-    snapshot(seq: number, bytes: Uint8Array): void
+    append(seq: number, stamp: number, body: Uint8Array, orderKey?: number): void
+    snapshot(seq: number, bytes: Uint8Array, lamport: number): void
 }
 
 export class RoomRegistry {
@@ -130,14 +130,19 @@ export class RoomRegistry {
 
     private hooks(id: string): PersistHooks {
         return {
-            append: (seq: number, stamp: number, body: Uint8Array): void => {
-                this.store.appendOp(id, { seq, stamp, body })
+            append: (seq: number, stamp: number, body: Uint8Array, orderKey?: number): void => {
+                this.store.appendOp(id, {
+                    seq,
+                    stamp,
+                    body,
+                    ...(orderKey !== undefined ? { orderKey } : {}),
+                })
                 const entry = this.entries.get(id)
                 if (entry !== undefined) entry.seq = seq
                 this.store.touch(id, this.now())
             },
-            snapshot: (seq: number, bytes: Uint8Array): void => {
-                this.store.setSnapshot(id, seq, new TextDecoder().decode(bytes))
+            snapshot: (seq: number, bytes: Uint8Array, lamport: number): void => {
+                this.store.setSnapshot(id, seq, new TextDecoder().decode(bytes), lamport)
                 const entry = this.entries.get(id)
                 if (entry !== undefined) entry.seq = seq
             },
@@ -247,6 +252,7 @@ export class RoomRegistry {
             snapshot: new TextDecoder().decode(room.snapshotBytes()),
             snapshotSeq: 0,
             touchedAt: at,
+            lamport: 0,
         })
         room.touch(at)
         this.entries.set(id, { room, title, width: init.width, height: init.height, seq: 0 })
@@ -305,26 +311,27 @@ export class RoomRegistry {
                 continue
             }
 
-            const log: { seq: number; stamp: number; body: Uint8Array }[] = []
+            const log: { seq: number; stamp: number; body: Uint8Array; orderKey?: number }[] = []
             let seq = stored.snapshotSeq
-            let lamport = 0
-            let corrupt = false
+            let lamport = stored.lamport
             for (const op of ops) {
+                if (op.seq <= stored.snapshotSeq) continue
+
                 try {
                     applyOperation(doc, decodeOperation(op.body))
                 } catch {
-                    corrupt = true
-                    break
+                    continue
                 }
+
                 const at = stampLamport(op.stamp)
                 if (at > lamport) lamport = at
-                log.push({ seq: op.seq, stamp: op.stamp, body: op.body })
+                log.push({
+                    seq: op.seq,
+                    stamp: op.stamp,
+                    body: op.body,
+                    ...(op.orderKey !== undefined ? { orderKey: op.orderKey } : {}),
+                })
                 if (op.seq > seq) seq = op.seq
-            }
-            if (corrupt) {
-                this.store.deleteRoom(stored.id)
-                dropped += 1
-                continue
             }
 
             const room = new Room(doc, this.hooks(stored.id))
@@ -424,6 +431,10 @@ export class RoomRegistry {
             }
 
             if (site !== null && room !== undefined) room.onBytes(site, payload, limits)
+        }
+
+        peer.onPong = (): void => {
+            lastSeen = Date.now()
         }
 
         peer.onClose = () => {

@@ -30,11 +30,12 @@ interface LogEntry {
     seq: number
     stamp: number
     body: Uint8Array
+    orderKey?: number
 }
 
 interface PersistHooks {
-    append(seq: number, stamp: number, body: Uint8Array): void
-    snapshot(seq: number, bytes: Uint8Array): void
+    append(seq: number, stamp: number, body: Uint8Array, orderKey?: number): void
+    snapshot(seq: number, bytes: Uint8Array, lamport: number): void
 }
 
 function isPresenceFrame(bytes: Uint8Array): boolean {
@@ -78,20 +79,18 @@ export class Room {
     }
 
     missedSince(since: number): NetFrame[] {
-        if (since >= this.seq) return []
-        if (this.seq - since > MAX_LOG) {
+        if (since === this.seq) return []
+
+        if (since > this.seq || this.seq - since > MAX_LOG) {
             return [{ type: 'resync', seq: this.seq, snapshot: this.snapshotBytes() }]
         }
+
         const tail = this.log.filter((entry) => entry.seq > since)
         if (tail.length < this.seq - since) {
             return [{ type: 'resync', seq: this.seq, snapshot: this.snapshotBytes() }]
         }
-        return tail.map((entry) => ({
-            type: 'op' as const,
-            seq: entry.seq,
-            stamp: entry.stamp,
-            body: entry.body,
-        }))
+
+        return tail.map((entry) => this.replayable(entry))
     }
 
     restore(snapshotSeq: number, seq: number, lamport: number, log: LogEntry[]): void {
@@ -99,6 +98,16 @@ export class Room {
         this.seq = seq
         this.maxLamport = lamport
         this.log = [...log]
+    }
+
+    private replayable(entry: LogEntry): NetFrame {
+        return {
+            type: 'op',
+            seq: entry.seq,
+            stamp: entry.stamp,
+            body: entry.body,
+            ...(entry.orderKey !== undefined ? { orderKey: entry.orderKey } : {}),
+        }
     }
 
     private allocSite(): number | null {
@@ -187,7 +196,7 @@ export class Room {
         }
 
         if (frame.type === 'presence') {
-            const out = encodeFrame({ ...frame, site })
+            const out = encodeFrame({ ...frame, site, nickname: frame.nickname.slice(0, 64) })
             for (const [otherSite, other] of this.members) {
                 if (otherSite !== site) other.peer.send(out)
             }
@@ -252,6 +261,17 @@ export class Room {
             )
             return
         }
+        if (frame.orderKey !== undefined && !Number.isFinite(frame.orderKey)) {
+            member.peer.send(
+                encodeFrame({
+                    type: 'error',
+                    code: ErrorCode.invalidOperation,
+                    message: 'invalid operation',
+                }),
+            )
+            return
+        }
+
         const candidate = decodeSprite(encodeSprite(this.doc))
         try {
             applyOperation(candidate, op)
@@ -274,16 +294,34 @@ export class Room {
 
         applyOperation(this.doc, op)
         this.seq += 1
-        this.log.push({ seq: this.seq, stamp: frame.stamp, body: frame.body })
-        this.persist?.append(this.seq, frame.stamp, frame.body)
+        this.log.push({
+            seq: this.seq,
+            stamp: frame.stamp,
+            body: frame.body,
+            ...(frame.orderKey !== undefined ? { orderKey: frame.orderKey } : {}),
+        })
+        this.persist?.append(
+            this.seq,
+            frame.stamp,
+            frame.body,
+            frame.orderKey !== undefined && Number.isFinite(frame.orderKey)
+                ? frame.orderKey
+                : undefined,
+        )
         this.touch(Date.now())
         if (this.seq - this.snapshotSeq >= SNAPSHOT_EVERY) {
             this.snapshotSeq = this.seq
             this.log = []
-            this.persist?.snapshot(this.seq, this.snapshotBytes())
+            this.persist?.snapshot(this.seq, this.snapshotBytes(), this.maxLamport)
         }
 
-        const out = encodeFrame({ type: 'op', seq: this.seq, stamp: frame.stamp, body: frame.body })
+        const out = encodeFrame({
+            type: 'op',
+            seq: this.seq,
+            stamp: frame.stamp,
+            body: frame.body,
+            ...(frame.orderKey !== undefined ? { orderKey: frame.orderKey } : {}),
+        })
         for (const [, other] of this.members) {
             other.peer.send(out)
         }

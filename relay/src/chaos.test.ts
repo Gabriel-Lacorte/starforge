@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+    WIRE_PROTOCOL,
     applyOperation,
     decodeFrame,
     decodeOperation,
@@ -32,7 +33,7 @@ class FakePeer implements Peer {
 function hello(): Hello {
     return {
         type: 'hello',
-        protocol: 1,
+        protocol: WIRE_PROTOCOL,
         room: 'lab',
         nickname: 'ada',
         color: 0xffcc33ff,

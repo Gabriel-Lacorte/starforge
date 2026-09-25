@@ -32,6 +32,17 @@ export function LibraryDialog({
 }) {
     const ref = useRef<HTMLDialogElement>(null)
     const [query, setQuery] = useState('')
+    const [confirming, setConfirming] = useState<string | null>(null)
+
+    useEffect(() => {
+        if (confirming === null) return
+        const clear = setTimeout((): void => {
+            setConfirming(null)
+        }, 4000)
+        return () => {
+            clearTimeout(clear)
+        }
+    }, [confirming])
 
     useEffect(() => {
         ref.current?.showModal()
@@ -111,19 +122,35 @@ export function LibraryDialog({
                                         {entry.id === openId ? ' · open' : ''}
                                     </span>
                                 </button>
-                                <button
-                                    type="button"
-                                    class={styles.icon}
-                                    title={`Forget "${entry.title}"`}
-                                    aria-label={`Forget ${entry.title}`}
-                                    data-testid="library-remove"
-                                    disabled={entry.id === openId}
-                                    onClick={() => {
-                                        onRemove(entry.id)
-                                    }}
-                                >
-                                    <TrashIcon />
-                                </button>
+                                {confirming === entry.id ? (
+                                    <button
+                                        type="button"
+                                        class={styles.icon}
+                                        title={`Really forget "${entry.title}"?`}
+                                        aria-label={`Really forget ${entry.title}`}
+                                        data-testid="library-remove-confirm"
+                                        onClick={() => {
+                                            setConfirming(null)
+                                            onRemove(entry.id)
+                                        }}
+                                    >
+                                        sure?
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        class={styles.icon}
+                                        title={`Forget "${entry.title}"`}
+                                        aria-label={`Forget ${entry.title}`}
+                                        data-testid="library-remove"
+                                        disabled={entry.id === openId}
+                                        onClick={() => {
+                                            setConfirming(entry.id)
+                                        }}
+                                    >
+                                        <TrashIcon />
+                                    </button>
+                                )}
                             </li>
                         ))}
                     </ul>
@@ -151,18 +178,34 @@ export function LibraryDialog({
                                 >
                                     Download
                                 </button>
-                                <button
-                                    type="button"
-                                    class={styles.icon}
-                                    title="Let this one go"
-                                    aria-label={`Let ${entry.title} go`}
-                                    data-testid="recovery-forget"
-                                    onClick={() => {
-                                        onForgetRecovery(entry.id)
-                                    }}
-                                >
-                                    <TrashIcon />
-                                </button>
+                                {confirming === `recovery:${entry.id}` ? (
+                                    <button
+                                        type="button"
+                                        class={styles.icon}
+                                        title="Really let this one go?"
+                                        aria-label={`Really let ${entry.title} go`}
+                                        data-testid="recovery-forget-confirm"
+                                        onClick={() => {
+                                            setConfirming(null)
+                                            onForgetRecovery(entry.id)
+                                        }}
+                                    >
+                                        sure?
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        class={styles.icon}
+                                        title="Let this one go"
+                                        aria-label={`Let ${entry.title} go`}
+                                        data-testid="recovery-forget"
+                                        onClick={() => {
+                                            setConfirming(`recovery:${entry.id}`)
+                                        }}
+                                    >
+                                        <TrashIcon />
+                                    </button>
+                                )}
                             </div>
                         ))}
                     </section>

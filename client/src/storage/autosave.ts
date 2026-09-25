@@ -24,7 +24,7 @@ export function startAutosave(
     let writing: Promise<void> = Promise.resolve()
     let disposed = false
 
-    const write = (): void => {
+    const write = (fast = false): void => {
         if (timer !== null) {
             clearTimeout(timer)
             timer = null
@@ -33,7 +33,10 @@ export function startAutosave(
         const { layer, frame } = session.target.state
         writing = writing
             .catch(() => undefined)
-            .then(() => renderThumbnail(sprite, frame).catch(() => null))
+            .then(() => {
+                if (fast) return null
+                return renderThumbnail(sprite, frame).catch(() => null)
+            })
             .then((thumbnail) =>
                 library.save({
                     sprite,
@@ -64,13 +67,16 @@ export function startAutosave(
     }
 
     const onHide = (): void => {
-        if (document.visibilityState === 'hidden') write()
+        if (document.visibilityState === 'hidden') write(true)
+    }
+    const onPageHide = (): void => {
+        write(true)
     }
 
     const unsubscribeSession = session.subscribe(schedule)
     const unsubscribeTarget = session.target.subscribe(schedule)
 
-    window.addEventListener('pagehide', write)
+    window.addEventListener('pagehide', onPageHide)
     document.addEventListener('visibilitychange', onHide)
 
     write()
@@ -79,8 +85,8 @@ export function startAutosave(
         disposed = true
         unsubscribeSession()
         unsubscribeTarget()
-        window.removeEventListener('pagehide', write)
+        window.removeEventListener('pagehide', onPageHide)
         document.removeEventListener('visibilitychange', onHide)
-        write()
+        write(true)
     }
 }

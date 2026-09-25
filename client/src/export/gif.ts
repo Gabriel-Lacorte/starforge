@@ -62,8 +62,18 @@ export function renderSpritesheet(sprite: Sprite, scale: GifScale): Promise<Blob
     const sw = width * scale
     const sh = height * scale
 
+    const sheetW = sw * frames.length
+    if (sheetW > 32767 || sheetW * sh > 16_700_000) {
+        return Promise.reject(
+            new Error(
+                `spritesheet too large for the browser (${String(sheetW)}x${String(sh)}px): ` +
+                    'lower the scale or trim frames',
+            ),
+        )
+    }
+
     const strip = document.createElement('canvas')
-    strip.width = sw * frames.length
+    strip.width = sheetW
     strip.height = sh
 
     const ctx = strip.getContext('2d')!

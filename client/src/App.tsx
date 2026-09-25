@@ -45,6 +45,7 @@ export function App() {
     const [sharing, setSharing] = useState(false)
     const [shareError, setShareError] = useState<string | null>(null)
     const [freshShare, setFreshShare] = useState(false)
+    const [foreignTab, setForeignTab] = useState(false)
 
     useEffect(() => {
         const onPopState = (): void => {
@@ -69,21 +70,54 @@ export function App() {
     useEffect(() => {
         if (!inSolo) return
 
+        setForeignTab(false)
         let opened: Library | null = null
+        let releaseLock: (() => void) | null = null
         const alive = { current: true }
 
-        void (async () => {
-            try {
-                opened = await Library.open()
-                await migrateLocalDocument(opened)
-                const stored = await opened.openLatest()
+        const begin = (own: boolean): void => {
+            if (!alive.current) return
+            if (!own) {
+                setForeignTab(true)
+                const starter = createStarterSprite()
+                setDoc(
+                    freshDocument(
+                        starter.sprite,
+                        starter.activeLayer,
+                        starter.sprite.frames[0]!.id,
+                    ),
+                )
+                return
+            }
+            void (async () => {
+                try {
+                    opened = await Library.open()
+                    await migrateLocalDocument(opened)
+                    const stored = await opened.openLatest()
 
-                if (!alive.current) return
+                    if (!alive.current) return
 
-                setLibrary(opened)
-                if (stored) {
-                    setDoc(freshDocument(stored.sprite, stored.activeLayer, stored.activeFrame))
-                } else {
+                    setLibrary(opened)
+                    if (stored) {
+                        setDoc(freshDocument(stored.sprite, stored.activeLayer, stored.activeFrame))
+                    } else {
+                        const starter = createStarterSprite()
+                        setDoc(
+                            freshDocument(
+                                starter.sprite,
+                                starter.activeLayer,
+                                starter.sprite.frames[0]!.id,
+                            ),
+                        )
+                    }
+                } catch (error) {
+                    if (!alive.current) return
+
+                    console.error('the local library could not be opened', error)
+                    setFailure(
+                        'This browser is not storing your work. Save the project before leaving.',
+                    )
+
                     const starter = createStarterSprite()
                     setDoc(
                         freshDocument(
@@ -93,28 +127,37 @@ export function App() {
                         ),
                     )
                 }
-            } catch (error) {
-                if (!alive.current) return
+            })()
+        }
 
-                console.error('the local library could not be opened', error)
-                setFailure(
-                    'This browser is not storing your work. Save the project before leaving.',
+        const locks = (navigator as unknown as { locks?: LockManager }).locks
+        if (locks === undefined) {
+            begin(true)
+        } else {
+            void locks
+                .request(
+                    'starforge:solo',
+                    { ifAvailable: true },
+                    async (acquired): Promise<void> => {
+                        if (acquired === null) {
+                            begin(false)
+                            return
+                        }
+                        await new Promise<void>((resolve) => {
+                            releaseLock = resolve
+                            begin(true)
+                        })
+                    },
                 )
-
-                const starter = createStarterSprite()
-                setDoc(
-                    freshDocument(
-                        starter.sprite,
-                        starter.activeLayer,
-                        starter.sprite.frames[0]!.id,
-                    ),
-                )
-            }
-        })()
+                .catch(() => {
+                    if (releaseLock === null) begin(true)
+                })
+        }
 
         return () => {
             alive.current = false
             opened?.close()
+            releaseLock?.()
         }
     }, [inSolo])
 
@@ -153,6 +196,17 @@ export function App() {
                     key={roomMatch[1]!}
                     roomId={roomMatch[1]!}
                     startSharing={freshShare}
+                    onOpenProject={(project) => {
+                        setDoc({
+                            ...freshDocument(
+                                project.sprite,
+                                project.workspace.activeLayerId,
+                                project.workspace.activeFrameId,
+                            ),
+                            projectNotice: null,
+                        })
+                        navigate('/')
+                    }}
                     onExit={() => {
                         setFreshShare(false)
                         navigate('/')
@@ -167,6 +221,12 @@ export function App() {
                     {shareError ? (
                         <p role="alert" data-testid="share-error" class={styles.shareError}>
                             {shareError}
+                        </p>
+                    ) : null}
+                    {foreignTab ? (
+                        <p role="alert" data-testid="foreign-tab" class={styles.shareError}>
+                            This studio is already open in another tab, so this copy does not save.
+                            Close this tab and paint in the other one.
                         </p>
                     ) : null}
                     {isRoomPath ? (

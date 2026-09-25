@@ -1,4 +1,5 @@
 import { decodeSprite, encodeSprite, SnapshotError, type Sprite } from '@starforge/core'
+import { createProjectBlob } from '../project/projectFile'
 import {
     DOCUMENTS,
     RECOVERY,
@@ -150,12 +151,22 @@ export class Library {
         const kept = (await this.recoveries()).find((record) => record.id === id)
         if (!kept) return null
 
-        return new Blob(
-            [JSON.stringify({ sprite: kept.snapshot, activeLayer: kept.activeLayer })],
-            {
-                type: 'application/json',
-            },
-        )
+        try {
+            const sprite = decodeSprite(kept.snapshot)
+            const download = await createProjectBlob({
+                sprite,
+                workspace: {
+                    activeLayerId: kept.activeLayer,
+                    activeFrameId: sprite.frames[0]!.id,
+                },
+            })
+            return download.blob
+        } catch {
+            return new Blob(
+                [JSON.stringify({ sprite: kept.snapshot, activeLayer: kept.activeLayer })],
+                { type: 'application/json' },
+            )
+        }
     }
 
     async forgetRecovery(id: string): Promise<void> {

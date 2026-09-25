@@ -78,8 +78,8 @@ export class EditorInput {
         c.addEventListener('pointerleave', this.#onPointerLeave)
         c.addEventListener('wheel', this.#onWheel, { passive: false })
         c.addEventListener('contextmenu', this.#onContextMenu)
-        window.addEventListener('keydown', this.#onKeyDown)
-        window.addEventListener('keyup', this.#onKeyUp)
+        window.addEventListener('keydown', this.#onKeyDown, { capture: true })
+        window.addEventListener('keyup', this.#onKeyUp, { capture: true })
     }
 
     dispose(): void {
@@ -93,8 +93,8 @@ export class EditorInput {
         c.removeEventListener('pointerleave', this.#onPointerLeave)
         c.removeEventListener('wheel', this.#onWheel)
         c.removeEventListener('contextmenu', this.#onContextMenu)
-        window.removeEventListener('keydown', this.#onKeyDown)
-        window.removeEventListener('keyup', this.#onKeyUp)
+        window.removeEventListener('keydown', this.#onKeyDown, { capture: true })
+        window.removeEventListener('keyup', this.#onKeyUp, { capture: true })
     }
 
     sync(): void {

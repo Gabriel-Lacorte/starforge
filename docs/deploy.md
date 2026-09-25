@@ -122,7 +122,7 @@ From anywhere (not the Pi):
 
 ```bash
 curl -s https://starforge.lacort.ee/healthz  # -> {"ok":true}
-curl -s https://starforge.lacort.ee/robots.txt | head -2  # -> Sitemap: https://starforge.lacort.ee/sitemap.xml
+curl -s https://starforge.lacort.ee/robots.txt  # -> ends with Sitemap: https://starforge.lacort.ee/sitemap.xml
 
 ROOM=$(curl -s -X POST https://starforge.lacort.ee/api/rooms \
     -H 'content-type: application/json' \
@@ -142,7 +142,7 @@ and gate on a health check before it touches `:stable`:
 ```bash
 cd ~/starforge && git pull
 docker build -f relay/Dockerfile -t starforge-relay:next .
-docker run -d --name starforge-relay-next -p 127.0.0.1:8132:8131 -e PORT=8131 -e ORIGINS=https://starforge.lacort.ee starforge-relay:next
+docker run -d --rm --name starforge-relay-next -p 127.0.0.1:8132:8131 -e PORT=8131 -e ORIGINS=https://starforge.lacort.ee starforge-relay:next
 curl -s http://localhost:8132/healthz  # -> {"ok":true}
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8132/
 #

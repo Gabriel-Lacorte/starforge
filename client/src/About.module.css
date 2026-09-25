@@ -17,16 +17,18 @@
     gap: 12px;
 }
 
+.navHere {
+    color: var(--dim);
+    text-decoration: none;
+}
+
 .main {
     width: 100%;
     max-width: 44rem;
     margin: auto;
-    padding: 0 1rem 3rem;
+    padding: 0 1rem 2rem;
     line-height: 1.6;
-}
-
-.main section + section {
-    margin-top: 2rem;
+    text-align: center;
 }
 
 .page a {
@@ -38,82 +40,106 @@
 }
 
 .hero {
-    padding: 3rem 0 2rem;
-    text-align: center;
+    padding: 2.5rem 0 2rem;
 }
 
 .kicker {
-    margin: 0;
+    margin: 0 0 12px;
     color: var(--accent);
     text-transform: uppercase;
     letter-spacing: 1px;
+    font-size: 10px;
 }
 
 .title {
-    margin: 0.5rem 0 0;
-    font-size: 40px;
-    line-height: 1.1;
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.25;
     color: var(--text);
 }
 
 .tagline {
-    max-width: 32rem;
-    margin: 1rem auto 0;
+    max-width: 30rem;
+    margin: 16px auto 0;
     color: var(--dim);
+    font-size: 16px;
+    line-height: 1.5;
 }
 
 .ctaRow {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    margin: 1.5rem 0 0;
+    margin: 28px 0 0;
 }
 
-.cta {
-    padding: 6px 16px;
-    color: var(--text);
-    background: var(--face);
-    border: 1px solid var(--line);
-    box-shadow:
-        inset 1px 1px 0 var(--face-hi),
-        inset -1px -1px 0 var(--face-lo);
+.page .ctaPrimary {
+    display: inline-block;
+    padding: 10px 24px;
     text-decoration: none;
-}
-
-.cta:active {
+    border: 1px solid var(--line);
+    font-size: 12px;
+    color: #161616;
+    background: var(--accent);
     box-shadow:
-        inset 1px 1px 0 var(--face-lo),
-        inset -1px -1px 0 var(--face-hi);
+        inset 1px 1px 0 var(--accent-hi),
+        inset -1px -1px 0 var(--accent-lo);
 }
 
-.features {
+.page .ctaPrimary:hover {
+    color: #161616;
+    background: var(--accent-hi);
+}
+
+.page .ctaPrimary:active {
+    box-shadow:
+        inset 1px 1px 0 var(--accent-lo),
+        inset -1px -1px 0 var(--accent-hi);
+}
+
+.cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
     gap: 8px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
+    margin-top: 2rem;
 }
 
-.feature {
-    padding: 10px 12px;
+.page .card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 12px;
     background: var(--panel);
     border: 1px solid var(--line);
     box-shadow:
         inset 1px 1px 0 var(--face-hi),
         inset -1px -1px 0 var(--face-lo);
-}
-
-.feature strong {
-    color: var(--accent);
-}
-
-.steps {
-    margin: 0;
-    padding-left: 1.25rem;
+    text-decoration: none;
     color: var(--text);
 }
 
-.steps li + li {
-    margin-top: 4px;
+.page .card strong {
+    color: var(--accent);
+    font-size: 11px;
+}
+
+.page .card span {
+    color: var(--dim);
+    font-size: 10px;
+}
+
+.page .card:hover {
+    color: var(--text);
+    background: var(--face);
+    border-color: var(--accent);
+}
+
+.footer {
+    margin-top: 3rem;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    color: var(--dim);
+    font-size: 10px;
+}
+
+.footer p {
+    margin: 0;
 }

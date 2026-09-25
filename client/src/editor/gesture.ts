@@ -15,6 +15,7 @@ import {
 } from '@starforge/core'
 import type { DocumentSession } from '../document/session'
 import type { EditTarget, EditorStore } from './store'
+import type { StrokeBroadcast } from './strokeBroadcast'
 import {
     captureSettings,
     makeTool,
@@ -52,6 +53,8 @@ interface GestureDeps {
     renderer: InvalidateSink
     overlay: PreviewSink
     store: EditorStore
+    /** Optional live-stroke feed for shared rooms. */
+    broadcast?: StrokeBroadcast
 
     requestRender: () => void
 }
@@ -114,16 +117,19 @@ export class GestureController {
                 if (!this.#command) return
                 for (const write of writes) {
                     this.#command.record(write)
+                    this.#broadcastCell(write.x, write.y)
                     this.#extendDirty(write.x, write.y)
                 }
             },
 
             preview: (cells, color) => {
                 deps.overlay.setCells(cells, color)
+                deps.broadcast?.replace(cells, color)
                 deps.requestRender()
             },
             clearPreview: () => {
                 deps.overlay.clear()
+                deps.broadcast?.replace([], 0)
                 deps.requestRender()
             },
         }
@@ -147,9 +153,11 @@ export class GestureController {
         this.#inkBase.clear()
         const command = new Command(tool)
         this.#command = command
+        this.#deps.broadcast?.begin(this.#deps.store.state.color)
 
         this.#cursor = openCursor(this.#deps.sprite, target.layer, target.frame, (write) => {
             command.record(write)
+            this.#broadcastCell(write.x, write.y)
             this.#extendDirty(write.x, write.y)
         })
         this.#tool = makeTool(toolDefinition(tool), this.#host)
@@ -172,6 +180,7 @@ export class GestureController {
         this.#flushDirty()
 
         if (commit) this.#deps.session.commit(this.#command)
+        this.#deps.broadcast?.end()
         this.#clear()
     }
 
@@ -186,6 +195,7 @@ export class GestureController {
             this.#extendDirty(x + w - 1, y + h - 1)
         }
         this.#deps.overlay.clear()
+        this.#deps.broadcast?.end()
         this.#flushDirty()
 
         this.#deps.requestRender()
@@ -240,6 +250,10 @@ export class GestureController {
         if (!target) throw new Error('no gesture in progress')
 
         return target
+    }
+
+    #broadcastCell(x: number, y: number): void {
+        this.#deps.broadcast?.append(x, y)
     }
 
     #gestureSettings(): ToolSettings {

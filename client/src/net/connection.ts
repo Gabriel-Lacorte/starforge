@@ -1,4 +1,4 @@
-import { decodeFrame, encodeFrame, type Hello, type NetFrame } from '@starforge/core'
+import { ErrorCode, decodeFrame, encodeFrame, type Hello, type NetFrame } from '@starforge/core'
 
 export interface SocketLike {
     send(data: Uint8Array): void
@@ -47,7 +47,7 @@ export function openBrowserSocket(url: string): SocketLike {
 }
 
 export class RoomConnection {
-    onError: (message: string) => void = (): void => undefined
+    onError: (message: string, code?: number) => void = (): void => undefined
     onFrame: (frame: NetFrame) => void = (): void => undefined
 
     lastSeq = 0
@@ -130,8 +130,9 @@ export class RoomConnection {
         this.setStatus('connecting')
         socket.onopen = (): void => {
             if (!this.isCurrent(generation, socket)) return
-            this.setStatus('open')
+
             socket.send(encodeFrame(this.hello()))
+            this.setStatus('open')
         }
         socket.onmessage = (data: ArrayBuffer): void => {
             if (!this.isCurrent(generation, socket)) return
@@ -165,6 +166,10 @@ export class RoomConnection {
             return
         }
         if (frame.type === 'error') {
+            if (frame.code === ErrorCode.rateLimited) {
+                this.onError(frame.message, frame.code)
+                return
+            }
             this.onError(frame.message)
             this.close()
             return

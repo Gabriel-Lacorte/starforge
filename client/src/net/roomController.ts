@@ -1,4 +1,5 @@
 import {
+    ErrorCode,
     GeometryLockedError,
     Replica,
     WIRE_PROTOCOL,
@@ -12,6 +13,7 @@ import {
 } from '@starforge/core'
 import { DocumentSession } from '../document/session'
 import type { ToolId } from '../editor/store'
+import type { StrokeBroadcast } from '../editor/strokeBroadcast'
 import { RoomConnection, type ConnStatus } from './connection'
 import { Outbox } from './outbox'
 import { PresenceStore, toolFromWire, toolToWire } from './presence'
@@ -68,9 +70,12 @@ export interface HoverSource {
     readonly state: { readonly hover: { readonly x: number; readonly y: number } | null }
 }
 
+/** Anything that can hand presence the current in-flight stroke (rooms only). */
+export type StrokeSource = Pick<StrokeBroadcast, 'take'>
+
 export interface RoomConnectionLike {
     onFrame: (frame: NetFrame) => void
-    onError: (message: string) => void
+    onError: (message: string, code?: number) => void
 
     send(frame: NetFrame): void
     status(): ConnStatus
@@ -119,6 +124,7 @@ export interface RoomControllerOptions {
     readonly connection?: RoomConnectionLike
     readonly store?: ToolSource
     readonly readout?: HoverSource
+    readonly stroke?: StrokeSource
 
     readonly since?: number
     readonly seqStore?: SeqStore
@@ -126,7 +132,11 @@ export interface RoomControllerOptions {
 }
 
 const PRESENCE_MS = 50
+const OPS_BURST = 12
+const OPS_PER_TICK = 2
+const RATE_LIMIT_RETRY_MS = 1500
 const GEOMETRY_NOTICE = 'canvas size is locked while the room is open'
+const RATE_LIMIT_NOTICE = 'the relay is busy, catching up shortly'
 
 interface PendingConnect {
     readonly promise: Promise<DocumentSession>
@@ -150,6 +160,7 @@ export class RoomController {
     private readonly connection: RoomConnectionLike
     private readonly toolStore: ToolSource | undefined
     private readonly readout: HoverSource | undefined
+    private readonly strokeSource: StrokeSource | undefined
     private readonly seqStore: SeqStore
     private readonly roomId: string
     private replica: Replica | null = null
@@ -158,8 +169,11 @@ export class RoomController {
     private readonly listeners = new Set<() => void>()
     private pending: PendingConnect | null = null
     private timer: ReturnType<typeof setInterval> | null = null
+    private retryTimer: ReturnType<typeof setTimeout> | null = null
     private lastPresenceKey: string | null = null
     private operationUnsub: (() => void) | null = null
+    private readonly opQueue: Extract<NetFrame, { type: 'op' }>[] = []
+    private readonly queuedStamps = new Set<number>()
 
     private readonly outbox = new Outbox()
 
@@ -171,6 +185,7 @@ export class RoomController {
         this.profile = opts.profile
         this.toolStore = opts.store
         this.readout = opts.readout
+        this.strokeSource = opts.stroke
         this.roomId = opts.room
         if (opts.connection !== undefined) {
             this.connection = opts.connection
@@ -180,8 +195,8 @@ export class RoomController {
                 type: 'hello',
                 protocol: WIRE_PROTOCOL,
                 room: opts.room,
-                nickname: opts.profile.nickname,
-                color: opts.profile.color,
+                nickname: this.profile.nickname,
+                color: this.profile.color,
                 since: live?.lastSeq ?? 0,
             }))
             this.connection = live
@@ -191,23 +206,22 @@ export class RoomController {
         if (seeded > 0) this.connection.resetSeq(seeded)
         this.pendingStore = opts.pendingStore ?? localStoragePendingStore()
         for (const entry of this.pendingStore.load(opts.room)) {
-            this.outbox.add(entry.stamp, entry.body)
+            this.outbox.add(entry.stamp, entry.body, entry.orderKey)
         }
         this.connection.onFrame = (frame): void => {
             this.handleFrame(frame)
         }
-        this.connection.onError = (message): void => {
-            this.handleError(message)
+        this.connection.onError = (message, code): void => {
+            this.handleError(message, code)
         }
         this.connection.subscribe((): void => {
             this.handleStatus()
             this.notify()
         })
-        if (this.toolStore !== undefined && this.readout !== undefined) {
-            this.timer = setInterval((): void => {
-                this.tickPresence()
-            }, PRESENCE_MS)
-        }
+        this.timer = setInterval((): void => {
+            this.flushOps(OPS_PER_TICK)
+            this.tickPresence()
+        }, PRESENCE_MS)
     }
 
     connect(): Promise<DocumentSession> {
@@ -244,6 +258,10 @@ export class RoomController {
             clearInterval(this.timer)
             this.timer = null
         }
+        if (this.retryTimer !== null) {
+            clearTimeout(this.retryTimer)
+            this.retryTimer = null
+        }
         this.operationUnsub?.()
         this.operationUnsub = null
         this.session?.setCollaborative(null)
@@ -260,7 +278,7 @@ export class RoomController {
                 this.handleWelcome(frame)
                 break
             case 'op':
-                this.handleOp(frame.seq, frame.stamp, frame.body)
+                this.handleOp(frame.seq, frame.stamp, frame.body, frame.orderKey)
                 break
             case 'presence':
                 this.peers.applyPresence(
@@ -270,6 +288,9 @@ export class RoomController {
                     toolFromWire(frame.tool),
                     frame.layer,
                     frame.frame,
+                    frame.nickname,
+                    frame.color,
+                    frame.preview,
                     Date.now(),
                 )
                 this.notify()
@@ -294,7 +315,10 @@ export class RoomController {
     }
 
     private handleWelcome(frame: Extract<NetFrame, { type: 'welcome' }>): void {
-        if (this.session !== null) return
+        if (this.session !== null) {
+            this.handleRewelcome(frame)
+            return
+        }
         let sprite: Sprite
         try {
             sprite = decodeSprite(JSON.parse(new TextDecoder().decode(frame.snapshot)) as unknown)
@@ -314,6 +338,7 @@ export class RoomController {
         this.seqStore.save(this.roomId, frame.seq)
         this.session = session
         this.replica = new Replica(session.doc, site)
+        this.replica.observeLamport(frame.lamport)
         for (const peer of frame.peers ?? []) {
             this.peers.applyJoin(peer.site, peer.nickname, peer.color, Date.now())
         }
@@ -332,9 +357,47 @@ export class RoomController {
         this.notify()
     }
 
-    private handleOp(seq: number, stamp: number, body: Uint8Array): void {
+    private handleRewelcome(frame: Extract<NetFrame, { type: 'welcome' }>): void {
+        const session = this.session
+        if (session === null) return
+        this.seqStore.save(this.roomId, frame.seq)
+        this.peers.reset()
+        for (const peer of frame.peers ?? []) {
+            this.peers.applyJoin(peer.site, peer.nickname, peer.color, Date.now())
+        }
+
+        if (this.site !== null && frame.site !== this.site) {
+            const stale = this.outbox.takeAll()
+            for (const entry of stale) this.queuedStamps.delete(entry.stamp)
+            this.persistPending()
+            this.site = frame.site
+            this.replica = new Replica(session.doc, frame.site)
+            this.replica.observeLamport(frame.lamport)
+            for (const entry of stale) {
+                try {
+                    this.sendAlreadyApplied(decodeOperation(entry.body))
+                } catch {
+                    /* an unreadable pending op is dropped, not retried forever */
+                }
+            }
+        } else if (this.replica !== null) {
+            this.replica.observeLamport(frame.lamport)
+            this.resendPending()
+        }
+        this.notify()
+    }
+
+    private handleOp(
+        seq: number,
+        stamp: number,
+        body: Uint8Array,
+        orderKey: number | undefined,
+    ): void {
         this.seqStore.save(this.roomId, seq)
-        if (this.outbox.ack(stamp)) this.persistPending()
+        if (this.outbox.ack(stamp)) {
+            this.queuedStamps.delete(stamp)
+            this.persistPending()
+        }
         const replica = this.replica
         const session = this.session
         if (replica === null || session === null) return
@@ -346,7 +409,12 @@ export class RoomController {
         }
         let result: ReturnType<Replica['receive']>
         try {
-            result = replica.receive({ type: 'operation', stamp, operation: op })
+            result = replica.receive({
+                type: 'operation',
+                stamp,
+                operation: op,
+                ...(orderKey !== undefined ? { orderKey } : {}),
+            })
         } catch {
             return
         }
@@ -379,12 +447,14 @@ export class RoomController {
         for (const chunk of splitPixelPatchIfNeeded(op)) {
             let stamp: number
             let body: Uint8Array
+            let orderKey: number | undefined
             try {
                 const out = replica.publish(chunk, { alreadyApplied: true })
                 if (out.message?.type !== 'operation') continue
                 stamp = out.message.stamp
+                orderKey = out.message.orderKey
                 body = encodeOperation(chunk)
-                this.outbox.add(stamp, body)
+                this.outbox.add(stamp, body, orderKey)
                 this.persistPending()
             } catch (error) {
                 if (error instanceof GeometryLockedError) {
@@ -395,7 +465,30 @@ export class RoomController {
                 this.note(error instanceof Error ? error.message : 'could not share the change')
                 return
             }
-            this.connection.send({ type: 'op', seq: 0, stamp, body })
+            this.queueOp({
+                type: 'op',
+                seq: 0,
+                stamp,
+                body,
+                ...(orderKey !== undefined ? { orderKey } : {}),
+            })
+        }
+    }
+
+    private queueOp(frame: Extract<NetFrame, { type: 'op' }>): void {
+        if (this.queuedStamps.has(frame.stamp)) return
+        this.queuedStamps.add(frame.stamp)
+        this.opQueue.push(frame)
+        this.flushOps(OPS_BURST)
+    }
+
+    private flushOps(budget: number): void {
+        if (this.connection.status() !== 'open') return
+        while (budget > 0 && this.opQueue.length > 0) {
+            const frame = this.opQueue.shift()!
+            this.queuedStamps.delete(frame.stamp)
+            this.connection.send(frame)
+            budget -= 1
         }
     }
 
@@ -426,7 +519,13 @@ export class RoomController {
         const pending = this.outbox.takeAll()
         for (const entry of pending) {
             this.outbox.add(entry.stamp, entry.body)
-            this.connection.send({ type: 'op', seq: 0, stamp: entry.stamp, body: entry.body })
+            this.queueOp({
+                type: 'op',
+                seq: 0,
+                stamp: entry.stamp,
+                body: entry.body,
+                ...(entry.orderKey !== undefined ? { orderKey: entry.orderKey } : {}),
+            })
         }
     }
 
@@ -434,12 +533,35 @@ export class RoomController {
         this.pendingStore.save(this.roomId, this.outbox.pending)
     }
 
-    private handleError(message: string): void {
+    private handleError(message: string, code?: number): void {
+        if (code === ErrorCode.rateLimited) {
+            this.note(RATE_LIMIT_NOTICE)
+            this.schedulePendingRetry()
+            return
+        }
         this.currentError = message
         const pending = this.pending
         this.pending = null
         pending?.reject(new Error(message))
         this.note(message)
+    }
+
+    private schedulePendingRetry(): void {
+        if (this.retryTimer !== null) return
+        this.retryTimer = setTimeout((): void => {
+            this.retryTimer = null
+            if (this.session !== null && this.connection.status() === 'open') {
+                this.resendPending()
+            }
+        }, RATE_LIMIT_RETRY_MS)
+    }
+
+    updateProfile(next: RoomProfile): void {
+        this.profile.nickname = next.nickname
+        this.profile.color = next.color
+        this.lastPresenceKey = null
+        this.tickPresence()
+        this.notify()
     }
 
     private tickPresence(): void {
@@ -448,23 +570,32 @@ export class RoomController {
         const site = this.site
 
         if (session === null || site === null) return
-        const hover = this.readout.state.hover
-        if (hover === null) return
 
         const tool = this.toolStore.state.tool
         const target = session.target.state
-        const key = `${String(hover.x)}:${String(hover.y)}:${tool}:${target.layer}:${target.frame}`
+        const hover = this.readout.state.hover
+
+        const x = hover?.x ?? -1
+        const y = hover?.y ?? -1
+
+        const preview = this.strokeSource?.take() ?? null
+        const key = `${String(x)}:${String(y)}:${tool}:${target.layer}:${target.frame}:${this.profile.nickname}:${String(this.profile.color)}:${preview === null ? 'off' : `on${String(preview.cells.length)}:${String(preview.full)}`}`
         if (key === this.lastPresenceKey) return
         this.lastPresenceKey = key
 
         this.connection.send({
             type: 'presence',
             site,
-            x: hover.x,
-            y: hover.y,
+            x,
+            y,
             tool: toolToWire(tool),
             layer: target.layer,
             frame: target.frame,
+            nickname: this.profile.nickname,
+            color: this.profile.color,
+            ...(preview !== null
+                ? { preview: { color: preview.color, cells: preview.cells, full: preview.full } }
+                : {}),
         })
     }
 

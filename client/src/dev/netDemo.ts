@@ -1,5 +1,6 @@
 import {
     Replica,
+    WIRE_PROTOCOL,
     decodeFrame,
     decodeOperation,
     decodeSprite,
@@ -23,11 +24,6 @@ export interface NetLink {
     close(): void
 }
 
-/**
- * Creates a throwaway lab room on the relay and returns its id. The caller
- * connects with `connectNet`; separating the two keeps the lab's Reset
- * button (new room per epoch) a one-liner.
- */
 export async function createNetRoom(
     httpBase: string,
     init: { title: string; width: number; height: number },
@@ -62,7 +58,7 @@ export function connectNet(
             socket.send(
                 encodeFrame({
                     type: 'hello',
-                    protocol: 1,
+                    protocol: WIRE_PROTOCOL,
                     room: opts.room,
                     nickname: opts.nickname,
                     color: opts.color,
@@ -130,7 +126,7 @@ function openLink(
         notify()
     }
 
-    const receiveOp = (stamp: number, body: Uint8Array): void => {
+    const receiveOp = (stamp: number, body: Uint8Array, orderKey?: number): void => {
         let op: DocumentOperation
         try {
             op = decodeOperation(body)
@@ -139,7 +135,12 @@ function openLink(
         }
         let result
         try {
-            result = replica.receive({ type: 'operation', stamp, operation: op })
+            result = replica.receive({
+                type: 'operation',
+                stamp,
+                operation: op,
+                ...(orderKey !== undefined ? { orderKey } : {}),
+            })
         } catch {
             return
         }
@@ -163,7 +164,7 @@ function openLink(
         } catch {
             return
         }
-        if (frame.type === 'op') receiveOp(frame.stamp, frame.body)
+        if (frame.type === 'op') receiveOp(frame.stamp, frame.body, frame.orderKey)
         else if (frame.type === 'error') noteErrorMessage(frame.message)
     })
     socket.addEventListener('close', () => {
@@ -182,6 +183,7 @@ function openLink(
                     seq: 0,
                     stamp: msg.stamp,
                     body: encodeOperation(chunk),
+                    ...(msg.orderKey !== undefined ? { orderKey: msg.orderKey } : {}),
                 }),
             )
         }

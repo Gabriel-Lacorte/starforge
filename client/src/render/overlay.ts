@@ -9,6 +9,22 @@ interface Rect {
     h: number
 }
 
+export interface PeerCursor {
+    readonly x: number
+    readonly y: number
+    readonly color: number
+    readonly nickname: string
+    readonly layer: string
+    readonly frame: string
+    readonly previewCells?: ReadonlySet<number>
+    readonly previewColor?: number
+}
+
+interface PeerTarget {
+    readonly layer: string
+    readonly frame: string
+}
+
 export interface SymmetryGuides {
     h: boolean
     v: boolean
@@ -21,6 +37,9 @@ export class PreviewOverlay {
     readonly #buffer: HTMLCanvasElement
     readonly #bctx: CanvasRenderingContext2D
     readonly #image: ImageData
+    readonly #peerBuffer: HTMLCanvasElement
+    readonly #peerCtx: CanvasRenderingContext2D
+    readonly #peerImage: ImageData
 
     readonly #width: number
     readonly #height: number
@@ -51,6 +70,14 @@ export class PreviewOverlay {
         this.#bctx = bctx
 
         this.#image = new ImageData(spriteW, spriteH)
+
+        this.#peerBuffer = document.createElement('canvas')
+        this.#peerBuffer.width = spriteW
+        this.#peerBuffer.height = spriteH
+        const peerCtx = this.#peerBuffer.getContext('2d')
+        if (!peerCtx) throw new Error('2d context unavailable')
+        this.#peerCtx = peerCtx
+        this.#peerImage = new ImageData(spriteW, spriteH)
     }
 
     setCells(cells: Iterable<number>, color: RGBA): void {
@@ -105,10 +132,19 @@ export class PreviewOverlay {
         this.setCells([], 0)
     }
 
-    render(view: View, selection?: SelectionView | null, guides?: SymmetryGuides | null): void {
+    render(
+        view: View,
+        selection?: SelectionView | null,
+        guides?: SymmetryGuides | null,
+        peers?: readonly PeerCursor[] | null,
+        target?: PeerTarget | null,
+    ): void {
         const hasSelection = !!selection?.mask
         const hasGuides = !!guides && (guides.h || guides.v)
-        if (!this.#painted && !hasSelection && !hasGuides && !this.#onScreen) return
+        const peerList = peers ?? null
+        const peerTarget = target ?? null
+        const hasPeers = peerList !== null && peerList.length > 0 && peerTarget !== null
+        if (!this.#painted && !hasSelection && !hasGuides && !hasPeers && !this.#onScreen) return
 
         const ctx = this.#ctx
         ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -126,7 +162,107 @@ export class PreviewOverlay {
 
         if (hasGuides) this.#paintGuides(view, guides)
         if (hasSelection) this.#paintSelection(view, selection)
-        this.#onScreen = this.#painted !== null || hasSelection
+        if (peerList !== null && peerList.length > 0 && peerTarget !== null) {
+            this.#paintPeerPreviews(view, peerList, peerTarget)
+            this.#paintPeers(view, peerList, peerTarget)
+        }
+        this.#onScreen = this.#painted !== null || hasSelection || hasPeers
+    }
+
+    #paintPeerPreviews(view: View, peers: readonly PeerCursor[], target: PeerTarget): void {
+        let any = false
+        for (const peer of peers) {
+            if ((peer.previewCells?.size ?? 0) === 0) continue
+            if (peer.layer !== target.layer || peer.frame !== target.frame) continue
+            any = true
+            break
+        }
+        if (!any) return
+
+        const data = this.#peerImage.data
+        data.fill(0)
+        const limit = this.#width * this.#height
+        for (const peer of peers) {
+            if ((peer.previewCells?.size ?? 0) === 0) continue
+            if (peer.layer !== target.layer || peer.frame !== target.frame) continue
+
+            const c = peer.previewColor ?? 0
+            const r = c >>> 24
+            const g = (c >>> 16) & 0xff
+            const b = (c >>> 8) & 0xff
+            const a = c & 0xff
+            for (const cell of peer.previewCells!) {
+                if (cell < 0 || cell >= limit) continue
+                const o = cell * 4
+                data[o] = r
+                data[o + 1] = g
+                data[o + 2] = b
+                data[o + 3] = a
+            }
+        }
+
+        this.#peerCtx.putImageData(this.#peerImage, 0, 0)
+        const ctx = this.#ctx
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        ctx.imageSmoothingEnabled = false
+        ctx.drawImage(
+            this.#peerBuffer,
+            Math.round(view.panX),
+            Math.round(view.panY),
+            this.#width * view.zoom,
+            this.#height * view.zoom,
+        )
+    }
+
+    #paintPeers(view: View, peers: readonly PeerCursor[], target: PeerTarget): void {
+        const ctx = this.#ctx
+        const dpr = Math.max(1, window.devicePixelRatio || 1)
+        const fontSize = Math.round(8 * dpr)
+        const minMarker = Math.round(4 * dpr)
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        ctx.font = `${String(fontSize)}px 'Silkscreen', ui-monospace, monospace`
+        ctx.textBaseline = 'top'
+
+        for (const peer of peers) {
+            if (peer.x < 0 || peer.y < 0) continue
+
+            const css = `#${((peer.color >>> 8) & 0xffffff).toString(16).padStart(6, '0')}`
+            const samePlace = peer.layer === target.layer && peer.frame === target.frame
+            const x = Math.round(view.panX) + peer.x * view.zoom
+            const y = Math.round(view.panY) + peer.y * view.zoom
+            const size = Math.max(view.zoom, minMarker)
+            const mx = x + (view.zoom - size) / 2
+            const my = y + (view.zoom - size) / 2
+
+            ctx.globalAlpha = samePlace ? 1 : 0.45
+
+            ctx.strokeStyle = css
+            ctx.lineWidth = Math.max(1, Math.floor(dpr))
+            ctx.strokeRect(mx + 0.5, my + 0.5, size - 1, size - 1)
+
+            if (peer.nickname.length > 0) {
+                const pad = Math.round(3 * dpr)
+                const textWidth = ctx.measureText(peer.nickname).width
+                const chipW = textWidth + pad * 2
+                const chipH = fontSize + pad * 2
+                let lx = mx + size + Math.round(2 * dpr)
+                let ly = my
+                if (lx + chipW > ctx.canvas.width) lx = mx - chipW - Math.round(2 * dpr)
+                if (ly + chipH > ctx.canvas.height)
+                    ly = Math.max(0, my - chipH - Math.round(2 * dpr))
+
+                const painting = (peer.previewCells?.size ?? 0) > 0
+                ctx.fillStyle = painting ? css : 'rgba(10, 10, 10, 0.82)'
+                ctx.fillRect(lx, ly, chipW, chipH)
+                ctx.strokeStyle = painting ? '#0a0a0a' : css
+                ctx.lineWidth = 1
+                ctx.strokeRect(lx + 0.5, ly + 0.5, chipW - 1, chipH - 1)
+                ctx.fillStyle = painting ? '#161616' : '#e4e4e4'
+                ctx.fillText(peer.nickname, lx + pad, ly + pad)
+            }
+
+            ctx.globalAlpha = 1
+        }
     }
 
     #paintGuides(view: View, guides: SymmetryGuides): void {

@@ -1,6 +1,6 @@
+import type { StrokePreview } from '@starforge/core'
 import type { ToolId } from '../editor/store'
 
-/** Wire order for tools in presence frames; the index is the byte on the wire. */
 export const TOOL_WIRE: readonly ToolId[] = [
     'pencil',
     'eraser',
@@ -19,7 +19,6 @@ export function toolToWire(tool: ToolId): number {
     return TOOL_WIRE.indexOf(tool)
 }
 
-/** Unknown codes fall back to `'pencil'` so a new tool never breaks an old client. */
 export function toolFromWire(n: number): ToolId {
     return TOOL_WIRE[n] ?? 'pencil'
 }
@@ -34,17 +33,21 @@ export interface RoomPeer {
     layer: string
     frame: string
     updatedAt: number
+    previewCells: ReadonlySet<number>
+    previewColor: number
 }
 
-/** Peers older than this many milliseconds die in `sweep`. */
-export const PRESENCE_EXPIRY_MS = 5000
+export const PRESENCE_EXPIRY_MS = 30000
 
-/** Who paints beside you: joins seed a cursor, presence moves it, sweep ages it out. */
 export class PresenceStore {
     private readonly bySite = new Map<number, RoomPeer>()
 
     peers(): RoomPeer[] {
         return [...this.bySite.values()].map((peer) => ({ ...peer }))
+    }
+
+    reset(): void {
+        this.bySite.clear()
     }
 
     applyJoin(site: number, nickname: string, color: number, now: number): void {
@@ -65,6 +68,8 @@ export class PresenceStore {
             layer: '',
             frame: '',
             updatedAt: now,
+            previewCells: new Set<number>(),
+            previewColor: 0,
         })
     }
 
@@ -72,7 +77,6 @@ export class PresenceStore {
         this.bySite.delete(site)
     }
 
-    /** Presence from a site that never joined is ignored. */
     applyPresence(
         site: number,
         x: number,
@@ -80,16 +84,49 @@ export class PresenceStore {
         tool: ToolId,
         layer: string,
         frame: string,
+        nickname: string,
+        color: number,
+        preview: StrokePreview | undefined,
         now: number,
     ): void {
-        const peer = this.bySite.get(site)
-        if (peer === undefined) return
+        let peer = this.bySite.get(site)
+        if (peer === undefined) {
+            peer = {
+                site,
+                nickname,
+                color,
+                x: 0,
+                y: 0,
+                tool: 'pencil',
+                layer: '',
+                frame: '',
+                updatedAt: now,
+                previewCells: new Set<number>(),
+                previewColor: 0,
+            }
+            this.bySite.set(site, peer)
+        }
         peer.x = x
         peer.y = y
         peer.tool = tool
         peer.layer = layer
         peer.frame = frame
+        peer.nickname = nickname
+        peer.color = color
         peer.updatedAt = now
+
+        if (preview === undefined) {
+            if (peer.previewCells.size > 0) peer.previewCells = new Set<number>()
+            return
+        }
+        peer.previewColor = preview.color
+        if (preview.full) {
+            peer.previewCells = new Set(preview.cells)
+        } else if (preview.cells.length > 0) {
+            const next = new Set(peer.previewCells)
+            for (const cell of preview.cells) next.add(cell)
+            peer.previewCells = next
+        }
     }
 
     sweep(now: number): void {

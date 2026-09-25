@@ -1,6 +1,8 @@
 import type { DecodedProject, Sprite } from '@starforge/core'
 import { useErrorBoundary, useEffect, useRef, useState } from 'preact/hooks'
 import { DocumentSession } from '../document/session'
+import type { RoomPeer } from '../net/presence'
+import type { StrokeBroadcast } from './strokeBroadcast'
 import { startAutosave } from '../storage/autosave'
 import type { Library, OpenedDocument } from '../storage/library'
 import { createDocumentActions, type DocumentActions } from './documentActions'
@@ -47,6 +49,8 @@ export function EditorCanvas({
     hideFileActions = false,
     roomOpen = false,
     shareBusy = false,
+    peers = null,
+    stroke = null,
     onShare,
     onNew,
     onOpenStored,
@@ -66,6 +70,8 @@ export function EditorCanvas({
     hideFileActions?: boolean
     roomOpen?: boolean
     shareBusy?: boolean
+    peers?: readonly RoomPeer[] | null
+    stroke?: StrokeBroadcast | null
     onShare?: () => void
     onNew: (width: number, height: number, title: string) => void
     onOpenStored: (document: OpenedDocument) => void
@@ -75,6 +81,8 @@ export function EditorCanvas({
     const overlayRef = useRef<HTMLCanvasElement>(null)
     const activeRef = useRef(active)
     activeRef.current = active
+    const peersRef = useRef(peers)
+    peersRef.current = peers
 
     const sessionRef = useRef<DocumentSession | null>(null)
     const storeRef = useRef<EditorStore | null>(null)
@@ -166,6 +174,8 @@ export function EditorCanvas({
             layers,
             playback,
             () => activeRef.current,
+            () => peersRef.current,
+            stroke,
         )
         editorRef.current = editor
 

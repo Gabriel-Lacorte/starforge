@@ -11,6 +11,7 @@ import {
 } from '@starforge/core'
 import type { DocumentSession } from '../document/session'
 import type { ToolId } from '../editor/store'
+import { StrokeBroadcast } from '../editor/strokeBroadcast'
 import type { ConnStatus } from './connection'
 import type { PendingStore } from './pendingStore'
 import { createRoom, RoomController } from './roomController'
@@ -90,6 +91,7 @@ async function connected(
         readout: {
             state: { hover: { x: number; y: number; color: number } | null }
         }
+        stroke: StrokeBroadcast
     }>,
 ): Promise<{ controller: RoomController; conn: FakeConnection; doc: Sprite }> {
     const doc = sprite16()
@@ -101,6 +103,7 @@ async function connected(
         connection: conn,
         ...(opts?.toolStore !== undefined ? { store: opts.toolStore } : {}),
         ...(opts?.readout !== undefined ? { readout: opts.readout } : {}),
+        ...(opts?.stroke !== undefined ? { stroke: opts.stroke } : {}),
     })
     const pending = controller.connect()
     conn.onFrame(welcomeFrame(doc, opts?.site ?? 1))
@@ -268,11 +271,135 @@ describe('room controller', () => {
             tool: 1,
             layer: 'layer-1',
             frame: 'frame-1',
+            nickname: 'grace',
+            color: 9,
         })
         expect(controller.peers.peers().find((peer) => peer.site === 2)?.x).toBe(7)
         conn.onFrame({ type: 'peerLeave', site: 2 })
         expect(controller.peers.peers()).toHaveLength(0)
         controller.close()
+    })
+
+    it('seeds a swept peer from presence instead of dropping it until rejoin', async () => {
+        const { controller, conn } = await connected()
+        conn.onFrame({
+            type: 'presence',
+            site: 5,
+            x: 2,
+            y: 3,
+            tool: 0,
+            layer: 'layer-1',
+            frame: 'frame-1',
+            nickname: 'kay',
+            color: 0x33ccffff,
+        })
+        const seeded = controller.peers.peers().find((peer) => peer.site === 5)
+        expect(seeded?.nickname).toBe('kay')
+        expect(seeded?.color).toBe(0x33ccffff)
+        expect(seeded?.x).toBe(2)
+        controller.close()
+    })
+
+    it('propagates a profile change as a presence frame right away', async () => {
+        vi.useFakeTimers()
+        try {
+            const toolStore = { state: { tool: 'pencil' as ToolId } }
+            const readout = {
+                state: {
+                    hover: { x: 3, y: 5, color: 0xffffffff } as {
+                        x: number
+                        y: number
+                        color: number
+                    } | null,
+                },
+            }
+            const { controller, conn } = await connected({ toolStore, readout })
+
+            vi.advanceTimersByTime(50)
+            controller.updateProfile({ nickname: 'ada-blue', color: 0x33ccffff })
+
+            const frames = conn.sent.filter(
+                (entry): entry is Extract<NetFrame, { type: 'presence' }> =>
+                    entry.type === 'presence',
+            )
+            const last = frames[frames.length - 1]!
+            expect(last.nickname).toBe('ada-blue')
+            expect(last.color).toBe(0x33ccffff)
+            expect(last.x).toBe(3)
+            expect(last.y).toBe(5)
+            controller.close()
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it('sends an away presence (-1, -1) once when the hover is gone', async () => {
+        vi.useFakeTimers()
+        try {
+            const toolStore = { state: { tool: 'pencil' as ToolId } }
+            const readout = {
+                state: {
+                    hover: null as { x: number; y: number; color: number } | null,
+                },
+            }
+            const { controller, conn } = await connected({ toolStore, readout })
+
+            vi.advanceTimersByTime(50)
+            vi.advanceTimersByTime(50)
+            const frames = conn.sent.filter(
+                (entry): entry is Extract<NetFrame, { type: 'presence' }> =>
+                    entry.type === 'presence',
+            )
+            expect(frames).toHaveLength(1)
+            expect(frames[0]!.x).toBe(-1)
+            expect(frames[0]!.y).toBe(-1)
+            expect(frames[0]!.nickname).toBe('ada')
+            controller.close()
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it('rides an in-flight stroke on presence and drops it when the stroke ends', async () => {
+        vi.useFakeTimers()
+        try {
+            const toolStore = { state: { tool: 'pencil' as ToolId } }
+            const readout = {
+                state: {
+                    hover: { x: 3, y: 5, color: 0xffffffff } as {
+                        x: number
+                        y: number
+                        color: number
+                    } | null,
+                },
+            }
+            const stroke = new StrokeBroadcast(16)
+            const { controller, conn } = await connected({ toolStore, readout, stroke })
+
+            stroke.begin(0xff0000ff)
+            stroke.append(3, 5)
+            vi.advanceTimersByTime(50)
+            let frames = conn.sent.filter(
+                (entry): entry is Extract<NetFrame, { type: 'presence' }> =>
+                    entry.type === 'presence',
+            )
+            expect(frames.at(-1)!.preview).toEqual({
+                color: 0xff0000ff,
+                cells: [5 * 16 + 3],
+                full: false,
+            })
+
+            stroke.end()
+            vi.advanceTimersByTime(50)
+            frames = conn.sent.filter(
+                (entry): entry is Extract<NetFrame, { type: 'presence' }> =>
+                    entry.type === 'presence',
+            )
+            expect(frames.at(-1)!.preview).toBeUndefined()
+            controller.close()
+        } finally {
+            vi.useRealTimers()
+        }
     })
 
     it('treats your own echo as an ack without double-applying', async () => {

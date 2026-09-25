@@ -1,6 +1,7 @@
 export interface OutboxEntry {
     readonly stamp: number
     readonly body: Uint8Array
+    readonly orderKey?: number
 }
 
 export const MAX_PENDING = 500
@@ -12,8 +13,8 @@ export class Outbox {
         return this.entries
     }
 
-    add(stamp: number, body: Uint8Array): void {
-        this.entries.push({ stamp, body })
+    add(stamp: number, body: Uint8Array, orderKey?: number): void {
+        this.entries.push({ stamp, body, ...(orderKey !== undefined ? { orderKey } : {}) })
         while (this.entries.length > MAX_PENDING) this.entries.shift()
     }
 

@@ -1,11 +1,12 @@
 import type { DocumentSession, EditTarget } from '../document/session'
 import type { ComposeBenchResult } from '../render/composeBench'
-import { PreviewOverlay, type SymmetryGuides } from '../render/overlay'
+import { PreviewOverlay, type PeerCursor, type SymmetryGuides } from '../render/overlay'
 import { Renderer } from '../render/renderer'
 import { Viewport } from '../render/viewport'
 import type { TransformKind } from '@starforge/core'
 import type { PlaybackController } from './frames/playbackController'
 import { GestureController } from './gesture'
+import type { StrokeBroadcast } from './strokeBroadcast'
 import { CanvasController } from './transform/canvasController'
 import { TransformController } from './transform/transformController'
 import { EditorInput } from './input/EditorInput'
@@ -39,9 +40,12 @@ export function startEditor(
     layers: LayersController,
     playback: PlaybackController,
     isActive: () => boolean = () => true,
+    peersProvider: () => readonly PeerCursor[] | null = () => null,
+    stroke: StrokeBroadcast | null = null,
 ): EditorHandle {
     const sprite = session.doc
     const target = (): EditTarget => session.target.state
+    stroke?.setWidth(sprite.width)
 
     let needsRender = true
     let ready = false
@@ -88,6 +92,7 @@ export function startEditor(
         renderer,
         overlay,
         store,
+        ...(stroke !== null ? { broadcast: stroke } : {}),
         requestRender: invalidate,
     })
 
@@ -188,14 +193,21 @@ export function startEditor(
 
         const t0 = DEV ? performance.now() : 0
         renderer.render(sprite, frame, viewport.view, ghosts)
-        overlay.render(viewport.view, selection, symmetryGuides())
+        overlay.render(viewport.view, selection, symmetryGuides(), peersProvider(), target())
         if (DEV) lastRenderMs = performance.now() - t0
     }
 
     ready = true
 
+    let lastPeers: readonly PeerCursor[] | null = null
     let raf = requestAnimationFrame(function tick(now: number) {
         raf = requestAnimationFrame(tick)
+
+        const peers = peersProvider()
+        if (peers !== lastPeers) {
+            lastPeers = peers
+            invalidate()
+        }
 
         playback.tick(now)
         if (!needsRender) return
@@ -223,6 +235,7 @@ export function startEditor(
         dispose() {
             cancelAnimationFrame(raf)
             playback.pause()
+            stroke?.end()
             unsubscribe()
             unsubscribePlayback()
             unsubscribeStore()

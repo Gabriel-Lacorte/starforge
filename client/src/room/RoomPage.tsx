@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
+import type { DecodedProject } from '@starforge/core'
 import { Brand } from '../Brand'
 import type { DocumentSession } from '../document/session'
 import { EditorCanvas } from '../editor/EditorCanvas'
 import { ReadoutStore } from '../editor/readout'
 import { EditorStore } from '../editor/store'
+import { StrokeBroadcast } from '../editor/strokeBroadcast'
 import { SharePanel, shareColorCss } from '../editor/ui/SharePanel'
 import type { ConnStatus } from '../net/connection'
 import type { RoomPeer } from '../net/presence'
@@ -36,11 +38,13 @@ export function RoomPage({
     roomId,
     fetchMeta = defaultFetchMeta,
     startSharing = false,
+    onOpenProject,
     onExit,
 }: {
     roomId: string
     fetchMeta?: (roomId: string) => Promise<RoomMeta>
     startSharing?: boolean
+    onOpenProject?: (project: DecodedProject) => void
     onExit: () => void
 }) {
     const storeRef = useRef<EditorStore | null>(null)
@@ -49,6 +53,8 @@ export function RoomPage({
     readoutRef.current ??= new ReadoutStore(null)
     const profileRef = useRef<RoomProfile | null>(null)
     profileRef.current ??= loadProfile()
+    const strokeRef = useRef<StrokeBroadcast | null>(null)
+    strokeRef.current ??= new StrokeBroadcast(0)
     const controllerRef = useRef<RoomController | null>(null)
     const resyncSeqRef = useRef(0)
     const resyncRoomRef = useRef(roomId)
@@ -113,6 +119,7 @@ export function RoomPage({
                 profile: profileRef.current!,
                 store,
                 readout,
+                ...(strokeRef.current !== null ? { stroke: strokeRef.current } : {}),
                 ...(since > 0 ? { since } : {}),
             })
             controller = active
@@ -177,6 +184,7 @@ export function RoomPage({
         profileRef.current = next
         setProfile(next)
         saveProfile(next)
+        controllerRef.current?.updateProfile(next)
     }
 
     const retry = () => {
@@ -296,12 +304,21 @@ export function RoomPage({
                         initialFrame={session.doc.frames[0]!.id}
                         initialProjectNotice={null}
                         roomOpen
+                        peers={peers}
+                        stroke={strokeRef.current}
                         onShare={() => {
                             setShareOpen(true)
                         }}
                         onNew={backHome}
                         onOpenStored={backHome}
-                        onOpenProject={backHome}
+                        onOpenProject={(project) => {
+                            if (onOpenProject !== undefined) {
+                                leave()
+                                onOpenProject(project)
+                            } else {
+                                backHome()
+                            }
+                        }}
                     />
                 </div>
             ) : (

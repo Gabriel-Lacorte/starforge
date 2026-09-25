@@ -1,6 +1,7 @@
 export interface PendingOp {
     readonly stamp: number
     readonly body: Uint8Array
+    readonly orderKey?: number
 }
 
 export interface PendingStore {
@@ -70,7 +71,14 @@ export function localStoragePendingStore(storage?: PendingStorage): PendingStore
                 const body = decodeBody(record.body)
                 if (body === null) continue
 
-                ops.push({ stamp: record.stamp as number, body })
+                const orderKey = record.orderKey
+                ops.push({
+                    stamp: record.stamp as number,
+                    body,
+                    ...(typeof orderKey === 'number' && Number.isFinite(orderKey)
+                        ? { orderKey }
+                        : {}),
+                })
             }
 
             return ops
@@ -83,7 +91,11 @@ export function localStoragePendingStore(storage?: PendingStorage): PendingStore
                 store.setItem(
                     `${KEY}${roomId}`,
                     JSON.stringify(
-                        ops.map((op) => ({ stamp: op.stamp, body: encodeBody(op.body) })),
+                        ops.map((op) => ({
+                            stamp: op.stamp,
+                            body: encodeBody(op.body),
+                            ...(op.orderKey !== undefined ? { orderKey: op.orderKey } : {}),
+                        })),
                     ),
                 )
             } catch {

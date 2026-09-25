@@ -167,12 +167,12 @@ describe('relay http', () => {
         expect(robots.status).toBe(200)
         expect(robots.headers.get('content-type')).toContain('text/plain')
         const robotsBody = await robots.text()
-        expect(robotsBody).toContain('Sitemap: https://starforge.lacorte.city/sitemap.xml')
+        expect(robotsBody).toContain('Sitemap: https://starforge.lacort.ee/sitemap.xml')
         const sitemap = await fetch(`${base}/sitemap.xml`)
         expect(sitemap.status).toBe(200)
         expect(sitemap.headers.get('content-type')).toContain('application/xml')
         const sitemapBody = await sitemap.text()
-        expect(sitemapBody).toContain('https://starforge.lacorte.city/about')
+        expect(sitemapBody).toContain('https://starforge.lacort.ee/about')
     })
 
     it('derives crawler URLs from the first configured origin', async () => {
@@ -193,7 +193,7 @@ describe('relay http', () => {
         expect(robotsBody).toContain('Sitemap: https://example.test/sitemap.xml')
         const sitemapBody = await (await fetch(`${base}/sitemap.xml`)).text()
         expect(sitemapBody).toContain('https://example.test/about')
-        expect(sitemapBody).not.toContain('lacorte.city')
+        expect(sitemapBody).not.toContain('lacort.ee')
     })
 })
 

@@ -32,7 +32,7 @@ const TEXT_TYPES: Record<string, string> = {
     '.woff2': 'font/woff2',
 }
 
-const FALLBACK_BASE = 'https://starforge.lacorte.city'
+const FALLBACK_BASE = 'https://starforge.lacort.ee'
 
 function publicBase(deps: HttpDeps): string {
     const first = deps.origins[0]?.replace(/\/+$/, '')

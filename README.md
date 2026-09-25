@@ -1,6 +1,6 @@
 # Starforge
 
-[Open](https://starforge.lacorte.city) the Pixel Art & animation studio in your browser.
+[Open](https://starforge.lacort.ee) the Pixel Art & animation studio in your browser.
 
 ![Drawing and animating in Starforge](docs/media/hero.gif)
 
@@ -25,7 +25,7 @@ npm run lint       # prettier + eslint + tsc
 
 ## Deploy
 
-The relay ships as one container; Pi setup, tunnel, and rollback are in [docs/deploy-pi.md](docs/deploy-pi.md).
+The relay ships as one container; Pi setup, tunnel, and rollback are in [docs/deploy.md](docs/deploy.md).
 
 ## Architecture
 

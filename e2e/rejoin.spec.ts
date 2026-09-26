@@ -157,6 +157,9 @@ test('undo never takes the other painter pixels', async ({ browser, request }) =
 
         await a.keyboard.press('Control+z')
         await expect
+            .poll(() => canvasFingerprint(canvasA), { timeout: 15000 })
+            .not.toBe(await canvasFingerprint(canvasB))
+        await expect
             .poll(() => canvasFingerprint(canvasB), { timeout: 15000 })
             .toBe(await canvasFingerprint(canvasA))
         expect(await canvasFingerprint(canvasA)).not.toBe(blank)

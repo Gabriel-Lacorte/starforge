@@ -5,6 +5,7 @@ import {
     decodeOperation,
     ErrorCode,
     getPixel,
+    writePixel,
     decodeSprite,
     encodeOperation,
     encodeSprite,
@@ -684,6 +685,10 @@ describe('room controller', () => {
         }
     }
 
+    function applyPixel(doc: Sprite, layer: string, frame: string): void {
+        writePixel(doc, layer, frame, 2, 3, 0xff0000ff)
+    }
+
     function paintOne(session: DocumentSession): void {
         const layer = session.doc.layers[0]!.id
         const frame = session.doc.frames[0]!.id
@@ -721,6 +726,56 @@ describe('room controller', () => {
         expect(store.load('abc')).toHaveLength(1)
         first.close()
 
+        vi.useFakeTimers()
+        let second: RoomController
+        let connB: FakeConnection
+        try {
+            connB = new FakeConnection()
+            second = new RoomController({
+                url: 'ws://x/wire',
+                room: 'abc',
+                profile: { nickname: 'ada', color: 1 },
+                connection: connB,
+                pendingStore: store,
+            })
+            const pendingB = second.connect()
+            connB.onFrame(welcomeFrame(pristine, 2))
+            await pendingB
+
+            expect(getPixel(second.session!.doc, layer, frame, 2, 3)).toBe(0xff0000ff)
+            vi.advanceTimersByTime(900)
+        } finally {
+            vi.useRealTimers()
+        }
+        const sentB = opsOf(connB)
+        expect(sentB).toHaveLength(1)
+        expect(sentB[0]!.stamp & 0xff).toBe(2)
+        expect(sentB[0]!.stamp).not.toBe(sentA[0]!.stamp)
+        expect(store.load('abc')).toHaveLength(1)
+        second.close()
+    })
+
+    it('does not re-mint ops the missed tail proves the server already has', async () => {
+        const doc = sprite16()
+        const store = memoryPendingStore()
+        const connA = new FakeConnection()
+        const first = new RoomController({
+            url: 'ws://x/wire',
+            room: 'abc',
+            profile: { nickname: 'ada', color: 1 },
+            connection: connA,
+            pendingStore: store,
+        })
+        const pendingA = first.connect()
+        connA.onFrame(welcomeFrame(doc, 1))
+        await pendingA
+        paintOne(first.session!)
+        const sentA = opsOf(connA)
+        expect(sentA).toHaveLength(1)
+        const layer = first.session!.doc.layers[0]!.id
+        const frame = first.session!.doc.frames[0]!.id
+        first.close()
+
         const connB = new FakeConnection()
         const second = new RoomController({
             url: 'ws://x/wire',
@@ -730,15 +785,21 @@ describe('room controller', () => {
             pendingStore: store,
         })
         const pendingB = second.connect()
-        connB.onFrame(welcomeFrame(pristine, 2))
+        const withPixel = decodeSprite(encodeSprite(doc))
+        applyPixel(withPixel, layer, frame)
+        connB.onFrame(welcomeFrame(withPixel, 2))
         await pendingB
+        connB.onFrame({ type: 'op', seq: 1, stamp: sentA[0]!.stamp, body: sentA[0]!.body })
 
-        expect(getPixel(second.session!.doc, layer, frame, 2, 3)).toBe(0xff0000ff)
-        const sentB = opsOf(connB)
-        expect(sentB).toHaveLength(1)
-        expect(sentB[0]!.stamp & 0xff).toBe(2)
-        expect(sentB[0]!.stamp).not.toBe(sentA[0]!.stamp)
-        expect(store.load('abc')).toHaveLength(1)
+        vi.useFakeTimers()
+        try {
+            vi.advanceTimersByTime(900)
+        } finally {
+            vi.useRealTimers()
+        }
+
+        expect(opsOf(connB)).toHaveLength(0)
+        expect(store.load('abc')).toHaveLength(0)
         second.close()
     })
 

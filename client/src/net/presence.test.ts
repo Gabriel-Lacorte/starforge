@@ -199,12 +199,20 @@ describe('presence store', () => {
         expect([...ada.previewCells]).toEqual([7, 8])
     })
 
-    it('sweeps peers older than 30000 ms but keeps fresh ones', () => {
+    it('keeps a throttled background tab and sweeps only the long gone', () => {
         const store = new PresenceStore()
         store.applyJoin(1, 'ada', 0xffcc33ff, 1000)
         store.applyJoin(2, 'grace', 0x6ee7ffff, 25000)
+        store.applyJoin(3, 'linus', 0x33ff66ff, 88000)
+
         store.sweep(32000)
-        expect(store.peers().map((peer) => peer.site)).toEqual([2])
+        expect(store.peers().map((peer) => peer.site)).toEqual([1, 2, 3])
+
+        store.sweep(95000)
+        expect(store.peers().map((peer) => peer.site)).toEqual([2, 3])
+
+        store.sweep(116000)
+        expect(store.peers().map((peer) => peer.site)).toEqual([3])
     })
 
     it('removes a peer on leave', () => {

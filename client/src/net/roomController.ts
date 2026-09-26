@@ -135,6 +135,7 @@ const OPS_BURST = 12
 const OPS_PER_TICK = 2
 const RATE_LIMIT_RETRY_MS = 1500
 const PRESENCE_HEARTBEAT_MS = 5000
+const REMINT_DRAIN_MS = 800
 const GEOMETRY_NOTICE = 'canvas size is locked while the room is open'
 const RATE_LIMIT_NOTICE = 'the relay is busy, catching up shortly'
 
@@ -173,6 +174,8 @@ export class RoomController {
     private lastPresenceKey: string | null = null
     private lastPresenceAt = 0
     private sendPausedUntil = 0
+    private remintAt = 0
+    private readonly onVisible: () => void = (): void => undefined
     private operationUnsub: (() => void) | null = null
     private readonly opQueue: Extract<NetFrame, { type: 'op' }>[] = []
     private readonly queuedStamps = new Set<number>()
@@ -223,10 +226,18 @@ export class RoomController {
         this.timer = setInterval((): void => {
             this.flushOps(OPS_PER_TICK)
             this.tickPresence()
+            if (this.remintAt !== 0 && Date.now() >= this.remintAt) this.remintDrained()
             const before = this.peers.peers().length
             this.peers.sweep(Date.now())
             if (this.peers.peers().length !== before) this.notify()
         }, PRESENCE_MS)
+
+        if (typeof document !== 'undefined') {
+            this.onVisible = (): void => {
+                if (document.visibilityState === 'visible') this.tickPresence()
+            }
+            document.addEventListener('visibilitychange', this.onVisible)
+        }
     }
 
     connect(): Promise<DocumentSession> {
@@ -266,6 +277,9 @@ export class RoomController {
         if (this.retryTimer !== null) {
             clearTimeout(this.retryTimer)
             this.retryTimer = null
+        }
+        if (typeof document !== 'undefined') {
+            document.removeEventListener('visibilitychange', this.onVisible)
         }
         this.operationUnsub?.()
         this.operationUnsub = null
@@ -363,16 +377,30 @@ export class RoomController {
     }
 
     private recoverPendingInto(session: DocumentSession): void {
+        for (const entry of this.outbox.pending) {
+            try {
+                session.applyRemote(decodeOperation(entry.body))
+            } catch {
+                /* unreadable or locked */
+            }
+        }
+        this.scheduleRemint()
+    }
+
+    private scheduleRemint(): void {
+        this.remintAt = Date.now() + REMINT_DRAIN_MS
+    }
+
+    private remintDrained(): void {
+        this.remintAt = 0
         const stale = this.outbox.takeAll()
         for (const entry of stale) this.queuedStamps.delete(entry.stamp)
         this.persistPending()
         for (const entry of stale) {
             try {
-                const op = decodeOperation(entry.body)
-                session.applyRemote(op)
-                this.sendAlreadyApplied(op)
+                this.sendAlreadyApplied(decodeOperation(entry.body))
             } catch {
-                /* an unreadable or locked pending op is dropped, not retried forever */
+                /* an unreadable pending op is dropped, not retried forever */
             }
         }
     }
@@ -387,19 +415,10 @@ export class RoomController {
         }
 
         if (this.site !== null && frame.site !== this.site) {
-            const stale = this.outbox.takeAll()
-            for (const entry of stale) this.queuedStamps.delete(entry.stamp)
-            this.persistPending()
             this.site = frame.site
             this.replica = new Replica(session.doc, frame.site)
             this.replica.observeLamport(frame.lamport)
-            for (const entry of stale) {
-                try {
-                    this.sendAlreadyApplied(decodeOperation(entry.body))
-                } catch {
-                    /* an unreadable pending op is dropped, not retried forever */
-                }
-            }
+            this.scheduleRemint()
         } else if (this.replica !== null) {
             this.replica.observeLamport(frame.lamport)
             this.resendPending()

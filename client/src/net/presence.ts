@@ -37,7 +37,7 @@ export interface RoomPeer {
     previewColor: number
 }
 
-export const PRESENCE_EXPIRY_MS = 30000
+export const PRESENCE_EXPIRY_MS = 90000
 
 export class PresenceStore {
     private readonly bySite = new Map<number, RoomPeer>()

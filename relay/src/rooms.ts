@@ -300,6 +300,10 @@ export class RoomRegistry {
         this.telemetry.flush()
     }
 
+    seedRoomsEver(count: number): void {
+        this.telemetry.seedIfAbsent('rooms_created', count)
+    }
+
     roomInfo(id: string): RoomInfo | null {
         const entry = this.entries.get(id)
         if (entry === undefined) return null

@@ -186,6 +186,13 @@ export class RoomStore {
         return Number(result.changes)
     }
 
+    countRooms(): number {
+        const row = this.db.prepare('SELECT COUNT(*) AS n FROM room').get() as unknown as {
+            n: number
+        }
+        return row.n
+    }
+
     loadStats(): Record<string, number> {
         const rows = this.db.prepare('SELECT key, value FROM stat').all() as unknown as {
             key: string

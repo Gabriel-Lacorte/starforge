@@ -50,6 +50,19 @@ describe('Telemetry', () => {
         expect(second.snapshot().session.ops_applied).toBeUndefined()
     })
 
+    it('seeds a lifetime counter once from pre-existing state', () => {
+        const store = freshStore()
+        const telemetry = new Telemetry(store)
+
+        telemetry.seedIfAbsent('rooms_created', 17)
+        telemetry.seedIfAbsent('rooms_created', 99)
+        telemetry.seedIfAbsent('presence_frames', 5)
+        telemetry.flush()
+
+        expect(store.loadStats()).toEqual({ rooms_created: 17 })
+        expect(telemetry.snapshot().lifetime.rooms_created).toBe(17)
+    })
+
     it('flush writes only the dirty keys', () => {
         const store = freshStore()
         const telemetry = new Telemetry(store)

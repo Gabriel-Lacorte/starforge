@@ -60,6 +60,14 @@ export class Telemetry {
         this.store.bumpStats(deltas)
     }
 
+    seedIfAbsent(name: string, value: number): void {
+        if (!PERSISTED_KEYS.includes(name) || value <= 0) return
+        if (this.lifetime.has(name)) return
+
+        this.lifetime.set(name, value)
+        this.dirty.add(name)
+    }
+
     snapshot(): TelemetrySnapshot {
         return {
             lifetime: Object.fromEntries(this.lifetime),

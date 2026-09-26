@@ -14,6 +14,7 @@ mkdirSync(config.dataDir, { recursive: true })
 const store = new RoomStore(join(config.dataDir, 'relay.sqlite'))
 const rooms = new RoomRegistry(store)
 const rehydrated = rooms.rehydrate()
+rooms.seedRoomsEver(store.countRooms())
 console.log(
     `relay rehydrated ${String(rehydrated.rooms)} rooms, dropped ${String(rehydrated.dropped)}`,
 )

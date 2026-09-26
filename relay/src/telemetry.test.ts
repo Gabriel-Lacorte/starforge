@@ -50,13 +50,14 @@ describe('Telemetry', () => {
         expect(second.snapshot().session.ops_applied).toBeUndefined()
     })
 
-    it('seeds a lifetime counter once from pre-existing state', () => {
+    it('lifts a stale lifetime counter to the rooms persisted on disk', () => {
         const store = freshStore()
         const telemetry = new Telemetry(store)
 
-        telemetry.seedIfAbsent('rooms_created', 17)
-        telemetry.seedIfAbsent('rooms_created', 99)
-        telemetry.seedIfAbsent('presence_frames', 5)
+        telemetry.count('rooms_created')
+        telemetry.seedAtLeast('rooms_created', 17)
+        telemetry.seedAtLeast('rooms_created', 5)
+        telemetry.seedAtLeast('presence_frames', 5)
         telemetry.flush()
 
         expect(store.loadStats()).toEqual({ rooms_created: 17 })

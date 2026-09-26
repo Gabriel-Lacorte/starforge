@@ -301,7 +301,7 @@ export class RoomRegistry {
     }
 
     seedRoomsEver(count: number): void {
-        this.telemetry.seedIfAbsent('rooms_created', count)
+        this.telemetry.seedAtLeast('rooms_created', count)
     }
 
     roomInfo(id: string): RoomInfo | null {

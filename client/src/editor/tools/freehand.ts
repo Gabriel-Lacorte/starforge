@@ -12,7 +12,6 @@ export function traceFreehand(definition: ToolDefinition, host: ToolHost): Tool 
     const size = definition.stamp === 'brush' ? host.settings.brushSize : 1
     const stamp = brushCells(size)
 
-    /* dropping the corner a turn leaves behind only makes sense for a 1px nib */
     const trimCorners = host.settings.pixelPerfect && size === 1
 
     let previous: Cell | null = null

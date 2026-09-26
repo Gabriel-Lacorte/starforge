@@ -91,8 +91,6 @@
     position: absolute;
     z-index: 20;
     inset-inline-start: 12px;
-    /* Floats above the single-row timeline (~56px) so it never covers
-    the frame reel; dismiss removes it entirely. */
     bottom: calc(100% + 64px);
     display: flex;
     align-items: center;

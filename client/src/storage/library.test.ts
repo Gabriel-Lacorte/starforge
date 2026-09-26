@@ -115,7 +115,6 @@ describe('Library failure paths', () => {
         const sprite = drawing('damaged')
         await library.save(saveOf(sprite))
 
-        /* corrupt the stored snapshot the way a bad write or a future version would */
         const db = await openDatabase(factory)
         await new Promise<void>((resolve, reject) => {
             const transaction = db.transaction([DOCUMENTS], 'readwrite')

@@ -24,8 +24,6 @@ test('live strokes: a held-down drag paints on the other screen before release',
         await expect(a.getByTestId('room-status')).toContainText('open')
         await expect(b.getByTestId('room-status')).toContainText('open')
 
-        // the pencil's default ink is pure white while cursor chips render
-        // #e4e4e4 text, so pure-white overlay pixels isolate the live preview
         const previewPixels = (page: typeof a): Promise<number> =>
             page.getByTestId('overlay').evaluate((el) => {
                 const canvas = el as HTMLCanvasElement

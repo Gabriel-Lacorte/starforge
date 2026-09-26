@@ -53,7 +53,6 @@ interface GestureDeps {
     renderer: InvalidateSink
     overlay: PreviewSink
     store: EditorStore
-    /** Optional live-stroke feed for shared rooms. */
     broadcast?: StrokeBroadcast
 
     requestRender: () => void

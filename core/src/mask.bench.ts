@@ -1,7 +1,6 @@
 import { bench, describe } from 'vitest'
 import { polygonMask, rectMask } from './mask'
 
-/* a lasso is rebuilt on every pointer sample, so this is a per-frame cost */
 describe.each([
     [64, 128],
     [256, 512],

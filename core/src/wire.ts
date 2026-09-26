@@ -206,7 +206,6 @@ export interface OpMsg {
     readonly seq: number
     readonly stamp: number
     readonly body: Uint8Array
-    /** Fractional position for ordered structural ops (layer/frame add & move). */
     readonly orderKey?: number
 }
 

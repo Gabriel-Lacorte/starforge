@@ -54,7 +54,6 @@ test('importing a palette while the editor is open keeps the draft coherent', as
     ])
     await expect(dialog.getByTestId('palette-name')).toHaveValue('fresh')
     await expect(dialog.getByTestId('palette-swatch')).toHaveCount(2)
-    // Pristine draft follows the new selection, so Add stays correctly disabled.
     await expect(dialog.getByTestId('palette-add')).toBeDisabled()
     await expect(dialog).toBeVisible()
 })

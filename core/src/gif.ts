@@ -157,11 +157,6 @@ class ByteWriter {
         this.#buf = next
     }
 
-    /*
-     * A subarray here would alias the whole backing buffer, and any caller
-     * reaching for `.buffer` would silently get the unused tail as trailing
-     * garbage. Copy exactly what was written.
-     */
     result(): Uint8Array<ArrayBuffer> {
         return this.#buf.slice(0, this.#pos)
     }
@@ -171,7 +166,7 @@ interface PaletteResult {
     rgbFlat: number[]
     paletteCount: number
     transparentIndex: number
-    indexFor: Map<number, number> /* rgb24 → palette index */
+    indexFor: Map<number, number> /* rgb24 -> palette index */
 }
 
 function buildPalette(frames: readonly GifFrame[]): PaletteResult {
@@ -193,11 +188,6 @@ function buildPalette(frames: readonly GifFrame[]): PaletteResult {
     const opaqueCount = uniqueRgb.size
     const paletteCount = opaqueCount + (hasTransparency ? 1 : 0)
 
-    /*
-     * Past 256 entries the table can't hold every color, so median-cut collapses
-     * them to representatives. This branch is the ONLY change from the direct path
-     * below: with ≤256 colors nothing here runs and the bytes are untouched.
-     */
     if (paletteCount > 256) {
         return quantizedPalette([...uniqueRgb.keys()], hasTransparency)
     }
@@ -225,10 +215,6 @@ function quantizedPalette(colors: number[], hasTransparency: boolean): PaletteRe
     const transparentIndex = hasTransparency ? 0 : -1
     const offset = hasTransparency ? 1 : 0
 
-    /*
-     * Every original color points at its representative's palette index, so
-     * mapIndices resolves any pixel with the same lookup as the direct path.
-     */
     const indexFor = new Map<number, number>()
     for (const [rgb, slot] of map) indexFor.set(rgb, slot + offset)
 
@@ -289,12 +275,6 @@ function lzwEncode(indices: Uint8Array, minCodeSize: number, out: ByteWriter): v
             bits.write(prefix, codeSize)
             dict.set(key, nextCode++)
 
-            /*
-             * Grow the code size when we've overflowed the current width. The
-             * decoder adds entries one emission later, so the encoder bumps one
-             * step later (>) while the decoder bumps one step earlier (===).
-             * Get this off by one and the file dissolves into confetti.
-             */
             if (codeSize < 12 && nextCode > 1 << codeSize) codeSize++
 
             if (nextCode > 4095) {

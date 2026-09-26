@@ -23,7 +23,6 @@ function resolveStorage(explicit?: ProfileStorage): ProfileStorage | undefined {
     return localStorage
 }
 
-/** Reads the saved profile; empty, corrupt, or storage-less always yields defaults. */
 export function loadProfile(storage: ProfileStorage | undefined = resolveStorage()): RoomProfile {
     const fallback = defaultProfile()
     const store = resolveStorage(storage)

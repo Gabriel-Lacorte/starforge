@@ -35,7 +35,6 @@ const SHADOW = hexToRgba('#ffd166')
 const INK = hexToRgba('#241b3d')
 const SPARK_CORE = hexToRgba('#ffffff')
 
-/* Stardance's four-corner mesh: yellow to salmon across the top, lilac to blue underneath */
 const MESH: readonly RGBA[] = [
     hexToRgba('#ffe564'),
     hexToRgba('#ff8fab'),
@@ -46,14 +45,11 @@ const MESH: readonly RGBA[] = [
 const ORBIT: readonly RGBA[] = [hexToRgba('#ebb7ff'), hexToRgba('#b6f6ff'), hexToRgba('#ff8fab')]
 
 interface Beat {
-    /** pixels the whole star sits above where it rests */
     readonly lift: number
     readonly blink: boolean
-    /** how far around the orbit the sparkles have travelled, 0..1 */
     readonly turn: number
 }
 
-/* one breath in and out, a blink at the bottom of it, and a full turn of the orbit */
 const BEATS: readonly Beat[] = [
     { lift: 0, blink: false, turn: 0 },
     { lift: 1, blink: false, turn: 0.25 },
@@ -135,7 +131,6 @@ function distanceField(): Float32Array {
     return field
 }
 
-/* the star moves as one body, so the field is measured once and read back with the offset */
 function distance(x: number, y: number, lift: number): number {
     const row = y + lift
     return row < 0 || row >= SIZE ? Infinity : FIELD[row * SIZE + x]!
@@ -235,11 +230,6 @@ function paintSparkles(cursor: CelCursor, beat: Beat): void {
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]
 const SEAM = 0.12
 
-/*
- * A blend would leave the palette, and dithering all four corners at once turns the halo
- * into noise. Each pixel takes the corner that owns it, and only the seam between the two
- * nearest corners is dithered.
- */
 function mesh(x: number, y: number): RGBA {
     const u = x / (SIZE - 1)
     const v = y / (SIZE - 1)

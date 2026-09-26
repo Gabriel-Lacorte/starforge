@@ -253,7 +253,6 @@
     -webkit-appearance: none;
 }
 
-/* The native chevron is an anti-aliased vector among crispEdges glyphs. */
 .selectArrow {
     position: absolute;
     inset: 0 4px 0 auto;

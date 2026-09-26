@@ -70,7 +70,6 @@ export interface HoverSource {
     readonly state: { readonly hover: { readonly x: number; readonly y: number } | null }
 }
 
-/** Anything that can hand presence the current in-flight stroke (rooms only). */
 export type StrokeSource = Pick<StrokeBroadcast, 'take'>
 
 export interface RoomConnectionLike {
@@ -135,6 +134,7 @@ const PRESENCE_MS = 50
 const OPS_BURST = 12
 const OPS_PER_TICK = 2
 const RATE_LIMIT_RETRY_MS = 1500
+const PRESENCE_HEARTBEAT_MS = 5000
 const GEOMETRY_NOTICE = 'canvas size is locked while the room is open'
 const RATE_LIMIT_NOTICE = 'the relay is busy, catching up shortly'
 
@@ -171,6 +171,8 @@ export class RoomController {
     private timer: ReturnType<typeof setInterval> | null = null
     private retryTimer: ReturnType<typeof setTimeout> | null = null
     private lastPresenceKey: string | null = null
+    private lastPresenceAt = 0
+    private sendPausedUntil = 0
     private operationUnsub: (() => void) | null = null
     private readonly opQueue: Extract<NetFrame, { type: 'op' }>[] = []
     private readonly queuedStamps = new Set<number>()
@@ -221,6 +223,9 @@ export class RoomController {
         this.timer = setInterval((): void => {
             this.flushOps(OPS_PER_TICK)
             this.tickPresence()
+            const before = this.peers.peers().length
+            this.peers.sweep(Date.now())
+            if (this.peers.peers().length !== before) this.notify()
         }, PRESENCE_MS)
     }
 
@@ -350,11 +355,26 @@ export class RoomController {
             filter: (op): DocumentOperation | null => this.replica?.filterInverse(op) ?? null,
             publish: (op): void => this.publishAlreadyApplied(op),
         })
-        this.resendPending()
+        this.recoverPendingInto(session)
         const pending = this.pending
         this.pending = null
         pending?.resolve(session)
         this.notify()
+    }
+
+    private recoverPendingInto(session: DocumentSession): void {
+        const stale = this.outbox.takeAll()
+        for (const entry of stale) this.queuedStamps.delete(entry.stamp)
+        this.persistPending()
+        for (const entry of stale) {
+            try {
+                const op = decodeOperation(entry.body)
+                session.applyRemote(op)
+                this.sendAlreadyApplied(op)
+            } catch {
+                /* an unreadable or locked pending op is dropped, not retried forever */
+            }
+        }
     }
 
     private handleRewelcome(frame: Extract<NetFrame, { type: 'welcome' }>): void {
@@ -484,6 +504,7 @@ export class RoomController {
 
     private flushOps(budget: number): void {
         if (this.connection.status() !== 'open') return
+        if (Date.now() < this.sendPausedUntil) return
         while (budget > 0 && this.opQueue.length > 0) {
             const frame = this.opQueue.shift()!
             this.queuedStamps.delete(frame.stamp)
@@ -518,7 +539,7 @@ export class RoomController {
     private resendPending(): void {
         const pending = this.outbox.takeAll()
         for (const entry of pending) {
-            this.outbox.add(entry.stamp, entry.body)
+            this.outbox.add(entry.stamp, entry.body, entry.orderKey)
             this.queueOp({
                 type: 'op',
                 seq: 0,
@@ -535,6 +556,7 @@ export class RoomController {
 
     private handleError(message: string, code?: number): void {
         if (code === ErrorCode.rateLimited) {
+            this.sendPausedUntil = Date.now() + RATE_LIMIT_RETRY_MS
             this.note(RATE_LIMIT_NOTICE)
             this.schedulePendingRetry()
             return
@@ -580,8 +602,11 @@ export class RoomController {
 
         const preview = this.strokeSource?.take() ?? null
         const key = `${String(x)}:${String(y)}:${tool}:${target.layer}:${target.frame}:${this.profile.nickname}:${String(this.profile.color)}:${preview === null ? 'off' : `on${String(preview.cells.length)}:${String(preview.full)}`}`
-        if (key === this.lastPresenceKey) return
+        const now = Date.now()
+        if (key === this.lastPresenceKey && now - this.lastPresenceAt < PRESENCE_HEARTBEAT_MS)
+            return
         this.lastPresenceKey = key
+        this.lastPresenceAt = now
 
         this.connection.send({
             type: 'presence',

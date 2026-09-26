@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+    createLayer,
     createSprite,
     decodeOperation,
+    ErrorCode,
+    getPixel,
     decodeSprite,
     encodeOperation,
     encodeSprite,
@@ -18,7 +21,7 @@ import { createRoom, RoomController } from './roomController'
 
 class FakeConnection {
     onFrame: (frame: NetFrame) => void = (): void => undefined
-    onError: (message: string) => void = (): void => undefined
+    onError: (message: string, code?: number) => void = (): void => undefined
     readonly sent: NetFrame[] = []
     closed = false
     lastSeq = 0
@@ -40,7 +43,6 @@ class FakeConnection {
         }
     }
 
-    /** Simulates a drop (`connecting`) or redial (`open`) reaching the page. */
     setStatus(next: ConnStatus): void {
         this.line = next
         for (const listener of [...this.listeners]) listener()
@@ -695,8 +697,9 @@ describe('room controller', () => {
         })
     }
 
-    it('replays persisted ops with their original stamps after a fresh join', async () => {
+    it('recovers unacked ops into a fresh session under the new site (reload)', async () => {
         const doc = sprite16()
+        const pristine = decodeSprite(encodeSprite(doc))
         const store = memoryPendingStore()
         const connA = new FakeConnection()
         const first = new RoomController({
@@ -709,10 +712,12 @@ describe('room controller', () => {
         const pendingA = first.connect()
         connA.onFrame(welcomeFrame(doc, 1))
         await pendingA
+        const layer = first.session!.doc.layers[0]!.id
+        const frame = first.session!.doc.frames[0]!.id
         paintOne(first.session!)
         const sentA = opsOf(connA)
         expect(sentA).toHaveLength(1)
-        const stamp = sentA[0]!.stamp
+        expect(sentA[0]!.stamp & 0xff).toBe(1)
         expect(store.load('abc')).toHaveLength(1)
         first.close()
 
@@ -725,13 +730,82 @@ describe('room controller', () => {
             pendingStore: store,
         })
         const pendingB = second.connect()
-        connB.onFrame(welcomeFrame(doc, 2))
+        connB.onFrame(welcomeFrame(pristine, 2))
         await pendingB
+
+        expect(getPixel(second.session!.doc, layer, frame, 2, 3)).toBe(0xff0000ff)
         const sentB = opsOf(connB)
         expect(sentB).toHaveLength(1)
-        expect(sentB[0]!.stamp).toBe(stamp)
-        expect(sentB[0]!.body).toEqual(sentA[0]!.body)
+        expect(sentB[0]!.stamp & 0xff).toBe(2)
+        expect(sentB[0]!.stamp).not.toBe(sentA[0]!.stamp)
+        expect(store.load('abc')).toHaveLength(1)
         second.close()
+    })
+
+    it('keeps the order key when re-queueing unacked structural ops', async () => {
+        const { controller, conn } = await connected()
+        const session = controller.session!
+        const after = session.doc.layers[0]!.id
+        session.apply('add layer', { kind: 'layer.add', layer: createLayer('two'), after })
+
+        const first = opsOf(conn).at(-1)!
+        expect(first.orderKey).toBeDefined()
+
+        conn.setStatus('connecting')
+        conn.setStatus('open')
+        const resent = opsOf(conn).at(-1)!
+        expect(resent.stamp).toBe(first.stamp)
+        expect(resent.orderKey).toBe(first.orderKey)
+        controller.close()
+    })
+
+    it('heartbeats presence while idle so peers never look gone', async () => {
+        vi.useFakeTimers()
+        try {
+            const toolStore = { state: { tool: 'pencil' as ToolId } }
+            const readout = {
+                state: {
+                    hover: { x: 1, y: 1, color: 0 },
+                },
+            }
+            const { controller, conn } = await connected({ toolStore, readout })
+            vi.advanceTimersByTime(50)
+            const presence = (): number =>
+                conn.sent.filter((entry) => entry.type === 'presence').length
+            const first = presence()
+            expect(first).toBeGreaterThanOrEqual(1)
+
+            vi.advanceTimersByTime(6000)
+            expect(presence()).toBeGreaterThan(first)
+            controller.close()
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it('pauses the op queue after a rate limit instead of hammering the relay', async () => {
+        vi.useFakeTimers()
+        try {
+            const { controller, conn } = await connected()
+            conn.setStatus('connecting')
+            paintOne(controller.session!)
+            expect(opsOf(conn)).toHaveLength(0)
+
+            conn.setStatus('open')
+            vi.advanceTimersByTime(50)
+            expect(opsOf(conn)).toHaveLength(1)
+
+            conn.onError('rate limited', ErrorCode.rateLimited)
+            paintOne(controller.session!)
+            vi.advanceTimersByTime(1000)
+            expect(opsOf(conn)).toHaveLength(1)
+
+            vi.advanceTimersByTime(1000)
+            expect(opsOf(conn).length).toBeGreaterThan(1)
+            controller.close()
+        } finally {
+            vi.useRealTimers()
+        }
     })
 
     it('forgets persisted ops once the relay echoes them', async () => {

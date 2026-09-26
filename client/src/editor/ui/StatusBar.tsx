@@ -9,6 +9,7 @@ import type { PlaybackController } from '../frames/playbackController'
 import type { EditorStore } from '../store'
 import { LockedIcon } from './icons'
 import { blurOnPointer } from './blurOnPointer'
+import { Toggle } from './Toggle'
 import type { EditTarget, Store } from '../../store'
 import { useStore } from './useStore'
 import styles from './StatusBar.module.css'
@@ -293,6 +294,17 @@ export function StatusBar({
                     +
                 </button>
             </span>
+
+            <Toggle
+                text="grid"
+                title="Pixel grid and centre guides (')"
+                checked={state.showGrid}
+                testId="grid-toggle"
+                ariaLabel="Pixel grid and centre guides"
+                onToggle={(showGrid) => {
+                    store.patch({ showGrid })
+                }}
+            />
         </footer>
     )
 }

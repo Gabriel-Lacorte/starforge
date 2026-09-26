@@ -26,7 +26,7 @@ test('clipboard: cut erases the star, paste floats it back, stamp and undo', asy
     expect(await canvasFingerprint(canvas)).toBe(cleared)
 })
 
-test('grid: the apostrophe key and the paint strip toggle show and hide the guides', async ({
+test('grid: the apostrophe key and the status bar toggle show and hide the guides', async ({
     page,
 }) => {
     await openEditor(page)
@@ -51,6 +51,9 @@ test('grid: the apostrophe key and the paint strip toggle show and hide the guid
     await toggle.uncheck()
     await painted(page)
     await expect.poll(overlayPixels, { timeout: 5000 }).toBeLessThanOrEqual(before + 5)
+
+    await page.reload()
+    await expect(page.getByTestId('grid-toggle')).not.toBeChecked()
 })
 
 test('undo: with a floating selection, ctrl+z drops the float before touching history', async ({

@@ -52,6 +52,24 @@ export interface EditorState {
     readonly onion: OnionSettings
 }
 
+const GRID_KEY = 'starforge:grid'
+
+function readShowGrid(): boolean {
+    try {
+        return typeof localStorage !== 'undefined' && localStorage.getItem(GRID_KEY) === '1'
+    } catch {
+        return false
+    }
+}
+
+function writeShowGrid(show: boolean): void {
+    try {
+        if (typeof localStorage !== 'undefined') localStorage.setItem(GRID_KEY, show ? '1' : '0')
+    } catch {
+        /* a sandboxed context has nowhere to remember the choice */
+    }
+}
+
 export class EditorStore extends Store<EditorState> {
     constructor() {
         super({
@@ -67,12 +85,17 @@ export class EditorStore extends Store<EditorState> {
             shapeFill: false,
             symmetryH: false,
             symmetryV: false,
-            showGrid: false,
+            showGrid: readShowGrid(),
             fillTolerance: 0,
             fillContiguous: true,
             selectionMode: 'replace',
             onion: ONION_SHOWN,
         })
+    }
+
+    patch(partial: Partial<EditorState>): void {
+        super.patch(partial)
+        if (partial.showGrid !== undefined) writeShowGrid(this.state.showGrid)
     }
 
     get onionShown(): boolean {

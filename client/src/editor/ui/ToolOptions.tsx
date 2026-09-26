@@ -5,6 +5,7 @@ import type { EditorStore } from '../store'
 import { useStore } from './useStore'
 import styles from './Toolbar.module.css'
 import { blurOnPointer } from './blurOnPointer'
+import { Toggle } from './Toggle'
 
 const SELECTION_MODES: readonly { value: MaskMode; label: string; aria: string }[] = [
     { value: 'replace', label: 'replace', aria: 'Replace selection' },
@@ -12,37 +13,6 @@ const SELECTION_MODES: readonly { value: MaskMode; label: string; aria: string }
     { value: 'subtract', label: 'subtract', aria: 'Subtract from selection' },
     { value: 'intersect', label: 'intersect', aria: 'Intersect selection' },
 ]
-
-function Toggle({
-    text,
-    title,
-    checked,
-    onToggle,
-    testId,
-    ariaLabel,
-}: {
-    text: string
-    title: string
-    checked: boolean
-    onToggle: (next: boolean) => void
-    testId?: string
-    ariaLabel?: string
-}) {
-    return (
-        <label class={styles.opt} title={title}>
-            <input
-                type="checkbox"
-                checked={checked}
-                aria-label={ariaLabel}
-                data-testid={testId}
-                onChange={(e) => {
-                    onToggle(e.currentTarget.checked)
-                }}
-            />
-            {text}
-        </label>
-    )
-}
 
 export function ToolOptions({ store }: { store: EditorStore }) {
     const state = useStore(store)
@@ -113,17 +83,6 @@ export function ToolOptions({ store }: { store: EditorStore }) {
                     </span>
                 </label>
             )}
-
-            <Toggle
-                text="grid"
-                title="Pixel grid and centre guides (')"
-                checked={state.showGrid}
-                testId="grid-toggle"
-                ariaLabel="Pixel grid and centre guides"
-                onToggle={(showGrid) => {
-                    store.patch({ showGrid })
-                }}
-            />
 
             {shows('pixelPerfect') && (
                 <Toggle

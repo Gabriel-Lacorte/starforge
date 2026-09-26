@@ -271,15 +271,20 @@ export function RoomPage({
                                 class={styles.dot}
                                 style={{ background: shareColorCss(profile.color) }}
                             />
-                            {profile.nickname}
+                            <span class={styles.peerName}>{profile.nickname}</span>
                         </span>
                         {peers.map((peer) => (
-                            <span key={peer.site} class={styles.peer} data-testid="peer">
+                            <span
+                                key={peer.site}
+                                class={styles.peer}
+                                data-testid="peer"
+                                title={peer.nickname}
+                            >
                                 <span
                                     class={styles.dot}
                                     style={{ background: shareColorCss(peer.color) }}
                                 />
-                                {peer.nickname}
+                                <span class={styles.peerName}>{peer.nickname}</span>
                             </span>
                         ))}
                     </div>

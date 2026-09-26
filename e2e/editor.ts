@@ -26,6 +26,18 @@ export async function openEditor(page: Page): Promise<Locator> {
     return canvas
 }
 
+export async function converge(a: Locator, b: Locator, timeout = 15000): Promise<void> {
+    await expect
+        .poll(
+            async () => {
+                const [fa, fb] = await Promise.all([canvasFingerprint(a), canvasFingerprint(b)])
+                return fa === fb
+            },
+            { timeout },
+        )
+        .toBe(true)
+}
+
 export async function painted(page: Page): Promise<void> {
     await page.evaluate(
         () =>

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { canvasFingerprint } from './editor'
+import { converge } from './editor'
 
 test('two tabs share one room link and converge', async ({ browser, request }) => {
     const created = await request.post('/api/rooms', {
@@ -39,7 +39,7 @@ test('two tabs share one room link and converge', async ({ browser, request }) =
         })
         await b.mouse.up()
 
-        await expect.poll(() => canvasFingerprint(canvasB)).toBe(await canvasFingerprint(canvasA))
+        await converge(canvasB, canvasA)
     } finally {
         await first.close()
         await second.close()

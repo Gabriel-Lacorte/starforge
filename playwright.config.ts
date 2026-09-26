@@ -40,7 +40,7 @@ export default defineConfig({
             port: 8131,
             reuseExistingServer: !process.env.CI,
             stdout: 'ignore',
-            env: { PORT: '8131' },
+            env: { PORT: '8131', ROOMS_PER_HOUR: '500' },
         },
     ],
 })

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { canvasFingerprint } from './editor'
+import { canvasFingerprint, converge } from './editor'
 
 test('a dropped tab rejoins and catches up to the live room', async ({ browser, request }) => {
     const created = await request.post('/api/rooms', {
@@ -106,9 +106,7 @@ test('strokes painted offline replay after reconnect', async ({ browser, request
         await first.setOffline(false)
 
         await expect(a.getByTestId('room-status')).toContainText('open', { timeout: 15000 })
-        await expect
-            .poll(() => canvasFingerprint(canvasB), { timeout: 15000 })
-            .toBe(await canvasFingerprint(canvasA))
+        await converge(canvasB, canvasA)
     } finally {
         await first.close()
         await second.close()
@@ -151,17 +149,12 @@ test('undo never takes the other painter pixels', async ({ browser, request }) =
             steps: 12,
         })
         await b.mouse.up()
-        await expect
-            .poll(() => canvasFingerprint(canvasB), { timeout: 15000 })
-            .toBe(await canvasFingerprint(canvasA))
+        await converge(canvasB, canvasA)
 
+        const beforeUndo = await canvasFingerprint(canvasB)
         await a.keyboard.press('Control+z')
-        await expect
-            .poll(() => canvasFingerprint(canvasA), { timeout: 15000 })
-            .not.toBe(await canvasFingerprint(canvasB))
-        await expect
-            .poll(() => canvasFingerprint(canvasB), { timeout: 15000 })
-            .toBe(await canvasFingerprint(canvasA))
+        await expect.poll(() => canvasFingerprint(canvasA), { timeout: 15000 }).not.toBe(beforeUndo)
+        await converge(canvasB, canvasA)
         expect(await canvasFingerprint(canvasA)).not.toBe(blank)
     } finally {
         await first.close()

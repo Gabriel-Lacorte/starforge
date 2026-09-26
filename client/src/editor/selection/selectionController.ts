@@ -28,6 +28,14 @@ import { liftRegion, normalizeSelection, stampRegion, type SelRect } from './reg
 
 const LASSO_MAX_POINTS = 1024
 
+interface SelectionClipboard {
+    readonly w: number
+    readonly h: number
+    readonly pixels: Uint32Array
+}
+
+let clipboard: SelectionClipboard | null = null
+
 export interface SelectionDeps {
     sprite: Sprite
 
@@ -186,6 +194,72 @@ export class SelectionController {
     reselect(mask: SelectionMask): void {
         this.#dropFloat()
         this.#setMask(mask)
+    }
+
+    copy(): boolean {
+        if (!this.active) return false
+        this.commit()
+
+        const bounds = this.#mask.bounds
+        if (!bounds) return false
+
+        const { sprite } = this.#deps
+        const { layer, frame } = this.#deps.target()
+        const cursor = openCursor(sprite, layer, frame, () => undefined)
+        const pixels = new Uint32Array(bounds.w * bounds.h)
+        for (let dy = 0; dy < bounds.h; dy++) {
+            for (let dx = 0; dx < bounds.w; dx++) {
+                const x = bounds.x + dx
+                const y = bounds.y + dy
+                pixels[dy * bounds.w + dx] = isSelected(this.#mask, x, y) ? cursor.get(x, y) : 0
+            }
+        }
+
+        clipboard = { w: bounds.w, h: bounds.h, pixels }
+        return true
+    }
+
+    cut(): boolean {
+        if (!this.copy()) return false
+        if (!this.#writable(this.#deps.target().layer)) return false
+
+        this.#lift()
+        if (this.#command && this.#target) this.#deps.session.commit(this.#command)
+        this.#dropFloat()
+        this.#deps.onChange()
+        return true
+    }
+
+    paste(): boolean {
+        if (clipboard === null) return false
+        this.commit()
+
+        const target = this.#deps.target()
+        if (!this.#writable(target.layer)) return false
+
+        const w = Math.min(clipboard.w, this.#width)
+        const h = Math.min(clipboard.h, this.#height)
+        const buffer = new Uint32Array(w * h)
+        for (let dy = 0; dy < h; dy++) {
+            for (let dx = 0; dx < w; dx++) {
+                buffer[dy * w + dx] = clipboard.pixels[dy * clipboard.w + dx]!
+            }
+        }
+
+        const command = new Command('paste selection')
+        this.#command = command
+        this.#cursor = openCursor(this.#deps.sprite, target.layer, target.frame, (write) => {
+            command.record(write)
+        })
+        this.#target = target
+        this.#liftRect = { x: 0, y: 0, w, h }
+        this.#buffer = buffer
+        this.#offsetX = (this.#width - w) >> 1
+        this.#offsetY = (this.#height - h) >> 1
+
+        this.#setMask(rectMask(this.#width, this.#height, 0, 0, w - 1, h - 1))
+        this.#deps.onChange()
+        return true
     }
 
     beginMove(x: number, y: number): void {

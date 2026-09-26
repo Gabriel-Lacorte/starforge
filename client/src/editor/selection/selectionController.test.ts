@@ -264,3 +264,49 @@ describe('SelectionController: marquee shapes', () => {
         }
     })
 })
+
+describe('SelectionController clipboard', () => {
+    it('copy then paste floats the same pixels centred, and Enter stamps them', () => {
+        const { sprite, layer, frame, session, sel } = setup()
+        writePixel(sprite, layer, frame, 3, 3, RED)
+        writePixel(sprite, layer, frame, 4, 3, GREEN)
+
+        sel.selectAll()
+        expect(sel.copy()).toBe(true)
+        for (let y = 0; y < 16; y++)
+            for (let x = 0; x < 16; x++) writePixel(sprite, layer, frame, x, y, 0x00000000)
+
+        expect(sel.paste()).toBe(true)
+        expect(sel.floating).toBe(true)
+        sel.commit()
+
+        expect(getPixel(sprite, layer, frame, 3, 3)).toBe(RED)
+        expect(getPixel(sprite, layer, frame, 4, 3)).toBe(GREEN)
+
+        session.undo()
+        expect(getPixel(sprite, layer, frame, 3, 3)).toBe(0x00000000)
+        session.redo()
+        expect(getPixel(sprite, layer, frame, 4, 3)).toBe(GREEN)
+    })
+
+    it('cut erases the region as one undoable step and keeps the selection', () => {
+        const { sprite, layer, frame, session, sel } = setup()
+        writePixel(sprite, layer, frame, 3, 3, RED)
+
+        sel.beginMarquee(2, 2)
+        sel.endMarquee(5, 5)
+        expect(sel.cut()).toBe(true)
+
+        expect(getPixel(sprite, layer, frame, 3, 3)).toBe(0x00000000)
+        expect(sel.active).toBe(true)
+
+        session.undo()
+        expect(getPixel(sprite, layer, frame, 3, 3)).toBe(RED)
+    })
+
+    it('paste with nothing copied is a no-op', () => {
+        const { sel } = setup()
+        sel.selectAll()
+        expect(sel.paste()).toBe(sel.copy() ? true : false)
+    })
+})

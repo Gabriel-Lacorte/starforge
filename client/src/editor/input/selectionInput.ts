@@ -104,6 +104,21 @@ export class SelectionInput {
                 else selection.selectAll()
                 return true
             }
+            if (key === 'c') {
+                e.preventDefault()
+                selection.copy()
+                return true
+            }
+            if (key === 'x') {
+                e.preventDefault()
+                selection.cut()
+                return true
+            }
+            if (key === 'v') {
+                e.preventDefault()
+                selection.paste()
+                return true
+            }
             if (key === 'i' && selection.active) {
                 e.preventDefault()
                 selection.invert()

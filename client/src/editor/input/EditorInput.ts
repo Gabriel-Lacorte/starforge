@@ -386,7 +386,9 @@ export class EditorInput {
 
     #onKeyDown = (e: KeyboardEvent): void => {
         if (!this.#deps.isActive()) return
-        if (isEditableTarget(e.target)) return
+        // a focused text field owns plain typing, but a field left focused
+        // after its dialog closed must not swallow editor shortcuts
+        if (e.target !== null && isEditableTarget(e.target) && isShownEditable(e.target)) return
 
         const { store, gestures } = this.#deps
         if (e.code === 'Space') {
@@ -414,10 +416,20 @@ export class EditorInput {
             const key = e.key.toLowerCase()
             if (key === 'z') {
                 e.preventDefault()
+                if (this.#deps.selection.floating) {
+                    this.#deps.selection.cancel()
+                    this.#syncHover()
+                    return
+                }
                 gestures.history(e.shiftKey ? 'redo' : 'undo')
                 this.#syncHover()
             } else if (key === 'y') {
                 e.preventDefault()
+                if (this.#deps.selection.floating) {
+                    this.#deps.selection.cancel()
+                    this.#syncHover()
+                    return
+                }
                 gestures.history('redo')
                 this.#syncHover()
             }
@@ -448,6 +460,10 @@ export class EditorInput {
         }
         if (key === 'd') {
             store.resetColors()
+            return
+        }
+        if (key === "'") {
+            store.patch({ showGrid: !store.state.showGrid })
             return
         }
 
@@ -501,4 +517,8 @@ function isEditableTarget(target: EventTarget | null): boolean {
         target instanceof HTMLSelectElement ||
         (target instanceof HTMLElement && target.isContentEditable)
     )
+}
+
+function isShownEditable(target: EventTarget): boolean {
+    return target instanceof HTMLElement && target.isConnected && target.offsetParent !== null
 }

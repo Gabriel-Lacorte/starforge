@@ -42,6 +42,8 @@ export interface EditorState {
     readonly symmetryH: boolean
     readonly symmetryV: boolean
 
+    readonly showGrid: boolean
+
     readonly fillTolerance: number
     readonly fillContiguous: boolean
 
@@ -65,6 +67,7 @@ export class EditorStore extends Store<EditorState> {
             shapeFill: false,
             symmetryH: false,
             symmetryV: false,
+            showGrid: false,
             fillTolerance: 0,
             fillContiguous: true,
             selectionMode: 'replace',

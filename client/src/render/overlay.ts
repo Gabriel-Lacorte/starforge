@@ -138,13 +138,23 @@ export class PreviewOverlay {
         guides?: SymmetryGuides | null,
         peers?: readonly PeerCursor[] | null,
         target?: PeerTarget | null,
+        grid?: boolean,
     ): void {
         const hasSelection = !!selection?.mask
         const hasGuides = !!guides && (guides.h || guides.v)
+        const hasGrid = grid === true
         const peerList = peers ?? null
         const peerTarget = target ?? null
         const hasPeers = peerList !== null && peerList.length > 0 && peerTarget !== null
-        if (!this.#painted && !hasSelection && !hasGuides && !hasPeers && !this.#onScreen) return
+        if (
+            !this.#painted &&
+            !hasSelection &&
+            !hasGuides &&
+            !hasGrid &&
+            !hasPeers &&
+            !this.#onScreen
+        )
+            return
 
         const ctx = this.#ctx
         ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -161,12 +171,52 @@ export class PreviewOverlay {
         }
 
         if (hasGuides) this.#paintGuides(view, guides)
+        if (hasGrid) this.#paintGrid(view)
         if (hasSelection) this.#paintSelection(view, selection)
         if (peerList !== null && peerList.length > 0 && peerTarget !== null) {
             this.#paintPeerPreviews(view, peerList, peerTarget)
             this.#paintPeers(view, peerList, peerTarget)
         }
-        this.#onScreen = this.#painted !== null || hasSelection || hasPeers
+        this.#onScreen = this.#painted !== null || hasSelection || hasGrid || hasPeers
+    }
+
+    #paintGrid(view: View): void {
+        const ctx = this.#ctx
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+
+        const panX = Math.round(view.panX)
+        const panY = Math.round(view.panY)
+        const w = this.#width * view.zoom
+        const h = this.#height * view.zoom
+
+        ctx.lineWidth = 1
+        ctx.strokeStyle = 'rgba(154, 154, 154, 0.18)'
+        ctx.strokeRect(panX + 0.5, panY + 0.5, w - 1, h - 1)
+
+        if (view.zoom >= 6) {
+            ctx.beginPath()
+            for (let i = 1; i < this.#width; i++) {
+                const x = Math.round(panX + i * view.zoom) + 0.5
+                ctx.moveTo(x, panY)
+                ctx.lineTo(x, panY + h)
+            }
+            for (let j = 1; j < this.#height; j++) {
+                const y = Math.round(panY + j * view.zoom) + 0.5
+                ctx.moveTo(panX, y)
+                ctx.lineTo(panX + w, y)
+            }
+            ctx.stroke()
+        }
+
+        ctx.strokeStyle = 'rgba(255, 204, 51, 0.4)'
+        ctx.beginPath()
+        const cx = Math.round(panX + w / 2) + 0.5
+        const cy = Math.round(panY + h / 2) + 0.5
+        ctx.moveTo(cx, panY)
+        ctx.lineTo(cx, panY + h)
+        ctx.moveTo(panX, cy)
+        ctx.lineTo(panX + w, cy)
+        ctx.stroke()
     }
 
     #paintPeerPreviews(view: View, peers: readonly PeerCursor[], target: PeerTarget): void {

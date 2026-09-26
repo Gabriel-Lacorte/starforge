@@ -114,6 +114,17 @@ export function ToolOptions({ store }: { store: EditorStore }) {
                 </label>
             )}
 
+            <Toggle
+                text="grid"
+                title="Pixel grid and centre guides (')"
+                checked={state.showGrid}
+                testId="grid-toggle"
+                ariaLabel="Pixel grid and centre guides"
+                onToggle={(showGrid) => {
+                    store.patch({ showGrid })
+                }}
+            />
+
             {shows('pixelPerfect') && (
                 <Toggle
                     text="pixel-perfect"

@@ -172,7 +172,13 @@ export function startEditor(
     })
 
     const symmetryGuides = (): SymmetryGuides | null => {
-        if (toolDefinition(store.state.tool).geometry !== 'freehand') return null
+        const geometry = toolDefinition(store.state.tool).geometry
+        const mirrors =
+            geometry === 'freehand' ||
+            geometry === 'line' ||
+            geometry === 'rect' ||
+            geometry === 'ellipse'
+        if (!mirrors) return null
 
         const { symmetryH, symmetryV } = store.state
         if (!symmetryH && !symmetryV) return null
@@ -193,7 +199,14 @@ export function startEditor(
 
         const t0 = DEV ? performance.now() : 0
         renderer.render(sprite, frame, viewport.view, ghosts)
-        overlay.render(viewport.view, selection, symmetryGuides(), peersProvider(), target())
+        overlay.render(
+            viewport.view,
+            selection,
+            symmetryGuides(),
+            peersProvider(),
+            target(),
+            store.state.showGrid,
+        )
         if (DEV) lastRenderMs = performance.now() - t0
     }
 

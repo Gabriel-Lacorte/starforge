@@ -15,6 +15,7 @@ import {
 } from '@starforge/core'
 import type { RelayConfig } from './config.js'
 import { ConnLimits, createThrottle } from './limits.js'
+import { RelayLog, type LogLevel } from './log.js'
 import { Room } from './room.js'
 import { MAX_ROOMS, type RoomStore } from './store.js'
 import { Telemetry, type RoomMetrics } from './telemetry.js'
@@ -102,18 +103,26 @@ export class RoomRegistry {
     private readonly allowCreate: (ip: string, now?: number) => boolean
 
     private readonly telemetry: Telemetry
+    private readonly log: RelayLog
     private readonly maxConnections: number
     private liveSockets = 0
 
     constructor(
         store: RoomStore,
-        opts?: { now?: () => number; maxConnections?: number; telemetry?: Telemetry },
+        opts?: {
+            now?: () => number
+            maxConnections?: number
+            roomsPerHour?: number
+            telemetry?: Telemetry
+            log?: RelayLog
+        },
     ) {
         this.store = store
         this.clock = opts?.now ?? (() => Date.now())
-        this.allowCreate = createThrottle(ROOMS_PER_HOUR_PER_IP)
+        this.allowCreate = createThrottle(opts?.roomsPerHour ?? ROOMS_PER_HOUR_PER_IP)
         this.maxConnections = opts?.maxConnections ?? MAX_CONNECTIONS
         this.telemetry = opts?.telemetry ?? new Telemetry(store)
+        this.log = opts?.log ?? new RelayLog({ level: 'off' as LogLevel })
     }
 
     private roomMetrics(): RoomMetrics {
@@ -207,6 +216,7 @@ export class RoomRegistry {
             doc = createSprite({ title, width: init.width, height: init.height })
         }
         if (!this.allowCreate(ip, this.now())) {
+            this.log.warn('room_create_refused', { ip, reason: 'address throttled' })
             return {
                 error: {
                     status: 429,
@@ -228,6 +238,7 @@ export class RoomRegistry {
                 }
             }
             if (oldest === undefined) {
+                this.log.warn('room_create_refused', { ip, reason: 'registry full of live rooms' })
                 return {
                     error: {
                         status: 429,
@@ -236,13 +247,17 @@ export class RoomRegistry {
                     },
                 }
             }
+            this.log.warn('room_evicted', { room: oldest, reason: 'registry full' })
             this.entries.delete(oldest)
             this.store.deleteRoom(oldest)
         }
 
         let id = newId()
         while (this.entries.has(id)) id = newId()
-        const room = new Room(doc, this.hooks(id), this.roomMetrics())
+        const room = new Room(doc, this.hooks(id), this.roomMetrics(), {
+            label: id,
+            log: this.log,
+        })
         const at = this.now()
         this.store.saveRoom({
             id,
@@ -257,6 +272,12 @@ export class RoomRegistry {
         room.touch(at)
         this.entries.set(id, { room, title, width: init.width, height: init.height, seq: 0 })
         this.telemetry.count('rooms_created')
+        this.log.info('room_created', {
+            room: id,
+            title,
+            size: `${String(init.width)}x${String(init.height)}`,
+            fromSnapshot: init.snapshot !== undefined,
+        })
         return { id }
     }
 
@@ -329,6 +350,7 @@ export class RoomRegistry {
 
         const pruned = this.store.pruneStale(now)
         if (pruned > 0) {
+            this.log.info('room_evicted', { reason: 'stale', count: pruned })
             const live = new Set(this.store.loadAll().map((row) => row.room.id))
             for (const [id, entry] of [...this.entries]) {
                 if (!live.has(id) && entry.room.peers().length === 0) this.entries.delete(id)
@@ -347,6 +369,7 @@ export class RoomRegistry {
             try {
                 doc = decodeSprite(JSON.parse(stored.snapshot))
             } catch {
+                this.log.warn('room_dropped', { room: stored.id, reason: 'unreadable snapshot' })
                 this.store.deleteRoom(stored.id)
                 dropped += 1
                 continue
@@ -375,7 +398,10 @@ export class RoomRegistry {
                 if (op.seq > seq) seq = op.seq
             }
 
-            const room = new Room(doc, this.hooks(stored.id), this.roomMetrics())
+            const room = new Room(doc, this.hooks(stored.id), this.roomMetrics(), {
+                label: stored.id,
+                log: this.log,
+            })
             room.restore(stored.snapshotSeq, seq, lamport, log)
             room.touch(stored.touchedAt)
             this.entries.set(stored.id, {
@@ -390,32 +416,45 @@ export class RoomRegistry {
         return { rooms, dropped }
     }
 
-    attach(raw: Socket, _ip: string, config: RelayConfig): void {
+    attach(raw: Socket, ip: string, config: RelayConfig): void {
         if (this.liveSockets >= this.maxConnections) {
+            this.log.warn('socket_refused', { ip, open: this.liveSockets })
             raw.destroy()
             return
         }
         this.liveSockets += 1
         this.telemetry.count('sockets_opened')
 
-        const peer = new WsSocket(raw, config.maxMessageBytes)
+        const peer = new WsSocket(raw, config.maxMessageBytes, (error): void => {
+            this.log.warn('socket_error', { ip, message: error.message }, 'socket_error')
+        })
         let room: Room | undefined
+        let roomId = '-'
         let site: number | null = null
         let helloSeen = false
         let lastSeen = Date.now()
         const limits = new ConnLimits()
 
+        const leave = (code: number, reason: string): void => {
+            if (site === null || room === undefined) return
+            this.log.info('leave', { room: roomId, site, code, reason })
+            room.leave(site)
+            site = null
+        }
+
         const timer = setTimeout(() => {
-            if (!helloSeen) peer.close(1008)
+            if (!helloSeen) {
+                this.log.debug('hello_timeout', { ip })
+                peer.close(1008)
+            }
         }, 5000)
         timer.unref()
 
         const heartbeat = setInterval(() => {
             if (Date.now() - lastSeen >= 90000) {
                 clearInterval(heartbeat)
+                leave(1001, 'idle')
                 peer.close(1001)
-                if (site !== null && room !== undefined) room.leave(site)
-                site = null
             } else {
                 peer.ping()
             }
@@ -426,6 +465,7 @@ export class RoomRegistry {
             lastSeen = Date.now()
             this.telemetry.count('bytes_in', payload.length)
             if (opcode !== 0x2) {
+                this.log.warn('hello_rejected', { ip, reason: 'expected binary frames' })
                 peer.close(1002)
                 return
             }
@@ -435,12 +475,18 @@ export class RoomRegistry {
                 try {
                     frame = decodeFrame(payload)
                 } catch {
+                    this.log.warn('hello_rejected', { ip, reason: 'unreadable hello' })
                     clearTimeout(timer)
                     peer.close(1002)
                     return
                 }
 
                 if (frame.type !== 'hello') {
+                    this.log.warn('hello_rejected', {
+                        ip,
+                        reason: 'expected a hello',
+                        got: frame.type,
+                    })
                     clearTimeout(timer)
                     peer.close(1008)
                     return
@@ -448,6 +494,11 @@ export class RoomRegistry {
 
                 const entry = ROOM_ID_RE.test(frame.room) ? this.entries.get(frame.room) : undefined
                 if (entry === undefined) {
+                    this.log.warn('hello_rejected', {
+                        ip,
+                        reason: 'room not found',
+                        room: frame.room.slice(0, 32),
+                    })
                     helloSeen = true
                     clearTimeout(timer)
                     peer.send(
@@ -462,6 +513,7 @@ export class RoomRegistry {
                 }
 
                 room = entry.room
+                roomId = frame.room
                 const result = entry.room.join(peer, frame)
                 helloSeen = true
                 clearTimeout(timer)
@@ -473,18 +525,29 @@ export class RoomRegistry {
                 return
             }
 
-            if (site !== null && room !== undefined) room.onBytes(site, payload, limits)
+            if (site !== null && room !== undefined) {
+                try {
+                    room.onBytes(site, payload, limits)
+                } catch (error) {
+                    this.log.error('handler_error', {
+                        room: roomId,
+                        site,
+                        message: error instanceof Error ? error.message : String(error),
+                    })
+                    throw error
+                }
+            }
         }
 
         peer.onPong = (): void => {
             lastSeen = Date.now()
         }
 
-        peer.onClose = () => {
+        peer.onClose = (code: number) => {
             clearTimeout(timer)
             clearInterval(heartbeat)
             this.liveSockets -= 1
-            if (site !== null && room !== undefined) room.leave(site)
+            leave(code, 'closed')
         }
     }
 }

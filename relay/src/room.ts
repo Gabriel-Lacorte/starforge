@@ -17,6 +17,7 @@ import {
     type Sprite,
 } from '@starforge/core'
 import { MAX_LOG, SNAPSHOT_EVERY } from './store.js'
+import { SILENT_LOG, hexHead, type RelayLog } from './log.js'
 import type { ConnLimits } from './limits.js'
 import type { RoomMetrics } from './telemetry.js'
 import { type Peer } from './ws/socket.js'
@@ -47,6 +48,10 @@ function isPresenceFrame(bytes: Uint8Array): boolean {
     }
 }
 
+function rejectDetail(error: OperationError): string {
+    return error.message.replace(/^operation rejected \[[a-z]+\]: /, '')
+}
+
 const SEEN_STAMPS_MAX = 2048
 
 export class Room {
@@ -58,14 +63,26 @@ export class Room {
     private snapshotSeq = 0
     private persist: PersistHooks | undefined
     private readonly metrics: RoomMetrics | undefined
+    private readonly roomLog: RelayLog
+    private readonly label: string
 
     private readonly seenStamps = new Map<number, true>()
     touchedAt: number
 
-    constructor(doc?: Sprite, persist?: PersistHooks, metrics?: RoomMetrics) {
+    constructor(
+        doc?: Sprite,
+        persist?: PersistHooks,
+        metrics?: RoomMetrics,
+        opts?: {
+            label?: string
+            log?: RelayLog
+        },
+    ) {
         this.doc = doc ?? createSprite({ width: 64, height: 64, title: 'relay-room' })
         this.persist = persist
         this.metrics = metrics
+        this.roomLog = opts?.log ?? SILENT_LOG
+        this.label = opts?.label ?? '-'
         this.touchedAt = Date.now()
     }
 
@@ -136,11 +153,17 @@ export class Room {
         hello: Hello,
     ): { site: number } | { error: { code: number; message: string } } {
         if (hello.protocol !== WIRE_PROTOCOL) {
+            this.roomLog.warn('hello_rejected', {
+                room: this.label,
+                reason: 'unsupported protocol',
+                protocol: hello.protocol,
+            })
             peer.close(1002)
             return { error: { code: ErrorCode.invalidOperation, message: 'unsupported protocol' } }
         }
         if (this.members.size >= 16) {
             this.count('room_full')
+            this.roomLog.warn('room_full', { room: this.label, members: this.members.size })
             peer.send(
                 encodeFrame({ type: 'error', code: ErrorCode.roomFull, message: 'room is full' }),
             )
@@ -150,6 +173,7 @@ export class Room {
         const site = this.allocSite()
         if (site === null) {
             this.count('room_full')
+            this.roomLog.warn('room_full', { room: this.label, reason: 'no free site' })
             peer.send(
                 encodeFrame({ type: 'error', code: ErrorCode.roomFull, message: 'room is full' }),
             )
@@ -174,9 +198,22 @@ export class Room {
         for (const [otherSite, other] of this.members) {
             if (otherSite !== site) other.peer.send(joined)
         }
-        for (const frame of this.missedSince(hello.since)) {
+        const missed = this.missedSince(hello.since)
+        for (const frame of missed) {
             peer.send(encodeFrame(frame))
         }
+        this.roomLog.info('join', {
+            room: this.label,
+            site,
+            nickname,
+            members: this.members.size,
+            seq: this.seq,
+            since: hello.since,
+            catchUp:
+                missed.length === 1 && missed[0]?.type === 'resync'
+                    ? 'resync'
+                    : `tail:${String(missed.length)}`,
+        })
 
         this.count('joins')
         return { site }
@@ -187,6 +224,11 @@ export class Room {
         if (!member) return
         if (limits !== undefined && !limits.admitBytes(bytes.length)) {
             this.count('rate_limited_bytes')
+            this.roomLog.info(
+                'rate_limited',
+                { room: this.label, site, kind: 'bytes', bytes: bytes.length },
+                'rate_limited',
+            )
             if (!isPresenceFrame(bytes)) {
                 member.peer.send(
                     encodeFrame({
@@ -204,6 +246,13 @@ export class Room {
             frame = decodeFrame(bytes)
         } catch {
             this.count('frames_dropped')
+            this.roomLog.warn('frame_dropped', {
+                room: this.label,
+                site,
+                reason: 'unreadable frame',
+                bytes: bytes.length,
+                head: hexHead(bytes),
+            })
             member.peer.send(
                 encodeFrame({
                     type: 'error',
@@ -224,6 +273,12 @@ export class Room {
         }
         if (frame.type !== 'op') {
             this.count('frames_dropped')
+            this.roomLog.warn('frame_dropped', {
+                room: this.label,
+                site,
+                reason: 'expected an operation',
+                got: frame.type,
+            })
             member.peer.send(
                 encodeFrame({
                     type: 'error',
@@ -239,6 +294,13 @@ export class Room {
             op = decodeOperation(frame.body)
         } catch {
             this.count('ops_rejected')
+            this.roomLog.warn('op_rejected', {
+                room: this.label,
+                site,
+                reason: 'unreadable operation',
+                bytes: frame.body.length,
+                head: hexHead(frame.body),
+            })
             member.peer.send(
                 encodeFrame({
                     type: 'error',
@@ -250,6 +312,11 @@ export class Room {
         }
         if (limits !== undefined && !limits.admitOp()) {
             this.count('rate_limited_ops')
+            this.roomLog.info(
+                'rate_limited',
+                { room: this.label, site, kind: 'ops' },
+                'rate_limited',
+            )
             member.peer.send(
                 encodeFrame({
                     type: 'error',
@@ -265,11 +332,18 @@ export class Room {
             stampLamport(frame.stamp) < 1
         ) {
             this.count('ops_rejected')
+            this.roomLog.warn('op_rejected', {
+                room: this.label,
+                site,
+                kind: op.kind,
+                reason: 'stamp is out of range',
+                stamp: frame.stamp,
+            })
             member.peer.send(
                 encodeFrame({
                     type: 'error',
                     code: ErrorCode.invalidOperation,
-                    message: 'invalid operation',
+                    message: 'invalid operation: stamp is out of range',
                 }),
             )
             return
@@ -277,22 +351,37 @@ export class Room {
 
         if (stampSite(frame.stamp) !== site) {
             this.count('ops_rejected')
+            this.roomLog.warn('op_rejected', {
+                room: this.label,
+                site,
+                kind: op.kind,
+                reason: 'op is stamped for another painter',
+                stampSite: stampSite(frame.stamp),
+                stamp: frame.stamp,
+            })
             member.peer.send(
                 encodeFrame({
                     type: 'error',
                     code: ErrorCode.invalidOperation,
-                    message: 'invalid operation',
+                    message: 'invalid operation: op is stamped for another painter',
                 }),
             )
             return
         }
         if (frame.orderKey !== undefined && !Number.isFinite(frame.orderKey)) {
             this.count('ops_rejected')
+            this.roomLog.warn('op_rejected', {
+                room: this.label,
+                site,
+                kind: op.kind,
+                reason: 'op group key is not a number',
+                orderKey: String(frame.orderKey),
+            })
             member.peer.send(
                 encodeFrame({
                     type: 'error',
                     code: ErrorCode.invalidOperation,
-                    message: 'invalid operation',
+                    message: 'invalid operation: op group key is not a number',
                 }),
             )
             return
@@ -304,11 +393,22 @@ export class Room {
         } catch (error) {
             if (error instanceof OperationError) {
                 this.count('ops_rejected')
+                this.roomLog.warn(
+                    'op_rejected',
+                    {
+                        room: this.label,
+                        site,
+                        kind: op.kind,
+                        reason: rejectDetail(error),
+                        stamp: frame.stamp,
+                    },
+                    'op_rejected',
+                )
                 member.peer.send(
                     encodeFrame({
                         type: 'error',
                         code: ErrorCode.invalidOperation,
-                        message: 'invalid operation',
+                        message: `invalid operation: ${op.kind}: ${rejectDetail(error)}`,
                     }),
                 )
                 return
@@ -318,6 +418,7 @@ export class Room {
 
         if (this.seenStamps.has(frame.stamp)) {
             this.count('ops_duplicate')
+            this.roomLog.debug('op_duplicate', { room: this.label, site, kind: op.kind })
             return
         }
         this.seenStamps.set(frame.stamp, true)
@@ -331,6 +432,7 @@ export class Room {
 
         applyOperation(this.doc, op)
         this.count('ops_applied')
+        this.roomLog.debug('op_applied', { room: this.label, site, kind: op.kind, seq: this.seq })
         this.seq += 1
         this.log.push({
             seq: this.seq,

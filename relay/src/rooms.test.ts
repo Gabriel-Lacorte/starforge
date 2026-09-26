@@ -73,6 +73,7 @@ describe('room registry', () => {
                 dataDir: ':memory:',
                 maxMessageBytes: 1024 * 1024,
                 maxMembers: 16,
+                roomsPerHour: 20,
             }
             const first = new net.Socket()
             rooms.attach(first, '1.2.3.4', config)
@@ -213,6 +214,7 @@ describe('unknown-room join', () => {
                 dataDir: '',
                 maxMessageBytes: 1024 * 1024,
                 maxMembers: 16,
+                roomsPerHour: 20,
             })
         })
         await new Promise<void>((resolve) => {
@@ -270,6 +272,7 @@ describe('heartbeat', () => {
                         dataDir: '',
                         maxMessageBytes: 1024 * 1024,
                         maxMembers: 16,
+                        roomsPerHour: 20,
                     })
                 })
                 await new Promise<void>((resolve) => {

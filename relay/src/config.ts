@@ -4,9 +4,11 @@ export interface RelayConfig {
     readonly dataDir: string
     readonly maxMessageBytes: number
     readonly maxMembers: number
+    readonly roomsPerHour: number
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv): RelayConfig {
+    const roomsPerHour = Number(env.ROOMS_PER_HOUR ?? 20)
     return {
         port: Number(env.PORT ?? 8131),
         origins: (env.ORIGINS ?? '')
@@ -16,5 +18,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): RelayConfig {
         dataDir: env.DATA_DIR ?? './data',
         maxMessageBytes: 1024 * 1024,
         maxMembers: 16,
+        roomsPerHour:
+            Number.isFinite(roomsPerHour) && roomsPerHour > 0 ? Math.floor(roomsPerHour) : 20,
     }
 }

@@ -9,17 +9,23 @@ export interface Peer {
 export class WsSocket implements Peer {
     readonly #socket: Socket
     readonly #decoder: FrameDecoder
+    readonly #onError: (error: Error) => void
     #closed = false
     onMessage: (opcode: number, payload: Uint8Array) => void = () => undefined
     onClose: (code: number) => void = () => undefined
     onPong: () => void = () => undefined
 
-    constructor(socket: Socket, maxBytes: number) {
+    constructor(
+        socket: Socket,
+        maxBytes: number,
+        onError: (error: Error) => void = (): void => undefined,
+    ) {
         this.#socket = socket
         this.#decoder = new FrameDecoder(maxBytes)
+        this.#onError = onError
         socket.on('data', (chunk) => this.#ingest(chunk))
         socket.on('close', () => this.#finish(1006))
-        socket.on('error', () => undefined)
+        socket.on('error', (error: Error) => this.#onError(error))
     }
 
     send(bytes: Uint8Array): void {

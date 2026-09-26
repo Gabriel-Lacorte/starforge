@@ -2,13 +2,21 @@ import { describe, expect, it, vi } from 'vitest'
 import {
     WIRE_PROTOCOL,
     ErrorCode,
+    applyOperation,
+    createFrame,
+    createLayer,
     decodeFrame,
+    decodeOperation,
     decodeSprite,
+    documentFingerprint,
     encodeFrame,
     encodeOperation,
+    layerSet,
+    type DocumentOperation,
     type Hello,
 } from '@starforge/core'
 import type { Peer } from './ws/socket.js'
+import { RelayLog } from './log.js'
 import { ConnLimits } from './limits.js'
 import { Room } from './room.js'
 
@@ -459,5 +467,182 @@ describe('room abuse gates', () => {
         room.onBytes(site, opBytes((1 << 8) | site, layer, frame), limits)
         const echo = decodeFrame(peer.sent[0]!)
         if (echo.type !== 'op') throw new Error(`expected op echo, got ${echo.type}`)
+    })
+})
+
+describe('room observability', () => {
+    function observedRoom(): { room: Room; peer: FakePeer; site: number; lines: string[] } {
+        const lines: string[] = []
+        const log = new RelayLog({ level: 'debug', write: (line) => lines.push(line) })
+        const room = new Room(undefined, undefined, undefined, { label: 'lab12', log })
+        const peer = new FakePeer()
+        const joined = room.join(peer, hello())
+        if (!('site' in joined)) throw new Error('join failed')
+        return { room, peer, site: joined.site, lines }
+    }
+
+    it('logs the join with the catch-up mode', () => {
+        const { lines } = observedRoom()
+        const join = lines.find((line) => line.includes('join '))
+        expect(join).toContain('room=lab12')
+        expect(join).toContain('nickname=ada')
+        expect(join).toContain('catchUp=')
+    })
+
+    it('names the op kind and the document reason when rejecting', () => {
+        const { room, peer, site, lines } = observedRoom()
+        peer.sent.length = 0
+        const op = { kind: 'layer.remove' as const, layer: 'missing-layer' }
+        room.onBytes(
+            site,
+            encodeFrame({ type: 'op', seq: 0, stamp: (1 << 8) | site, body: encodeOperation(op) }),
+        )
+
+        const err = decodeFrame(peer.sent[0]!)
+        if (err.type !== 'error') throw new Error('expected error')
+        expect(err.code).toBe(ErrorCode.invalidOperation)
+        expect(err.message.startsWith('invalid operation: layer.remove:')).toBe(true)
+
+        const rejected = lines.find((line) => line.includes('op_rejected'))
+        expect(rejected).toContain('room=lab12')
+        expect(rejected).toContain('kind=layer.remove')
+        expect(rejected).toContain('reason=')
+    })
+
+    it('logs the hex head of an unreadable frame', () => {
+        const { room, peer, site, lines } = observedRoom()
+        peer.sent.length = 0
+        room.onBytes(site, new Uint8Array([0xc0, 0xff, 0xee, 0x00]))
+        const dropped = lines.find((line) => line.includes('frame_dropped'))
+        expect(dropped).toContain('site=')
+        expect(dropped).toContain('bytes=4')
+        expect(dropped).toContain('head="c0 ff ee 00"')
+    })
+
+    it('logs applied ops only at debug level', () => {
+        const lines: string[] = []
+        const log = new RelayLog({ level: 'info', write: (line) => lines.push(line) })
+        const room = new Room(undefined, undefined, undefined, { label: 'lab12', log })
+        const peer = new FakePeer()
+        const joined = room.join(peer, hello())
+        if (!('site' in joined)) throw new Error('join failed')
+        const { layer, frame } = roomIds(room)
+
+        const op = {
+            kind: 'pixel.patch' as const,
+            layer,
+            frame,
+            xs: Uint16Array.of(0),
+            ys: Uint16Array.of(0),
+            colors: Uint32Array.of(0xffffffff),
+        }
+        room.onBytes(
+            joined.site,
+            encodeFrame({
+                type: 'op',
+                seq: 0,
+                stamp: (1 << 8) | joined.site,
+                body: encodeOperation(op),
+            }),
+        )
+
+        expect(lines.some((line) => line.includes('op_applied'))).toBe(false)
+        expect(lines.some((line) => line.includes('join '))).toBe(true)
+    })
+})
+
+describe('room structural ops over the wire', () => {
+    it('every op kind reaches the other member byte-identical and lands in the snapshot', () => {
+        const room = new Room()
+        const a = new FakePeer()
+        const b = new FakePeer()
+        const ja = room.join(a, hello())
+        const jb = room.join(b, hello())
+        if (!('site' in ja) || !('site' in jb)) throw new Error('join failed')
+        const { layer, frame } = roomIds(room)
+
+        // local mirror of everything the relay should end up holding
+        const mirror = decodeSprite(
+            JSON.parse(new TextDecoder().decode(room.snapshotBytes())) as unknown,
+        )
+        let lamport = 0
+        let applied = 0
+
+        const send = (op: DocumentOperation, orderKey?: number): void => {
+            lamport += 1
+            applied += 1
+            applyOperation(mirror, op)
+            a.sent.length = 0
+            b.sent.length = 0
+            const stamp = (lamport << 8) | ja.site
+            room.onBytes(
+                ja.site,
+                encodeFrame({
+                    type: 'op',
+                    seq: 0,
+                    stamp,
+                    body: encodeOperation(op),
+                    ...(orderKey !== undefined ? { orderKey } : {}),
+                }),
+            )
+
+            // the sender sees its echo, the other member sees the same frame
+            for (const peer of [a, b]) {
+                expect(peer.sent.length, `${op.kind} reached everyone`).toBe(1)
+                const echoed = decodeFrame(peer.sent[0]!)
+                if (echoed.type !== 'op') throw new Error(`expected op echo, got ${echoed.type}`)
+                expect(echoed.stamp).toBe(stamp)
+                expect(echoed.seq).toBe(applied)
+                expect(echoed.body).toEqual(encodeOperation(op))
+                expect(echoed.orderKey).toBe(orderKey)
+                const decoded = decodeOperation(echoed.body)
+                expect(decoded.kind).toBe(op.kind)
+            }
+        }
+
+        const second = createLayer('Layer 2')
+        const third = createLayer('Layer 3')
+        const extraFrame = createFrame(500)
+
+        send({ kind: 'layer.add', layer: second, after: layer }, 1)
+        send({ kind: 'layer.add', layer: third, after: null }, 0.5)
+        send({ kind: 'layer.move', layer: third.id, after: second.id }, 0.75)
+        send(layerSet(second.id, 'name', 'renamed'))
+        send(layerSet(second.id, 'opacity', 128))
+        send(layerSet(second.id, 'visible', false))
+        send(layerSet(second.id, 'blendMode', 'multiply'))
+        send({ kind: 'frame.add', frame: extraFrame, after: frame }, 1)
+        send({ kind: 'frame.move', frame: extraFrame.id, after: null }, 0.5)
+        send({ kind: 'frame.setDuration', frame: extraFrame.id, duration: 900 })
+        send({ kind: 'palette.add', color: '#ff0000', index: 0 })
+        send({ kind: 'palette.set', index: 0, color: '#00ff00' })
+        send({ kind: 'palette.add', color: '#0000ff', index: 1 })
+        send({ kind: 'palette.move', from: 0, to: 1 })
+        send({ kind: 'palette.rename', name: 'room pal' })
+        send({ kind: 'palette.remove', index: 1 })
+        send({ kind: 'document.rename', title: 'renamed room' })
+        send({
+            kind: 'pixel.patch',
+            layer,
+            frame,
+            xs: Uint16Array.of(3, 4),
+            ys: Uint16Array.of(5, 5),
+            colors: Uint32Array.of(0xff00ffff, 0x00ffffff),
+        })
+        send({ kind: 'layer.remove', layer: third.id })
+
+        // a painter joining afterwards converges on the exact same document
+        const late = new FakePeer()
+        const joined = room.join(late, { ...hello(), since: 0 })
+        if (!('site' in joined)) throw new Error('late join failed')
+        const welcome = decodeFrame(late.sent[0]!)
+        if (welcome.type !== 'welcome') throw new Error('expected welcome')
+        const served = decodeSprite(
+            JSON.parse(new TextDecoder().decode(welcome.snapshot)) as unknown,
+        )
+        expect(documentFingerprint(served)).toBe(documentFingerprint(mirror))
+        expect(served.layers.map((l) => l.name)).toEqual(['Layer 1', 'renamed'])
+        expect(served.frames.map((f) => f.duration)).toEqual(mirror.frames.map((f) => f.duration))
+        expect(served.meta.title).toBe('renamed room')
     })
 })

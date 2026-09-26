@@ -116,9 +116,21 @@ describe('TOOL_CATALOG', () => {
             'lockAlpha',
             'symmetry',
         ])
-        expect(capabilities('line')).toEqual(['brush', 'opacity', 'lockAlpha'])
-        expect(capabilities('rect')).toEqual(['brush', 'opacity', 'lockAlpha', 'shapeFill'])
-        expect(capabilities('ellipse')).toEqual(['brush', 'opacity', 'lockAlpha', 'shapeFill'])
+        expect(capabilities('line')).toEqual(['brush', 'opacity', 'lockAlpha', 'symmetry'])
+        expect(capabilities('rect')).toEqual([
+            'brush',
+            'opacity',
+            'lockAlpha',
+            'symmetry',
+            'shapeFill',
+        ])
+        expect(capabilities('ellipse')).toEqual([
+            'brush',
+            'opacity',
+            'lockAlpha',
+            'symmetry',
+            'shapeFill',
+        ])
         expect(capabilities('bucket')).toEqual(['opacity', 'lockAlpha', 'flood'])
 
         expect(capabilities('eraser')).toEqual(['brush', 'opacity', 'pixelPerfect', 'symmetry'])
@@ -174,6 +186,7 @@ describe('captured settings', () => {
             shapeFill: true,
             symmetryH: true,
             symmetryV: false,
+            showGrid: false,
             fillTolerance: 12,
             fillContiguous: false,
             selectionMode: 'replace',
@@ -316,7 +329,12 @@ describe('tool composition', () => {
             stamp: 'brush',
             trace: 'preview',
         }
-        expect(toolCapabilities(ellipseEraser)).toEqual(['brush', 'opacity', 'shapeFill'])
+        expect(toolCapabilities(ellipseEraser)).toEqual([
+            'brush',
+            'opacity',
+            'symmetry',
+            'shapeFill',
+        ])
 
         const tool = makeTool(ellipseEraser, paintingHost(sprite))
         tool.begin(2, 2, NO_MODS)

@@ -69,6 +69,17 @@ export function traceShape(definition: ToolDefinition, host: ToolHost): Tool {
             plotRect(ax, ay, cx, cy, filled, filled ? addBare : addStamped)
         } else plotEllipse(ax, ay, cx, cy, filled, filled ? addBare : addStamped)
 
+        const { symmetryH, symmetryV } = host.settings
+        if (symmetryH || symmetryV) {
+            for (const cell of [...set]) {
+                const x = cell % width
+                const y = (cell - x) / width
+                if (symmetryH) set.add(width - 1 - x + y * width)
+                if (symmetryV) set.add(x + (height - 1 - y) * width)
+                if (symmetryH && symmetryV) set.add(width - 1 - x + (height - 1 - y) * width)
+            }
+        }
+
         return set
     }
 

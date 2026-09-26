@@ -105,7 +105,14 @@ export function toolCapabilities(definition: ToolDefinition): readonly ToolCapab
     if (PAINTS.includes(definition.geometry) && definition.ink === 'source-over') {
         capabilities.push('lockAlpha')
     }
-    if (definition.geometry === 'freehand') capabilities.push('symmetry')
+    if (
+        definition.geometry === 'freehand' ||
+        definition.geometry === 'line' ||
+        definition.geometry === 'rect' ||
+        definition.geometry === 'ellipse'
+    ) {
+        capabilities.push('symmetry')
+    }
     if (definition.geometry === 'rect' || definition.geometry === 'ellipse') {
         capabilities.push('shapeFill')
     }

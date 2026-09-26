@@ -246,7 +246,7 @@ describe('GestureController symmetry', () => {
         expect(sprite.layers[1]!.cels.get(frame)!.version).toBe(size)
     })
 
-    it('leaves shapes literal, symmetry is a free-stroke tool only (D10)', () => {
+    it('mirrors shapes across the axis like freehand strokes', () => {
         const { sprite, frame, top, store, gestures } = setup(16, 16)
         store.patch({ symmetryH: true })
         const color = store.state.color
@@ -255,6 +255,7 @@ describe('GestureController symmetry', () => {
         gestures.finish(5, 5, NO_MODS)
 
         expect(getPixel(sprite, top, frame, 2, 2)).toBe(color)
-        expect(getPixel(sprite, top, frame, 13, 2)).toBe(0)
+        expect(getPixel(sprite, top, frame, 13, 2)).toBe(color)
+        expect(getPixel(sprite, top, frame, 10, 5)).toBe(color)
     })
 })

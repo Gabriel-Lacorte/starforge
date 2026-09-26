@@ -10,7 +10,6 @@ interface DevHandle {
     session: { target: { state: { layer: string; frame: string } } }
 }
 
-/* painted (non-transparent) cells in each half of the active cel */
 async function halves(page: Page): Promise<{ left: number; right: number }> {
     return page.evaluate(() => {
         const dev = (window as unknown as { __starforge?: DevHandle }).__starforge
@@ -37,7 +36,6 @@ async function halves(page: Page): Promise<{ left: number; right: number }> {
     })
 }
 
-/* a short stroke kept entirely on the left of centre */
 async function strokeLeftOfCentre(page: Page): Promise<void> {
     const box = (await page.getByTestId('canvas').boundingBox())!
     const y = box.y + box.height * 0.3
@@ -48,10 +46,6 @@ async function strokeLeftOfCentre(page: Page): Promise<void> {
     await painted(page)
 }
 
-/*
- * The starter drawing already covers both halves, so these compare what the
- * stroke ADDS to each side, never the absolute counts.
- */
 test('one stroke paints both sides once the mirror is on', async ({ page }) => {
     await openEditor(page)
     await page.getByTestId('swatch').nth(5).click()
@@ -64,7 +58,6 @@ test('one stroke paints both sides once the mirror is on', async ({ page }) => {
     await strokeLeftOfCentre(page)
     const after = await halves(page)
 
-    /* the stroke never crossed the axis, so the right half only gained its mirror */
     const drawn = after.left - before.left
     const mirrored = after.right - before.right
 
@@ -84,4 +77,28 @@ test('the mirror stays off until the toggle is on', async ({ page }) => {
 
     expect(after.left - before.left).toBeGreaterThan(0)
     expect(after.right - before.right).toBe(0)
+})
+
+test('shapes mirror too: a line on one side paints both halves', async ({ page }) => {
+    await openEditor(page)
+    await page.getByTestId('swatch').nth(5).click()
+    await page.keyboard.press('l')
+
+    const toggle = page.getByTestId('symmetry-h')
+    await toggle.check()
+    await expect(toggle).toBeChecked()
+
+    const before = await halves(page)
+    const box = (await page.getByTestId('canvas').boundingBox())!
+    const y = box.y + box.height * 0.6
+    await page.mouse.move(box.x + box.width * 0.25, y)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width * 0.4, y - box.height * 0.1, { steps: 4 })
+    await page.mouse.up()
+    await painted(page)
+
+    const after = await halves(page)
+    const drawn = after.left - before.left
+    expect(drawn).toBeGreaterThan(0)
+    expect(after.right - before.right).toBe(drawn)
 })

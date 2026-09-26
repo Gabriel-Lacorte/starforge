@@ -22,8 +22,8 @@ export class FramesController {
         return this.#sprite.frames
     }
 
-    add(after: string = this.#session.target.state.frame): void {
-        if (!this.#has(after)) return
+    add(after: string | null = this.#session.target.state.frame): void {
+        if (after !== null && !this.#has(after)) return
 
         const frame = createFrame(DEFAULT_FRAME_DURATION)
         this.#session.apply('add frame', { kind: 'frame.add', frame, after })

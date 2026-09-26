@@ -1,8 +1,8 @@
 .timeline {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
+    gap: 6px;
+    padding: 4px 6px;
     border-top: 1px solid var(--line);
 }
 
@@ -42,21 +42,73 @@
     display: flex;
     flex: 1;
     min-width: 0;
-    gap: 2px;
+    gap: 1px;
     margin: 0;
-    padding: 0;
+    padding: 1px 8px;
     overflow-x: auto;
     list-style: none;
 }
 
+/* The insert affordance rides the seam between tiles without taking layout
+   width, so frames sit nearly edge to edge. It fades in over the reel (and
+   on its own when focused) and stays half-visible on touch. */
+.gap {
+    position: relative;
+    flex: none;
+    align-self: stretch;
+    width: 0;
+}
+
+.insert {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -7px;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 14px;
+    padding: 0;
+    color: var(--dim);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 120ms ease;
+}
+
+.insert svg {
+    width: 9px;
+    height: 9px;
+}
+
+.insert:hover {
+    color: var(--accent);
+}
+
+.insert:focus-visible {
+    opacity: 1;
+    color: var(--accent);
+    outline: none;
+}
+
+.reel:hover .insert {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .insert {
+        opacity: 0.55;
+    }
+}
+
 .cell {
+    position: relative;
     display: grid;
     place-items: center;
     flex: none;
-    width: var(--target);
-    height: var(--target);
-    padding: 0;
-    color: var(--dim);
+    height: 38px;
+    padding: 2px;
     background: var(--face);
     border: 1px solid var(--line);
     box-shadow:
@@ -65,12 +117,33 @@
     cursor: pointer;
 }
 
+.index {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    z-index: 1;
+    padding: 0 2px;
+    font-size: 9px;
+    line-height: 11px;
+    color: var(--dim);
+    background: color-mix(in srgb, var(--face) 78%, transparent);
+}
+
+/* transparency reads through a fine checker, like the canvas itself */
+.thumb {
+    display: block;
+    background: repeating-conic-gradient(var(--face-lo) 0% 25%, var(--bg) 0% 50%) 0 0 / 8px 8px;
+}
+
 .cell.on {
-    color: var(--accent);
     background: var(--face-lo);
-    box-shadow:
-        inset 1px 1px 0 var(--face-lo),
-        inset -1px -1px 0 var(--face-hi);
+    border-color: var(--accent);
+    box-shadow: none;
+}
+
+.cell.on .index {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--face-lo) 85%, transparent);
 }
 
 .duration {
@@ -155,7 +228,10 @@
 }
 
 @media (hover: hover) {
-    .cell:hover,
+    .cell:hover {
+        border-color: var(--dim);
+    }
+
     .chip:hover {
         color: var(--text);
     }

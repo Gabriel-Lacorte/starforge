@@ -361,12 +361,13 @@ export function decodeFrame(bytes: Uint8Array): NetFrame {
             const seq = at.u32()
             const stamp = at.u32()
             const hasOrderKey = at.u8() === 1
+            const orderKey = hasOrderKey ? at.f64() : undefined
             return {
                 type: 'op',
                 seq,
                 stamp,
                 body: at.raw(at.remaining),
-                ...(hasOrderKey ? { orderKey: at.f64() } : {}),
+                ...(orderKey !== undefined ? { orderKey } : {}),
             }
         }
         case FrameType.presence: {

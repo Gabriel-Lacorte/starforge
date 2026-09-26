@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createLayer, decodeOperation, encodeOperation } from './index'
 import { decodeFrame, encodeFrame, ErrorCode, WIRE_PROTOCOL } from './wire'
 
 describe('wire envelope', () => {
@@ -19,6 +20,39 @@ describe('wire envelope', () => {
             color: 0xffcc33ff,
             since: 0,
         })
+    })
+
+    it('round-trips an op without an order key', () => {
+        const body = encodeOperation({ kind: 'layer.remove', layer: 'gone' })
+        const bytes = encodeFrame({ type: 'op', seq: 7, stamp: (3 << 8) | 1, body })
+        expect(decodeFrame(bytes)).toEqual({ type: 'op', seq: 7, stamp: (3 << 8) | 1, body })
+    })
+
+    it('round-trips an op carrying an order key', () => {
+        for (const orderKey of [1, 0.5, -0.75, 1e9 + 0.25]) {
+            const body = encodeOperation({
+                kind: 'layer.add',
+                layer: createLayer('Layer 2'),
+                after: null,
+            })
+            const bytes = encodeFrame({
+                type: 'op',
+                seq: 0,
+                stamp: (1 << 8) | 2,
+                body,
+                orderKey,
+            })
+            const back = decodeFrame(bytes)
+            expect(back).toEqual({
+                type: 'op',
+                seq: 0,
+                stamp: (1 << 8) | 2,
+                body,
+                orderKey,
+            })
+            const op = decodeOperation(back.type === 'op' ? back.body : new Uint8Array())
+            expect(op.kind).toBe('layer.add')
+        }
     })
 
     it('rejects truncated input instead of reading past the end', () => {

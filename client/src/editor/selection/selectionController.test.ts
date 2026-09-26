@@ -133,6 +133,43 @@ describe('SelectionController', () => {
 })
 
 describe('SelectionController: boolean modes', () => {
+    it('erase clears the masked pixels, keeps the ants, and undoes as one step', () => {
+        const { sprite, layer, frame, session, sel } = setup()
+        writePixel(sprite, layer, frame, 3, 3, RED)
+        writePixel(sprite, layer, frame, 4, 3, GREEN)
+        writePixel(sprite, layer, frame, 3, 4, GREEN)
+        const before = snapshot(sprite, layer, frame)
+
+        sel.beginMarquee(3, 3)
+        sel.updateMarquee(4, 3)
+        sel.endMarquee(4, 3)
+        expect(sel.erase()).toBe(true)
+
+        expect(getPixel(sprite, layer, frame, 3, 3)).toBe(0)
+        expect(getPixel(sprite, layer, frame, 4, 3)).toBe(0)
+        expect(getPixel(sprite, layer, frame, 3, 4)).toBe(GREEN)
+        expect(sel.active).toBe(true)
+
+        session.undo()
+        expect(snapshot(sprite, layer, frame)).toEqual(before)
+    })
+
+    it('erase of a moved selection erases where it was dropped', () => {
+        const { sprite, layer, frame, session, sel } = setup()
+        writePixel(sprite, layer, frame, 3, 3, RED)
+
+        sel.beginMarquee(3, 3)
+        sel.endMarquee(3, 3)
+        sel.nudge(2, 0)
+        expect(sel.erase()).toBe(true)
+
+        expect(getPixel(sprite, layer, frame, 5, 3)).toBe(0)
+        expect(sel.active).toBe(true)
+
+        session.undo()
+        expect(getPixel(sprite, layer, frame, 5, 3)).toBe(RED)
+    })
+
     it('adds a second marquee to the first', () => {
         const { sel } = setup()
         sel.beginMarquee(1, 1)

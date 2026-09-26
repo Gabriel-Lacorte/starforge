@@ -1,5 +1,6 @@
 import {
     Command,
+    TRANSPARENT,
     allMask,
     applyOperation,
     combineMasks,
@@ -189,6 +190,33 @@ export class SelectionController {
     deselect(): void {
         this.commit()
         this.#setMask(emptyMask(this.#width, this.#height))
+    }
+
+    /** Clears the pixels under the mask on the active layer, as one
+     * undoable edit. A pending float is stamped first, so a moved
+     * selection is erased where it was dropped. The mask itself survives:
+     * the region stays selected for a fill or a paste over the hole. */
+    erase(): boolean {
+        if (!this.active) return false
+        this.commit()
+
+        const bounds = this.#mask.bounds
+        const target = this.#deps.target()
+        if (!bounds || !this.#writable(target.layer)) return false
+
+        const command = new Command('erase selection')
+        const cursor = openCursor(this.#deps.sprite, target.layer, target.frame, (write) => {
+            command.record(write)
+        })
+        for (let y = bounds.y; y < bounds.y + bounds.h; y++) {
+            for (let x = bounds.x; x < bounds.x + bounds.w; x++) {
+                if (isSelected(this.#mask, x, y)) cursor.set(x, y, TRANSPARENT)
+            }
+        }
+        this.#deps.session.commit(command)
+        this.#deps.invalidate?.(target.layer, target.frame, bounds.x, bounds.y, bounds.w, bounds.h)
+        this.#deps.onChange()
+        return true
     }
 
     reselect(mask: SelectionMask): void {

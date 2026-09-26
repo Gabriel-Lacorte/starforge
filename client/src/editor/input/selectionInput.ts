@@ -150,7 +150,7 @@ export class SelectionInput {
 
         if (e.key === 'Delete' || e.key === 'Backspace') {
             e.preventDefault()
-            selection.deselect()
+            this.#deps.selection.erase()
             return true
         }
 

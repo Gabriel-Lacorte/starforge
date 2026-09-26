@@ -72,7 +72,7 @@ const GROUPS: readonly Group[] = [
             { keys: 'Alt drag', what: 'Subtract from the selection' },
             { keys: 'Arrows', what: 'Nudge by one pixel' },
             { keys: 'Enter', what: 'Stamp it down' },
-            { keys: 'Delete', what: 'Stamp it down and clear the selection' },
+            { keys: 'Delete', what: 'Erase the selected pixels (the ants stay on)' },
             { keys: 'Esc', what: 'Drop it without stamping' },
         ],
     },

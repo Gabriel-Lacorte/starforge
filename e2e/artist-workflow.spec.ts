@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { openEditor } from './editor'
+import { canvasFingerprint, openEditor, painted } from './editor'
 
 test('selection modes are available without keyboard modifiers', async ({ page }) => {
     await openEditor(page)
@@ -35,7 +35,17 @@ test('keyboard drives selection modes and clears', async ({ page }) => {
     await page.mouse.up()
     await expect(page.getByTestId('selection-active')).toBeVisible()
 
+    const before = await canvasFingerprint(canvas)
     await page.keyboard.press('Delete')
+    await painted(page)
+    expect(await canvasFingerprint(canvas)).not.toBe(before)
+    await expect(page.getByTestId('selection-active')).toBeVisible()
+
+    await page.keyboard.press('Control+z')
+    await painted(page)
+    await expect.poll(async () => canvasFingerprint(canvas), { timeout: 5000 }).toBe(before)
+
+    await page.keyboard.press('Escape')
     await expect(page.getByTestId('selection-active')).toBeHidden()
 })
 

@@ -86,8 +86,8 @@ describe('SelectionInput modes', () => {
         input.dispose()
     })
 
-    it('clears the active selection on Delete and ignores it when empty', () => {
-        const { input, selection } = setup()
+    it('erases the selected pixels on Delete and ignores it when empty', () => {
+        const { input, selection, session, layer, frame } = setup()
         const del = (overrides: Partial<KeyboardEvent> = {}) =>
             ({
                 key: 'Delete',
@@ -100,11 +100,23 @@ describe('SelectionInput modes', () => {
             }) as KeyboardEvent
         expect(input.keyDown(del())).toBe(false)
 
+        session.apply('paint', {
+            kind: 'pixel.patch',
+            layer,
+            frame,
+            xs: Uint16Array.of(1),
+            ys: Uint16Array.of(1),
+            colors: Uint32Array.of(0xff0000ff),
+        })
         selection.beginMarquee(0, 0)
         selection.endMarquee(2, 2)
-        expect(selection.active).toBe(true)
+        const painted = documentFingerprint(session.doc)
+
         expect(input.keyDown(del())).toBe(true)
-        expect(selection.active).toBe(false)
+        expect(documentFingerprint(session.doc)).not.toBe(painted)
+        expect(selection.active).toBe(true)
+        session.undo()
+        expect(documentFingerprint(session.doc)).toBe(painted)
         input.dispose()
     })
 })

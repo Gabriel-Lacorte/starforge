@@ -14,24 +14,24 @@ function onion(before: OnionSettings['before'], after: OnionSettings['after']): 
 describe('ghostFrames', () => {
     it('ghosts one neighbour on each side at the settled opacity', () => {
         expect(ghostFrames(reel('abcde'), 'c', onion(1, 1))).toEqual([
-            { id: 'b', alpha: 0.3 },
-            { id: 'd', alpha: 0.3 },
+            { id: 'b', alpha: 0.3, side: 'before' },
+            { id: 'd', alpha: 0.3, side: 'after' },
         ])
     })
 
     it('halves the alpha per step away and paints the farthest ghost first', () => {
         expect(ghostFrames(reel('abcde'), 'c', onion(2, 1))).toEqual([
-            { id: 'a', alpha: 0.15 },
-            { id: 'b', alpha: 0.3 },
-            { id: 'd', alpha: 0.3 },
+            { id: 'a', alpha: 0.15, side: 'before' },
+            { id: 'b', alpha: 0.3, side: 'before' },
+            { id: 'd', alpha: 0.3, side: 'after' },
         ])
     })
 
     it('orders both sides by distance, not by side', () => {
         expect(ghostFrames(reel('abcde'), 'c', onion(1, 2))).toEqual([
-            { id: 'e', alpha: 0.15 },
-            { id: 'b', alpha: 0.3 },
-            { id: 'd', alpha: 0.3 },
+            { id: 'e', alpha: 0.15, side: 'after' },
+            { id: 'b', alpha: 0.3, side: 'before' },
+            { id: 'd', alpha: 0.3, side: 'after' },
         ])
     })
 
@@ -42,14 +42,18 @@ describe('ghostFrames', () => {
     })
 
     it('stops at the ends of the film instead of wrapping around', () => {
-        expect(ghostFrames(reel('abc'), 'a', onion(1, 1))).toEqual([{ id: 'b', alpha: 0.3 }])
-        expect(ghostFrames(reel('abc'), 'c', onion(1, 1))).toEqual([{ id: 'b', alpha: 0.3 }])
+        expect(ghostFrames(reel('abc'), 'a', onion(1, 1))).toEqual([
+            { id: 'b', alpha: 0.3, side: 'after' },
+        ])
+        expect(ghostFrames(reel('abc'), 'c', onion(1, 1))).toEqual([
+            { id: 'b', alpha: 0.3, side: 'before' },
+        ])
     })
 
     it('clamps at both ends at once when the film is shorter than the reach', () => {
         expect(ghostFrames(reel('abc'), 'b', onion(3, 3))).toEqual([
-            { id: 'a', alpha: 0.3 },
-            { id: 'c', alpha: 0.3 },
+            { id: 'a', alpha: 0.3, side: 'before' },
+            { id: 'c', alpha: 0.3, side: 'after' },
         ])
     })
 

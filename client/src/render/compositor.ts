@@ -81,13 +81,7 @@ export class Compositor<TImage> {
         this.#frames.set(frameId, entry)
         this.#evict()
 
-        let celSum = 0
-        for (const layer of sprite.layers) {
-            if (!layer.visible) continue
-
-            const cel = layer.cels.get(frameId)
-            if (cel) celSum += cel.version
-        }
+        const celSum = celVersionSum(sprite, frameId)
 
         if (entry.revision === sprite.revision && entry.celSum === celSum) {
             return entry.surface.image
@@ -104,6 +98,10 @@ export class Compositor<TImage> {
         entry.dirty = null
         this.stats.recompositions++
         return entry.surface.image
+    }
+
+    stamp(sprite: Sprite, frameId: string): string {
+        return `${sprite.revision}:${celVersionSum(sprite, frameId)}`
     }
 
     invalidateCel(
@@ -177,6 +175,17 @@ export class Compositor<TImage> {
         ctx.globalAlpha = 1
         ctx.globalCompositeOperation = 'source-over'
     }
+}
+
+function celVersionSum(sprite: Sprite, frameId: string): number {
+    let celSum = 0
+    for (const layer of sprite.layers) {
+        if (!layer.visible) continue
+
+        const cel = layer.cels.get(frameId)
+        if (cel) celSum += cel.version
+    }
+    return celSum
 }
 
 export function canvasBackend(): CompositorBackend<HTMLCanvasElement> {

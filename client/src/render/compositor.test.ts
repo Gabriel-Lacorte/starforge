@@ -225,6 +225,40 @@ function setup(): {
     return { sprite, frame, bottom, top, backend, compositor: new Compositor(backend) }
 }
 
+describe('Compositor: stamp', () => {
+    it('is stable while nothing changes and never composes', () => {
+        const { sprite, frame, compositor } = setup()
+        const first = compositor.stamp(sprite, frame)
+        expect(compositor.stamp(sprite, frame)).toBe(first)
+        expect(compositor.stats.recompositions).toBe(0)
+    })
+
+    it('moves when a cel of that frame is rewritten', () => {
+        const { sprite, frame, bottom, compositor } = setup()
+        const before = compositor.stamp(sprite, frame)
+        writePixel(sprite, bottom, frame, 0, 0, RED)
+        expect(compositor.stamp(sprite, frame)).not.toBe(before)
+    })
+
+    it('moves when the document structure changes', () => {
+        const { sprite, frame, top, compositor } = setup()
+        const before = compositor.stamp(sprite, frame)
+        setLayerProp(sprite, top, 'visible', false)
+        expect(compositor.stamp(sprite, frame)).not.toBe(before)
+    })
+
+    it('tracks each frame separately', () => {
+        const { sprite, frame, bottom, compositor } = setup()
+        const second = createFrame()
+        sprite.frames.push(second)
+
+        const one = compositor.stamp(sprite, frame)
+        writePixel(sprite, bottom, second.id, 0, 0, RED)
+        expect(compositor.stamp(sprite, frame)).toBe(one)
+        expect(compositor.stamp(sprite, second.id)).not.toBe(compositor.stamp(sprite, frame))
+    })
+})
+
 describe('Compositor: image', () => {
     it('composes the frame it was asked for, with no bleed from its neighbour', () => {
         const { sprite, frame, bottom, compositor } = setup()

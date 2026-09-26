@@ -6,9 +6,12 @@ export interface OnionSettings {
     readonly opacity: number
 }
 
+export type GhostSide = 'before' | 'after'
+
 export interface Ghost {
     readonly id: string
     readonly alpha: number
+    readonly side: GhostSide
 }
 
 export const ONION_SHOWN: OnionSettings = { before: 1, after: 1, opacity: 0.3 }
@@ -27,15 +30,15 @@ export function ghostFrames(
     if (index === -1) return []
 
     const ghosts: Ghost[] = []
-    const add = (frame: Frame | undefined, alpha: number) => {
-        if (frame) ghosts.push({ id: frame.id, alpha })
+    const add = (frame: Frame | undefined, alpha: number, side: GhostSide) => {
+        if (frame) ghosts.push({ id: frame.id, alpha, side })
     }
 
     for (let distance = Math.max(onion.before, onion.after); distance >= 1; distance--) {
         const alpha = onion.opacity * 0.5 ** (distance - 1)
 
-        if (distance <= onion.before) add(frames[index - distance], alpha)
-        if (distance <= onion.after) add(frames[index + distance], alpha)
+        if (distance <= onion.before) add(frames[index - distance], alpha, 'before')
+        if (distance <= onion.after) add(frames[index + distance], alpha, 'after')
     }
 
     return ghosts

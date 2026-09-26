@@ -1,4 +1,4 @@
-export const ZOOM_LEVELS = [1, 2, 4, 8, 16, 32] as const
+export const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8, 16, 32] as const
 export type Zoom = (typeof ZOOM_LEVELS)[number]
 
 export interface View {
@@ -67,7 +67,7 @@ export function fitSprite(
     viewportW: number,
     viewportH: number,
 ): void {
-    let zoom: Zoom = 1
+    let zoom: Zoom = ZOOM_LEVELS[0]
 
     for (const level of ZOOM_LEVELS)
         if (spriteW * level <= viewportW && spriteH * level <= viewportH) zoom = level

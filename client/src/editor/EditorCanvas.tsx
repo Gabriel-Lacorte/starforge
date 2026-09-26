@@ -8,6 +8,7 @@ import type { Library, OpenedDocument } from '../storage/library'
 import { createDocumentActions, type DocumentActions } from './documentActions'
 import { startEditor, type EditorHandle } from './engine'
 import { FramesController } from './frames/framesController'
+import { FrameThumbnails } from './frames/frameThumbnails'
 import { PlaybackController } from './frames/playbackController'
 import { LayersController } from './layers/layersController'
 import { PaletteController } from './palette/paletteController'
@@ -79,6 +80,7 @@ export function EditorCanvas({
 }) {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const overlayRef = useRef<HTMLCanvasElement>(null)
+    const cursorRef = useRef<HTMLCanvasElement>(null)
     const activeRef = useRef(active)
     activeRef.current = active
     const peersRef = useRef(peers)
@@ -90,6 +92,7 @@ export function EditorCanvas({
     const layersRef = useRef<LayersController | null>(null)
     const paletteRef = useRef<PaletteController | null>(null)
     const framesRef = useRef<FramesController | null>(null)
+    const thumbsRef = useRef<FrameThumbnails | null>(null)
     const playbackRef = useRef<PlaybackController | null>(null)
     const actionsRef = useRef<DocumentActions | null>(null)
 
@@ -108,11 +111,13 @@ export function EditorCanvas({
     layersRef.current ??= new LayersController(sprite, session)
     paletteRef.current ??= new PaletteController(sprite, session)
     framesRef.current ??= new FramesController(sprite, session)
+    thumbsRef.current ??= new FrameThumbnails(sprite)
     playbackRef.current ??= new PlaybackController(sprite, session)
 
     const layers = layersRef.current
     const palette = paletteRef.current
     const frames = framesRef.current
+    const thumbs = thumbsRef.current
     const playback = playbackRef.current
 
     const [layersOpen, setLayersOpen] = useState(
@@ -163,11 +168,13 @@ export function EditorCanvas({
 
         const canvas = canvasRef.current
         const overlay = overlayRef.current
-        if (!canvas || !overlay) return
+        const cursorCanvas = cursorRef.current
+        if (!canvas || !overlay || !cursorCanvas) return
 
         const editor = startEditor(
             canvas,
             overlay,
+            cursorCanvas,
             session,
             store,
             readout,
@@ -345,6 +352,12 @@ export function EditorCanvas({
                         aria-label={`${sprite.meta.title.slice(0, LABEL_MAX)} drawing canvas, ${sprite.width} by ${sprite.height} pixels`}
                     />
                     <canvas
+                        ref={cursorRef}
+                        class={styles.cursorCanvas}
+                        data-testid="brush-cursor"
+                        aria-hidden="true"
+                    />
+                    <canvas
                         ref={overlayRef}
                         class={styles.overlay}
                         data-testid="overlay"
@@ -383,6 +396,7 @@ export function EditorCanvas({
                     target={session.target}
                     store={store}
                     revision={layers}
+                    thumbs={thumbs}
                 />
             )}
             <StatusBar
@@ -418,6 +432,7 @@ export function EditorCanvas({
                         target={session.target}
                         store={store}
                         revision={layers}
+                        thumbs={thumbs}
                     />
                 </section>
             )}

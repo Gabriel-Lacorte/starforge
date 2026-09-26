@@ -56,11 +56,11 @@ describe('zoomAt', () => {
 
 describe('stepZoom', () => {
     it('walks the zoom ladder and clamps at both ends', () => {
-        const view = viewAt(0, 0, 1)
+        const view = viewAt(0, 0, 0.25)
         stepZoom(view, -1, 0, 0)
-        expect(view.zoom).toBe(1)
+        expect(view.zoom).toBe(0.25)
 
-        for (const expected of [2, 4, 8, 16, 32]) {
+        for (const expected of [0.5, 1, 2, 4, 8, 16, 32]) {
             stepZoom(view, 1, 0, 0)
             expect(view.zoom).toBe(expected)
         }
@@ -95,10 +95,11 @@ describe('fitSprite', () => {
         expect(view.panY).toBe((600 - 512) / 2)
     })
 
-    it('falls back to 1× when the sprite overflows the viewport', () => {
+    it('zooms out below 1× until the sprite fits the viewport', () => {
         const view = createView()
         fitSprite(view, 1024, 1024, 500, 500)
-        expect(view.zoom).toBe(1)
+        expect(view.zoom).toBe(0.25)
+        expect(view.panX).toBe((500 - 256) / 2)
     })
 
     it('never exceeds the top zoom level', () => {

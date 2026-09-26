@@ -103,13 +103,21 @@ export class EditorInput {
     }
 
     #updateCursor(): void {
+        const { selection } = this.#deps
+        const overSelection =
+            this.#selection.shape !== null &&
+            selection.active &&
+            selection.contains(this.#hoverX, this.#hoverY)
+
         this.#deps.canvas.style.cursor = this.#panning
             ? 'grabbing'
             : this.#spaceHeld
               ? 'grab'
               : this.#activeLocked()
                 ? 'not-allowed'
-                : 'crosshair'
+                : overSelection
+                  ? 'move'
+                  : 'crosshair'
     }
 
     #activeLocked(): boolean {
@@ -130,6 +138,7 @@ export class EditorInput {
     }
 
     #syncHover(): void {
+        this.#updateCursor()
         const { readout, sprite } = this.#deps
         const prev = readout.state.hover
         if (!inBounds(sprite, this.#hoverX, this.#hoverY)) {
@@ -149,9 +158,12 @@ export class EditorInput {
     }
 
     #moveHover(p: { x: number; y: number }): void {
+        if (p.x === this.#hoverX && p.y === this.#hoverY) return
         this.#hoverX = p.x
         this.#hoverY = p.y
         this.#syncHover()
+        this.#updateCursor()
+        this.#deps.requestRender()
     }
 
     get #pinching(): boolean {
@@ -323,6 +335,9 @@ export class EditorInput {
             this.#touches.delete(e.pointerId)
             if (this.#twoFinger.release(e.pointerId)) gestures.history('undo')
             if (this.#touches.size > 0) return
+            this.#hoverY = -1
+            this.#syncHover()
+            this.#deps.requestRender()
         } else if (this.#touches.delete(e.pointerId) && this.#touches.size > 0) {
             return
         }
@@ -365,6 +380,7 @@ export class EditorInput {
     #onPointerLeave = (): void => {
         this.#hoverY = -1
         this.#syncHover()
+        this.#deps.requestRender()
     }
 
     #onWheel = (e: WheelEvent): void => {
@@ -386,8 +402,6 @@ export class EditorInput {
 
     #onKeyDown = (e: KeyboardEvent): void => {
         if (!this.#deps.isActive()) return
-        // a focused text field owns plain typing, but a field left focused
-        // after its dialog closed must not swallow editor shortcuts
         if (e.target !== null && isEditableTarget(e.target) && isShownEditable(e.target)) return
 
         const { store, gestures } = this.#deps

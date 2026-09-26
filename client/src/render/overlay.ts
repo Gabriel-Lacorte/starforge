@@ -1,6 +1,7 @@
 import { maskOutline, type RGBA, type SelectionMask } from '@starforge/core'
 import type { View } from '../editor/view'
 import type { SelectionView } from '../editor/selection/region'
+import { cursorPath, type CursorBoost } from './cursorLayer'
 
 interface Rect {
     x: number
@@ -139,6 +140,7 @@ export class PreviewOverlay {
         peers?: readonly PeerCursor[] | null,
         target?: PeerTarget | null,
         grid?: boolean,
+        boost?: CursorBoost | null,
     ): void {
         const hasSelection = !!selection?.mask
         const hasGuides = !!guides && (guides.h || guides.v)
@@ -152,6 +154,7 @@ export class PreviewOverlay {
             !hasGuides &&
             !hasGrid &&
             !hasPeers &&
+            !boost &&
             !this.#onScreen
         )
             return
@@ -177,7 +180,23 @@ export class PreviewOverlay {
             this.#paintPeerPreviews(view, peerList, peerTarget)
             this.#paintPeers(view, peerList, peerTarget)
         }
-        this.#onScreen = this.#painted !== null || hasSelection || hasGrid || hasPeers
+        if (boost) this.#paintCursorBoost(view, boost)
+        this.#onScreen = this.#painted !== null || hasSelection || hasGrid || hasPeers || !!boost
+    }
+
+    #paintCursorBoost(view: View, boost: CursorBoost): void {
+        const ctx = this.#ctx
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        ctx.save()
+        ctx.translate(
+            Math.round(view.panX) + boost.cursor.x * view.zoom,
+            Math.round(view.panY) + boost.cursor.y * view.zoom,
+        )
+        ctx.scale(view.zoom, view.zoom)
+        ctx.lineWidth = 1 / view.zoom
+        ctx.strokeStyle = boost.color
+        ctx.stroke(cursorPath(boost.cursor))
+        ctx.restore()
     }
 
     #paintGrid(view: View): void {

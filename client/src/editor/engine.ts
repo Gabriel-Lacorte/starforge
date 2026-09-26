@@ -1,5 +1,7 @@
 import type { DocumentSession, EditTarget } from '../document/session'
 import type { ComposeBenchResult } from '../render/composeBench'
+import { brushCursorFor, easeCursor, type BrushCursor } from '../render/brushPreview'
+import { CursorLayer } from '../render/cursorLayer'
 import { PreviewOverlay, type PeerCursor, type SymmetryGuides } from '../render/overlay'
 import { Renderer } from '../render/renderer'
 import { Viewport } from '../render/viewport'
@@ -34,6 +36,7 @@ export interface EditorHandle {
 export function startEditor(
     canvas: HTMLCanvasElement,
     overlayCanvas: HTMLCanvasElement,
+    cursorCanvas: HTMLCanvasElement,
     session: DocumentSession,
     store: EditorStore,
     readout: ReadoutStore,
@@ -55,15 +58,23 @@ export function startEditor(
 
     const renderer = new Renderer(canvas)
     const overlay = new PreviewOverlay(overlayCanvas, sprite.width, sprite.height)
-    const viewport = new Viewport(canvas, overlayCanvas, sprite.width, sprite.height, {
-        onResize: () => {
-            invalidate()
-            if (ready) draw()
+    const cursorLayer = new CursorLayer(cursorCanvas)
+    const viewport = new Viewport(
+        canvas,
+        overlayCanvas,
+        cursorCanvas,
+        sprite.width,
+        sprite.height,
+        {
+            onResize: () => {
+                invalidate()
+                if (ready) draw()
+            },
+            onFit: (zoom) => {
+                readout.patch({ zoom })
+            },
         },
-        onFit: (zoom) => {
-            readout.patch({ zoom })
-        },
-    })
+    )
 
     viewport.refreshRect()
     viewport.fit()
@@ -77,6 +88,9 @@ export function startEditor(
             if (readout.state.selectionActive !== selection.active) {
                 readout.patch({ selectionActive: selection.active })
             }
+            // the pointer may now sit inside (or outside) a selection it
+            // did not sit in before: the move cursor has to follow along
+            input.sync()
             invalidate()
         },
         invalidate: (layer, frameId, x, y, w, h) => {
@@ -186,6 +200,8 @@ export function startEditor(
         return { h: symmetryH, v: symmetryV }
     }
 
+    let cursorPos: { x: number; y: number } | null = null
+
     const DEV = import.meta.env.DEV
     let lastRenderMs = 0
 
@@ -199,6 +215,11 @@ export function startEditor(
 
         const t0 = DEV ? performance.now() : 0
         renderer.render(sprite, frame, viewport.view, ghosts)
+        const cursor: BrushCursor | null =
+            cursorPos === null ? null : brushCursorFor(store.state, cursorPos)
+        const boost = cursorLayer.render(viewport.view, cursor, (x, y) =>
+            renderer.sample(sprite, frame, x, y),
+        )
         overlay.render(
             viewport.view,
             selection,
@@ -206,6 +227,7 @@ export function startEditor(
             peersProvider(),
             target(),
             store.state.showGrid,
+            boost,
         )
         if (DEV) lastRenderMs = performance.now() - t0
     }
@@ -220,6 +242,25 @@ export function startEditor(
         if (peers !== lastPeers) {
             lastPeers = peers
             invalidate()
+        }
+
+        const hover = readout.state.hover
+        if (hover === null) {
+            if (cursorPos !== null) {
+                cursorPos = null
+                invalidate()
+            }
+        } else if (cursorPos === null) {
+            cursorPos = { x: hover.x, y: hover.y }
+            invalidate()
+        } else {
+            const next = easeCursor(cursorPos, hover)
+            if (next) {
+                cursorPos = next
+                invalidate()
+            } else if (cursorPos.x !== hover.x || cursorPos.y !== hover.y) {
+                cursorPos = { x: hover.x, y: hover.y }
+            }
         }
 
         playback.tick(now)

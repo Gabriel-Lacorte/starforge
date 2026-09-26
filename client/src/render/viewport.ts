@@ -10,6 +10,7 @@ export class Viewport {
 
     readonly #canvas: HTMLCanvasElement
     readonly #overlay: HTMLCanvasElement
+    readonly #cursor: HTMLCanvasElement
 
     readonly #spriteW: number
     readonly #spriteH: number
@@ -28,12 +29,14 @@ export class Viewport {
     constructor(
         canvas: HTMLCanvasElement,
         overlay: HTMLCanvasElement,
+        cursor: HTMLCanvasElement,
         spriteW: number,
         spriteH: number,
         events: ViewportEvents,
     ) {
         this.#canvas = canvas
         this.#overlay = overlay
+        this.#cursor = cursor
 
         this.#spriteW = spriteW
         this.#spriteH = spriteH
@@ -111,6 +114,8 @@ export class Viewport {
         this.#canvas.height = h
         this.#overlay.width = w
         this.#overlay.height = h
+        this.#cursor.width = w
+        this.#cursor.height = h
 
         if (rect.width > 0 && !this.#adjusted) {
             fitSprite(this.view, this.#spriteW, this.#spriteH, w, h)

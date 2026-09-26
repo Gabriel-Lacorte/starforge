@@ -21,7 +21,8 @@
 }
 
 .canvas,
-.overlay {
+.overlay,
+.cursorCanvas {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -36,6 +37,14 @@
 
 .overlay {
     pointer-events: none;
+}
+
+/* The brush cursor lives on its own layer so the art canvas below stays
+   byte-stable (exports and tests read it) while the white outline still
+   inverts the art: difference blending against everything underneath. */
+.cursorCanvas {
+    pointer-events: none;
+    mix-blend-mode: difference;
 }
 
 .drawerScrim {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { decodeFrame, encodeFrame, type NetFrame } from '@starforge/core'
+import { ErrorCode, decodeFrame, encodeFrame, type NetFrame } from '@starforge/core'
 import { RoomConnection, type SocketLike } from './connection'
 
 function hello() {
@@ -72,6 +72,41 @@ describe('room connection', () => {
         sockets[0]!.onmessage!(bytes.buffer)
         expect(errors).toEqual(['room is full'])
         expect(conn.status()).toBe('closed')
+    })
+
+    it('survives a rejected operation: the socket stays open for the retry', () => {
+        const sockets: FakeSocket[] = []
+        const conn = new RoomConnection('ws://x/wire', hello, () => {
+            const socket = new FakeSocket()
+            sockets.push(socket)
+            return socket
+        })
+        const errors: string[] = []
+        conn.onError = (message) => errors.push(message)
+        conn.connect()
+        sockets[0]!.onopen!()
+
+        sockets[0]!.onmessage!(
+            encodeFrame({
+                type: 'welcome',
+                site: 1,
+                seq: 3,
+                lamport: 0,
+                peers: [],
+                snapshot: new Uint8Array(),
+            }).buffer,
+        )
+        const rejection = encodeFrame({
+            type: 'error',
+            code: ErrorCode.invalidOperation,
+            message: 'invalid operation',
+        })
+        sockets[0]!.onmessage!(rejection.buffer)
+        sockets[0]!.onmessage!(rejection.buffer)
+
+        expect(errors).toEqual(['invalid operation', 'invalid operation'])
+        expect(conn.status()).toBe('open')
+        expect(sockets[0]!.closed).toBe(false)
     })
 
     it('resets backoff in close() so a fresh session redials at 500 ms', () => {

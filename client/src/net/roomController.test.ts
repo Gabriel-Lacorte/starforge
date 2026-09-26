@@ -820,6 +820,61 @@ describe('room controller', () => {
         controller.close()
     })
 
+    it('drops poisoned pending ops after repeated rejections and refreshes', async () => {
+        const store = memoryPendingStore()
+        const conn = new FakeConnection()
+        const controller = new RoomController({
+            url: 'ws://x/wire',
+            room: 'abc',
+            profile: { nickname: 'ada', color: 1 },
+            connection: conn,
+            pendingStore: store,
+        })
+        const pending = controller.connect()
+        conn.onFrame(welcomeFrame(sprite16(), 1))
+        await pending
+        paintOne(controller.session!)
+        expect(store.load('abc')).toHaveLength(1)
+
+        conn.onError('invalid operation', ErrorCode.invalidOperation)
+        conn.onError('invalid operation', ErrorCode.invalidOperation)
+        expect(store.load('abc')).toHaveLength(1)
+        conn.onError('invalid operation', ErrorCode.invalidOperation)
+
+        expect(store.load('abc')).toHaveLength(0)
+        expect(conn.lastSeq).toBe(0)
+        expect(controller.notices.at(-1)).toBe(
+            'some changes could not be shared with the room, refreshing',
+        )
+        controller.close()
+    })
+
+    it('an ack between rejections resets the poison streak', async () => {
+        const store = memoryPendingStore()
+        const conn = new FakeConnection()
+        const controller = new RoomController({
+            url: 'ws://x/wire',
+            room: 'abc',
+            profile: { nickname: 'ada', color: 1 },
+            connection: conn,
+            pendingStore: store,
+        })
+        const pending = controller.connect()
+        conn.onFrame(welcomeFrame(sprite16(), 1))
+        await pending
+        paintOne(controller.session!)
+        const sent = opsOf(conn)
+        expect(sent).toHaveLength(1)
+
+        conn.onError('invalid operation', ErrorCode.invalidOperation)
+        conn.onError('invalid operation', ErrorCode.invalidOperation)
+        conn.onFrame({ type: 'op', seq: 9, stamp: sent[0]!.stamp, body: sent[0]!.body })
+        conn.onError('invalid operation', ErrorCode.invalidOperation)
+        expect(store.load('abc')).toHaveLength(0)
+        expect(conn.closed).toBe(false)
+        controller.close()
+    })
+
     it('heartbeats presence while idle so peers never look gone', async () => {
         vi.useFakeTimers()
         try {

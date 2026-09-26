@@ -166,7 +166,7 @@ export class RoomConnection {
             return
         }
         if (frame.type === 'error') {
-            if (frame.code === ErrorCode.rateLimited) {
+            if (frame.code === ErrorCode.rateLimited || frame.code === ErrorCode.invalidOperation) {
                 this.onError(frame.message, frame.code)
                 return
             }

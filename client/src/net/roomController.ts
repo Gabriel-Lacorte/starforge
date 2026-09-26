@@ -15,6 +15,7 @@ import { DocumentSession } from '../document/session'
 import type { ToolId } from '../editor/store'
 import type { StrokeBroadcast } from '../editor/strokeBroadcast'
 import { RoomConnection, type ConnStatus } from './connection'
+import { installNetDebugGlobal, netLog } from './netDebug'
 import { Outbox } from './outbox'
 import { PresenceStore, toolFromWire, toolToWire } from './presence'
 import type { RoomProfile } from './profile'
@@ -136,6 +137,7 @@ const OPS_PER_TICK = 2
 const RATE_LIMIT_RETRY_MS = 1500
 const PRESENCE_HEARTBEAT_MS = 5000
 const REMINT_DRAIN_MS = 800
+const POISON_DROP_AFTER = 3
 const GEOMETRY_NOTICE = 'canvas size is locked while the room is open'
 const RATE_LIMIT_NOTICE = 'the relay is busy, catching up shortly'
 
@@ -174,6 +176,7 @@ export class RoomController {
     private lastPresenceKey: string | null = null
     private lastPresenceAt = 0
     private sendPausedUntil = 0
+    private invalidStreak = 0
     private remintAt = 0
     private readonly onVisible: () => void = (): void => undefined
     private operationUnsub: (() => void) | null = null
@@ -238,6 +241,13 @@ export class RoomController {
             }
             document.addEventListener('visibilitychange', this.onVisible)
         }
+
+        installNetDebugGlobal()
+        netLog('controller_created', {
+            room: opts.room,
+            since: seeded,
+            pending: this.outbox.pending.length,
+        })
     }
 
     connect(): Promise<DocumentSession> {
@@ -270,6 +280,7 @@ export class RoomController {
     }
 
     close(): void {
+        netLog('controller_closed', { room: this.roomId })
         if (this.timer !== null) {
             clearInterval(this.timer)
             this.timer = null
@@ -342,6 +353,7 @@ export class RoomController {
         try {
             sprite = decodeSprite(JSON.parse(new TextDecoder().decode(frame.snapshot)) as unknown)
         } catch {
+            netLog('welcome_unreadable', { bytes: frame.snapshot.length })
             const pending = this.pending
             this.pending = null
             this.currentError = 'the relay sent a snapshot this client cannot read'
@@ -370,6 +382,13 @@ export class RoomController {
             publish: (op): void => this.publishAlreadyApplied(op),
         })
         this.recoverPendingInto(session)
+        netLog('welcome', {
+            site,
+            seq: frame.seq,
+            lamport: frame.lamport,
+            peers: (frame.peers ?? []).length,
+            pendingRecovered: this.outbox.pending.length,
+        })
         const pending = this.pending
         this.pending = null
         pending?.resolve(session)
@@ -377,14 +396,16 @@ export class RoomController {
     }
 
     private recoverPendingInto(session: DocumentSession): void {
+        const count = this.outbox.pending.length
         for (const entry of this.outbox.pending) {
             try {
                 session.applyRemote(decodeOperation(entry.body))
             } catch {
-                /* unreadable or locked */
+                netLog('pending_unreadable', { room: this.roomId })
             }
         }
         this.scheduleRemint()
+        if (count > 0) netLog('pending_recovered', { count })
     }
 
     private scheduleRemint(): void {
@@ -396,11 +417,12 @@ export class RoomController {
         const stale = this.outbox.takeAll()
         for (const entry of stale) this.queuedStamps.delete(entry.stamp)
         this.persistPending()
+        if (stale.length > 0) netLog('remint', { count: stale.length })
         for (const entry of stale) {
             try {
                 this.sendAlreadyApplied(decodeOperation(entry.body))
             } catch {
-                /* an unreadable pending op is dropped, not retried forever */
+                netLog('remint_dropped', { room: this.roomId })
             }
         }
     }
@@ -408,6 +430,7 @@ export class RoomController {
     private handleRewelcome(frame: Extract<NetFrame, { type: 'welcome' }>): void {
         const session = this.session
         if (session === null) return
+        netLog('rewelcome', { site: frame.site, was: this.site ?? -1, seq: frame.seq })
         this.seqStore.save(this.roomId, frame.seq)
         this.peers.reset()
         for (const peer of frame.peers ?? []) {
@@ -436,6 +459,7 @@ export class RoomController {
         if (this.outbox.ack(stamp)) {
             this.queuedStamps.delete(stamp)
             this.persistPending()
+            this.invalidStreak = 0
         }
         const replica = this.replica
         const session = this.session
@@ -454,20 +478,29 @@ export class RoomController {
                 operation: op,
                 ...(orderKey !== undefined ? { orderKey } : {}),
             })
-        } catch {
+        } catch (error) {
+            netLog('receive_threw', {
+                kind: op.kind,
+                message: error instanceof Error ? error.message : String(error),
+            })
             return
         }
+        netLog('remote_op', { seq, stamp, kind: op.kind, applied: result.operations.length })
         for (const out of result.operations) {
             try {
                 session.applyRemote(out)
-            } catch {
-                /* */
+            } catch (error) {
+                netLog('apply_remote_threw', {
+                    kind: out.kind,
+                    message: error instanceof Error ? error.message : String(error),
+                })
             }
         }
     }
 
     private handleLocalOperation(op: DocumentOperation): void {
         this.forwardedLocal = op
+        netLog('local_op', { kind: op.kind })
         this.sendAlreadyApplied(op)
     }
 
@@ -536,6 +569,7 @@ export class RoomController {
         try {
             const doc = decodeSprite(JSON.parse(new TextDecoder().decode(snapshot)) as unknown)
 
+            netLog('resync', { seq, bytes: snapshot.length })
             this.outbox.clear()
             this.persistPending()
             this.forwardedLocal = null
@@ -544,7 +578,7 @@ export class RoomController {
             this.onResync(doc, seq)
             this.notify()
         } catch {
-            /* */
+            netLog('resync_unreadable', { seq, bytes: snapshot.length })
         }
     }
 
@@ -552,7 +586,13 @@ export class RoomController {
         const open = this.connection.status() === 'open'
         const was = this.wasOpen
         this.wasOpen = open
-        if (open && !was && this.session !== null) this.resendPending()
+        if (open && !was) {
+            netLog('socket_open', {
+                lastSeq: this.connection.lastSeq,
+                pending: this.outbox.pending.length,
+            })
+            if (this.session !== null) this.resendPending()
+        }
     }
 
     private resendPending(): void {
@@ -575,11 +615,37 @@ export class RoomController {
 
     private handleError(message: string, code?: number): void {
         if (code === ErrorCode.rateLimited) {
+            netLog('rate_limited', { message })
             this.sendPausedUntil = Date.now() + RATE_LIMIT_RETRY_MS
             this.note(RATE_LIMIT_NOTICE)
             this.schedulePendingRetry()
             return
         }
+        if (code === ErrorCode.invalidOperation) {
+            this.invalidStreak += 1
+            if (this.invalidStreak >= POISON_DROP_AFTER) {
+                netLog('poison_drop', {
+                    streak: this.invalidStreak,
+                    message,
+                    queued: this.opQueue.length,
+                    pending: this.outbox.pending.length,
+                })
+                this.invalidStreak = 0
+                this.opQueue.length = 0
+                this.queuedStamps.clear()
+                this.outbox.clear()
+                this.persistPending()
+                this.note('some changes could not be shared with the room, refreshing')
+                this.connection.resetSeq(0)
+                this.connection.close()
+                this.connection.connect?.()
+            } else {
+                netLog('op_rejected', { streak: this.invalidStreak, message })
+                this.note(message)
+            }
+            return
+        }
+        netLog('net_error', { message, code: code ?? -1 })
         this.currentError = message
         const pending = this.pending
         this.pending = null

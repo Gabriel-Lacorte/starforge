@@ -132,6 +132,16 @@
     border-color: var(--accent);
 }
 
+.stats {
+    margin: 2rem 0 0;
+    color: var(--dim);
+    font-size: 10px;
+}
+
+.stats strong {
+    color: var(--accent);
+}
+
 .footer {
     margin-top: 3rem;
     padding-top: 12px;

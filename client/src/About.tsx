@@ -1,10 +1,47 @@
+import { useEffect, useState } from 'preact/hooks'
 import { Brand } from './Brand'
 import styles from './About.module.css'
 
 const GITHUB = 'https://github.com/Gabriel-Lacorte/starforge'
 const DISCORD = 'https://discord.gg/vMshxxF4ke'
 
+interface RelayStats {
+    rooms: { live: number; created: number }
+    painters: { now: number }
+    ops: { applied: number; rejected: number }
+}
+
+function useRelayStats(): RelayStats | null {
+    const [stats, setStats] = useState<RelayStats | null>(null)
+
+    useEffect(() => {
+        let alive = true
+        const load = async (): Promise<void> => {
+            try {
+                const response = await fetch('/api/stats')
+                if (!response.ok) return
+                const next = (await response.json()) as RelayStats
+                if (alive) setStats(next)
+            } catch {
+                /* the studio works without the relay */
+            }
+        }
+        void load()
+        const timer = setInterval(() => {
+            void load()
+        }, 30_000)
+        return () => {
+            alive = false
+            clearInterval(timer)
+        }
+    }, [])
+
+    return stats
+}
+
 export function About() {
+    const stats = useRelayStats()
+
     return (
         <div class={styles.page}>
             <header class={`bar ${styles.topbar}`}>
@@ -41,6 +78,19 @@ export function About() {
                         <span>Find people to draw with.</span>
                     </a>
                 </section>
+
+                {stats !== null && (
+                    <p class={styles.stats} data-testid="about-stats">
+                        {stats.painters.now > 0 ? (
+                            <>
+                                <strong>{String(stats.painters.now)}</strong> painting now ·{' '}
+                            </>
+                        ) : null}
+                        <strong>{String(stats.rooms.live)}</strong> live rooms ·{' '}
+                        <strong>{String(stats.rooms.created)}</strong> rooms ever ·{' '}
+                        <strong>{stats.ops.applied.toLocaleString('en-US')}</strong> strokes synced
+                    </p>
+                )}
 
                 <footer class={styles.footer}>
                     <p>

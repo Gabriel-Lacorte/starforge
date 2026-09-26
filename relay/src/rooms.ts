@@ -17,6 +17,7 @@ import type { RelayConfig } from './config.js'
 import { ConnLimits, createThrottle } from './limits.js'
 import { Room } from './room.js'
 import { MAX_ROOMS, type RoomStore } from './store.js'
+import { Telemetry, type RoomMetrics } from './telemetry.js'
 import { WsSocket } from './ws/socket.js'
 
 export const ROOM_ID_RE = /^[A-Za-z0-9_-]{12}$/
@@ -33,7 +34,7 @@ export function newId(): string {
 
 export function clientIp(req: IncomingMessage, socket: Socket): string {
     const remote = socket.remoteAddress ?? ''
-    if (!isLocalEdge(remote)) return socket.remoteAddress ?? 'unknown'
+    if (!isLoopback(remote)) return socket.remoteAddress ?? 'unknown'
 
     const cf = req.headers['cf-connecting-ip']
     const cfFirst = Array.isArray(cf) ? cf[0]?.trim() : cf?.trim()
@@ -48,27 +49,13 @@ export function clientIp(req: IncomingMessage, socket: Socket): string {
     return socket.remoteAddress ?? 'unknown'
 }
 
-function isLocalEdge(addr: string): boolean {
+function isLoopback(addr: string): boolean {
     let ip = addr.trim().toLowerCase()
     if (ip.startsWith('[') && ip.endsWith(']')) ip = ip.slice(1, -1)
     ip = ip.split('%')[0] ?? ''
 
     if (ip.startsWith('::ffff:')) ip = ip.slice('::ffff:'.length)
-    if (ip === '::1' || ip === 'localhost') return true
-
-    const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip)
-    if (v4 !== null) {
-        const a = Number(v4[1])
-        const b = Number(v4[2])
-        if (a === 127) return true
-        if (a === 10) return true
-        if (a === 172 && b >= 16 && b <= 31) return true
-        if (a === 192 && b === 168) return true
-        return false
-    }
-    if (ip.startsWith('fc') || ip.startsWith('fd')) return true
-    if (ip.startsWith('fe80:') || ip.startsWith('fe80::')) return true
-    return false
+    return ip === '::1' || ip === 'localhost' || ip.startsWith('127.')
 }
 
 export interface RoomCreateInit {
@@ -114,14 +101,27 @@ export class RoomRegistry {
     private readonly entries = new Map<string, RegistryEntry>()
     private readonly allowCreate: (ip: string, now?: number) => boolean
 
+    private readonly telemetry: Telemetry
     private readonly maxConnections: number
     private liveSockets = 0
 
-    constructor(store: RoomStore, opts?: { now?: () => number; maxConnections?: number }) {
+    constructor(
+        store: RoomStore,
+        opts?: { now?: () => number; maxConnections?: number; telemetry?: Telemetry },
+    ) {
         this.store = store
         this.clock = opts?.now ?? (() => Date.now())
         this.allowCreate = createThrottle(ROOMS_PER_HOUR_PER_IP)
         this.maxConnections = opts?.maxConnections ?? MAX_CONNECTIONS
+        this.telemetry = opts?.telemetry ?? new Telemetry(store)
+    }
+
+    private roomMetrics(): RoomMetrics {
+        return {
+            count: (name: string, n?: number): void => {
+                this.telemetry.count(name, n)
+            },
+        }
     }
 
     private now(): number {
@@ -242,7 +242,7 @@ export class RoomRegistry {
 
         let id = newId()
         while (this.entries.has(id)) id = newId()
-        const room = new Room(doc, this.hooks(id))
+        const room = new Room(doc, this.hooks(id), this.roomMetrics())
         const at = this.now()
         this.store.saveRoom({
             id,
@@ -256,11 +256,48 @@ export class RoomRegistry {
         })
         room.touch(at)
         this.entries.set(id, { room, title, width: init.width, height: init.height, seq: 0 })
+        this.telemetry.count('rooms_created')
         return { id }
     }
 
     get(id: string): Room | undefined {
         return this.entries.get(id)?.room
+    }
+
+    stats(): {
+        rooms: { live: number; created: number }
+        painters: { now: number }
+        ops: { applied: number; rejected: number }
+        sockets: { open: number; opened: number }
+        resyncs: number
+        bytesIn: number
+        uptimeSeconds: number
+    } {
+        const snap = this.telemetry.snapshot()
+        let painters = 0
+        for (const entry of this.entries.values()) painters += entry.room.peers().length
+        return {
+            rooms: { live: this.entries.size, created: snap.lifetime.rooms_created ?? 0 },
+            painters: { now: painters },
+            ops: {
+                applied: snap.lifetime.ops_applied ?? 0,
+                rejected:
+                    (snap.lifetime.ops_rejected ?? 0) +
+                    (snap.session.rate_limited_ops ?? 0) +
+                    (snap.session.rate_limited_bytes ?? 0),
+            },
+            sockets: {
+                open: this.liveSockets,
+                opened: snap.lifetime.sockets_opened ?? 0,
+            },
+            resyncs: snap.lifetime.resyncs_sent ?? 0,
+            bytesIn: snap.session.bytes_in ?? 0,
+            uptimeSeconds: snap.uptimeSeconds,
+        }
+    }
+
+    flushTelemetry(): void {
+        this.telemetry.flush()
     }
 
     roomInfo(id: string): RoomInfo | null {
@@ -334,7 +371,7 @@ export class RoomRegistry {
                 if (op.seq > seq) seq = op.seq
             }
 
-            const room = new Room(doc, this.hooks(stored.id))
+            const room = new Room(doc, this.hooks(stored.id), this.roomMetrics())
             room.restore(stored.snapshotSeq, seq, lamport, log)
             room.touch(stored.touchedAt)
             this.entries.set(stored.id, {
@@ -355,6 +392,7 @@ export class RoomRegistry {
             return
         }
         this.liveSockets += 1
+        this.telemetry.count('sockets_opened')
 
         const peer = new WsSocket(raw, config.maxMessageBytes)
         let room: Room | undefined
@@ -382,6 +420,7 @@ export class RoomRegistry {
 
         peer.onMessage = (opcode, payload) => {
             lastSeen = Date.now()
+            this.telemetry.count('bytes_in', payload.length)
             if (opcode !== 0x2) {
                 peer.close(1002)
                 return

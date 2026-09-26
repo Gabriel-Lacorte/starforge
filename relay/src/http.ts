@@ -17,6 +17,7 @@ export interface HttpDeps {
     readonly distDir: string | null
     readonly origins: readonly string[]
     readonly rooms: RoomRegistry
+    readonly stats: () => unknown
     readonly onSocket: (socket: Socket, ip: string) => void
 }
 
@@ -80,6 +81,11 @@ async function handleRequest(
             'x-content-type-options': 'nosniff',
         })
         res.end('{"ok":true}')
+        return
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/stats') {
+        json(res, 200, deps.stats())
         return
     }
 

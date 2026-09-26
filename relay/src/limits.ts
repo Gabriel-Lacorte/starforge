@@ -28,6 +28,11 @@ export function createThrottle(limitPerHour: number): (ip: string, now?: number)
     const hits = new Map<string, number[]>()
     return (ip: string, now: number = Date.now()): boolean => {
         const cutoff = now - 3600 * 1000
+        for (const [key, times] of hits) {
+            if (key === ip) continue
+            if (!times.some((at) => at > cutoff)) hits.delete(key)
+        }
+
         const kept = (hits.get(ip) ?? []).filter((at) => at > cutoff)
         if (kept.length >= limitPerHour) {
             hits.set(ip, kept)

@@ -52,6 +52,7 @@ describe('relay http', () => {
             distDir: null,
             origins: [],
             rooms: new RoomRegistry(new RoomStore(':memory:')),
+            stats: () => undefined,
             onSocket: (socket) => {
                 captured.push(socket)
                 sockets.push(socket)
@@ -96,6 +97,47 @@ describe('relay http', () => {
         expect(health).toBe('{"ok":true}')
     })
 
+    it('serves /api/stats with live registry numbers', async () => {
+        const store = new RoomStore(':memory:')
+        const rooms = new RoomRegistry(store)
+        const created = rooms.create('1.2.3.4', { title: 'stats', width: 16, height: 16 })
+        if (!('id' in created)) throw new Error('room create failed')
+
+        const server = createServer({
+            distDir: null,
+            origins: [],
+            rooms,
+            stats: () => rooms.stats(),
+            onSocket: (): void => undefined,
+        })
+        servers.push(server)
+        await new Promise<void>((resolve) => {
+            server.listen(0, () => resolve())
+        })
+        const address = server.address()
+        if (address === null || typeof address === 'string') throw new Error('no port')
+
+        const body = await new Promise<string>((resolve, reject) => {
+            http.get(`http://127.0.0.1:${String(address.port)}/api/stats`, (res) => {
+                let text = ''
+                res.on('data', (chunk: Buffer) => {
+                    text += chunk.toString('utf8')
+                })
+                res.on('end', () => resolve(text))
+            }).on('error', reject)
+        })
+        const stats = JSON.parse(body) as {
+            rooms: { live: number; created: number }
+            painters: { now: number }
+            ops: { applied: number; rejected: number }
+        }
+        expect(stats.rooms.live).toBe(1)
+        expect(stats.rooms.created).toBe(1)
+        expect(stats.painters.now).toBe(0)
+        expect(stats.ops.applied).toBe(0)
+        store.close()
+    })
+
     it('serves static files with nosniff and keeps traversal inside dist', async () => {
         const distDir = mkdtempSync(`${tmpdir()}${sep}relay-dist-`)
         writeFileSync(join(distDir, 'index.html'), '<h1>starforge</h1>')
@@ -107,6 +149,7 @@ describe('relay http', () => {
             distDir,
             origins: [],
             rooms: new RoomRegistry(new RoomStore(':memory:')),
+            stats: () => undefined,
             onSocket: () => undefined,
         })
         servers.push(server)
@@ -154,6 +197,7 @@ describe('relay http', () => {
             distDir: null,
             origins: [],
             rooms: new RoomRegistry(new RoomStore(':memory:')),
+            stats: (): void => undefined,
             onSocket: (): void => undefined,
         })
         servers.push(server)
@@ -180,6 +224,7 @@ describe('relay http', () => {
             distDir: null,
             origins: ['https://example.test/'],
             rooms: new RoomRegistry(new RoomStore(':memory:')),
+            stats: (): void => undefined,
             onSocket: (): void => undefined,
         })
         servers.push(server)
@@ -211,7 +256,13 @@ describe('room http api', () => {
         const store = new RoomStore(':memory:')
         try {
             const rooms = new RoomRegistry(store)
-            const server = createServer({ distDir, origins: [], rooms, onSocket: () => undefined })
+            const server = createServer({
+                distDir,
+                origins: [],
+                rooms,
+                stats: () => undefined,
+                onSocket: () => undefined,
+            })
             servers.push(server)
             await new Promise<void>((resolve) => {
                 server.listen(0, () => resolve())

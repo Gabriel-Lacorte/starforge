@@ -22,6 +22,10 @@ const server = createServer({
     distDir: existsSync(dist) ? dist : null,
     origins: config.origins,
     rooms,
+    stats: () => {
+        rooms.flushTelemetry()
+        return rooms.stats()
+    },
     onSocket: (socket, ip) => {
         rooms.attach(socket, ip, config)
     },
@@ -32,6 +36,7 @@ server.listen(config.port, () => {
 
 function shutdown(signal: string): void {
     console.log(`relay received ${signal}`)
+    rooms.flushTelemetry()
     server.close(() => {
         process.exit(0)
     })

@@ -18,6 +18,7 @@ import {
 } from '@starforge/core'
 import { MAX_LOG, SNAPSHOT_EVERY } from './store.js'
 import type { ConnLimits } from './limits.js'
+import type { RoomMetrics } from './telemetry.js'
 import { type Peer } from './ws/socket.js'
 
 interface Member {
@@ -46,6 +47,8 @@ function isPresenceFrame(bytes: Uint8Array): boolean {
     }
 }
 
+const SEEN_STAMPS_MAX = 2048
+
 export class Room {
     private doc: Sprite
     private members = new Map<number, Member>()
@@ -54,12 +57,20 @@ export class Room {
     private log: LogEntry[] = []
     private snapshotSeq = 0
     private persist: PersistHooks | undefined
+    private readonly metrics: RoomMetrics | undefined
+
+    private readonly seenStamps = new Map<number, true>()
     touchedAt: number
 
-    constructor(doc?: Sprite, persist?: PersistHooks) {
+    constructor(doc?: Sprite, persist?: PersistHooks, metrics?: RoomMetrics) {
         this.doc = doc ?? createSprite({ width: 64, height: 64, title: 'relay-room' })
         this.persist = persist
+        this.metrics = metrics
         this.touchedAt = Date.now()
+    }
+
+    private count(name: string, n = 1): void {
+        this.metrics?.count(name, n)
     }
 
     snapshotBytes(): Uint8Array {
@@ -82,11 +93,13 @@ export class Room {
         if (since === this.seq) return []
 
         if (since > this.seq || this.seq - since > MAX_LOG) {
+            this.count('resyncs_sent')
             return [{ type: 'resync', seq: this.seq, snapshot: this.snapshotBytes() }]
         }
 
         const tail = this.log.filter((entry) => entry.seq > since)
         if (tail.length < this.seq - since) {
+            this.count('resyncs_sent')
             return [{ type: 'resync', seq: this.seq, snapshot: this.snapshotBytes() }]
         }
 
@@ -98,6 +111,7 @@ export class Room {
         this.seq = seq
         this.maxLamport = lamport
         this.log = [...log]
+        for (const entry of log) this.seenStamps.set(entry.stamp, true)
     }
 
     private replayable(entry: LogEntry): NetFrame {
@@ -126,6 +140,7 @@ export class Room {
             return { error: { code: ErrorCode.invalidOperation, message: 'unsupported protocol' } }
         }
         if (this.members.size >= 16) {
+            this.count('room_full')
             peer.send(
                 encodeFrame({ type: 'error', code: ErrorCode.roomFull, message: 'room is full' }),
             )
@@ -134,6 +149,7 @@ export class Room {
         }
         const site = this.allocSite()
         if (site === null) {
+            this.count('room_full')
             peer.send(
                 encodeFrame({ type: 'error', code: ErrorCode.roomFull, message: 'room is full' }),
             )
@@ -162,6 +178,7 @@ export class Room {
             peer.send(encodeFrame(frame))
         }
 
+        this.count('joins')
         return { site }
     }
 
@@ -169,6 +186,7 @@ export class Room {
         const member = this.members.get(site)
         if (!member) return
         if (limits !== undefined && !limits.admitBytes(bytes.length)) {
+            this.count('rate_limited_bytes')
             if (!isPresenceFrame(bytes)) {
                 member.peer.send(
                     encodeFrame({
@@ -185,6 +203,7 @@ export class Room {
         try {
             frame = decodeFrame(bytes)
         } catch {
+            this.count('frames_dropped')
             member.peer.send(
                 encodeFrame({
                     type: 'error',
@@ -196,6 +215,7 @@ export class Room {
         }
 
         if (frame.type === 'presence') {
+            this.count('presence_frames')
             const out = encodeFrame({ ...frame, site, nickname: frame.nickname.slice(0, 64) })
             for (const [otherSite, other] of this.members) {
                 if (otherSite !== site) other.peer.send(out)
@@ -203,6 +223,7 @@ export class Room {
             return
         }
         if (frame.type !== 'op') {
+            this.count('frames_dropped')
             member.peer.send(
                 encodeFrame({
                     type: 'error',
@@ -217,6 +238,7 @@ export class Room {
         try {
             op = decodeOperation(frame.body)
         } catch {
+            this.count('ops_rejected')
             member.peer.send(
                 encodeFrame({
                     type: 'error',
@@ -227,6 +249,7 @@ export class Room {
             return
         }
         if (limits !== undefined && !limits.admitOp()) {
+            this.count('rate_limited_ops')
             member.peer.send(
                 encodeFrame({
                     type: 'error',
@@ -241,6 +264,7 @@ export class Room {
             stampSite(frame.stamp) > 0xff ||
             stampLamport(frame.stamp) < 1
         ) {
+            this.count('ops_rejected')
             member.peer.send(
                 encodeFrame({
                     type: 'error',
@@ -252,6 +276,7 @@ export class Room {
         }
 
         if (stampSite(frame.stamp) !== site) {
+            this.count('ops_rejected')
             member.peer.send(
                 encodeFrame({
                     type: 'error',
@@ -262,6 +287,7 @@ export class Room {
             return
         }
         if (frame.orderKey !== undefined && !Number.isFinite(frame.orderKey)) {
+            this.count('ops_rejected')
             member.peer.send(
                 encodeFrame({
                     type: 'error',
@@ -277,6 +303,7 @@ export class Room {
             applyOperation(candidate, op)
         } catch (error) {
             if (error instanceof OperationError) {
+                this.count('ops_rejected')
                 member.peer.send(
                     encodeFrame({
                         type: 'error',
@@ -289,10 +316,21 @@ export class Room {
             throw error
         }
 
+        if (this.seenStamps.has(frame.stamp)) {
+            this.count('ops_duplicate')
+            return
+        }
+        this.seenStamps.set(frame.stamp, true)
+        if (this.seenStamps.size > SEEN_STAMPS_MAX) {
+            const oldest = this.seenStamps.keys().next().value
+            if (oldest !== undefined) this.seenStamps.delete(oldest)
+        }
+
         const lamport = stampLamport(frame.stamp)
         if (lamport > this.maxLamport) this.maxLamport = lamport
 
         applyOperation(this.doc, op)
+        this.count('ops_applied')
         this.seq += 1
         this.log.push({
             seq: this.seq,

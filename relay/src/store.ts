@@ -73,6 +73,10 @@ export class RoomStore {
                 order_key  REAL,
                 PRIMARY KEY (room_id, seq)
             );
+            CREATE TABLE IF NOT EXISTS stat (
+                key   TEXT PRIMARY KEY,
+                value INTEGER NOT NULL
+            );
         `)
         this.migrate()
     }
@@ -180,6 +184,34 @@ export class RoomStore {
         const cutoff = now - ROOM_TTL_DAYS * DAY_MS - 1
         const result = this.db.prepare('DELETE FROM room WHERE touched_at < ?').run(cutoff)
         return Number(result.changes)
+    }
+
+    loadStats(): Record<string, number> {
+        const rows = this.db.prepare('SELECT key, value FROM stat').all() as unknown as {
+            key: string
+            value: number
+        }[]
+        const stats: Record<string, number> = {}
+        for (const row of rows) stats[row.key] = row.value
+        return stats
+    }
+
+    bumpStats(deltas: Record<string, number>): void {
+        const keys = Object.keys(deltas)
+        if (keys.length === 0) return
+
+        this.db.exec('BEGIN')
+        try {
+            const upsert = this.db.prepare(
+                `INSERT INTO stat (key, value) VALUES (?, ?)
+                 ON CONFLICT(key) DO UPDATE SET value = value + excluded.value`,
+            )
+            for (const key of keys) upsert.run(key, deltas[key]!)
+            this.db.exec('COMMIT')
+        } catch (error) {
+            this.db.exec('ROLLBACK')
+            throw error
+        }
     }
 
     close(): void {

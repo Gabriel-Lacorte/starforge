@@ -166,7 +166,6 @@ interface ServerFrame {
     readonly payload: Uint8Array
 }
 
-/** Reads N unmasked server frames (16-bit lengths supported) off a raw socket. */
 function readServerFrames(socket: Socket, n: number): Promise<ServerFrame[]> {
     return new Promise((resolve, reject) => {
         let acc = new Uint8Array(0)

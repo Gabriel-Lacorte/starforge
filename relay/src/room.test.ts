@@ -188,7 +188,10 @@ describe('room', () => {
             colors: Uint32Array.of(0xffffffff),
         }
         room.onBytes(ja.site, encodeFrame({ type: 'op', seq: 0, stamp, body: encodeOperation(op) }))
-        room.onBytes(ja.site, encodeFrame({ type: 'op', seq: 0, stamp, body: encodeOperation(op) }))
+        room.onBytes(
+            ja.site,
+            encodeFrame({ type: 'op', seq: 0, stamp: stamp + 0x100, body: encodeOperation(op) }),
+        )
         const jb = room.join(b, { ...hello(), since: 0 })
         if (!('site' in jb)) throw new Error('join failed')
         expect(b.sent.length).toBe(3)
@@ -228,7 +231,12 @@ describe('room', () => {
             }
             room.onBytes(
                 ja.site,
-                encodeFrame({ type: 'op', seq: 0, stamp, body: encodeOperation(op) }),
+                encodeFrame({
+                    type: 'op',
+                    seq: 0,
+                    stamp: stamp + i * 0x100,
+                    body: encodeOperation(op),
+                }),
             )
         }
         expect(snapshots).toBeGreaterThan(0)
@@ -403,6 +411,26 @@ describe('room abuse gates', () => {
         expect(err.code).toBe(ErrorCode.rateLimited)
         expect(peer.closed).toBe(null)
         expect(room.snapshotBytes()).toEqual(before)
+    })
+
+    it('treats a retried frame with a seen stamp as a no-op', () => {
+        const { room, peer, site, layer, frame } = joinedRoom()
+        const op = pixelOp(layer, frame)
+        const stamp = (5 << 8) | site
+        const bytes = encodeFrame({ type: 'op', seq: 0, stamp, body: encodeOperation(op) })
+
+        room.onBytes(site, bytes)
+        peer.sent.length = 0
+        room.onBytes(site, bytes)
+
+        expect(peer.sent).toHaveLength(0)
+
+        const latecomer = new FakePeer()
+        const joined = room.join(latecomer, { ...hello(), since: 0 })
+        if (!('site' in joined)) throw new Error('join failed')
+        const welcome = decodeFrame(latecomer.sent[0]!)
+        if (welcome.type !== 'welcome') throw new Error('expected welcome')
+        expect(welcome.seq).toBe(1)
     })
 
     it('drops oversized raw frames before decode', () => {

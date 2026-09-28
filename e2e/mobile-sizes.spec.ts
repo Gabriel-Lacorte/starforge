@@ -10,7 +10,8 @@ test('size readout stays visible and live on small screens', async ({ page }) =>
     await expect(num).toHaveText('1')
 
     await page.getByTestId('mobile-tool-options').click()
-    await page.getByRole('button', { name: 'Brush larger' }).tap()
-    await page.getByRole('button', { name: 'Brush larger' }).tap()
+    const slider = page.getByTestId('brush-slider')
+    await slider.press('ArrowRight')
+    await slider.press('ArrowRight')
     await expect(num).toHaveText('3')
 })

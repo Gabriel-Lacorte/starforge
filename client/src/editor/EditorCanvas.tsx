@@ -297,6 +297,7 @@ export function EditorCanvas({
         <Toolbar
             store={store}
             readout={readout}
+            sprite={sprite}
             compact={mobile}
             layersOpen={layersOpen}
             hideFileActions={hideFileActions}
@@ -475,7 +476,7 @@ export function EditorCanvas({
                         setSheet(null)
                     }}
                 >
-                    <ToolOptions store={store} />
+                    <ToolOptions store={store} sprite={sprite} />
                 </MobileSheet>
             )}
 

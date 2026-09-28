@@ -1,4 +1,4 @@
-import type { TransformKind } from '@starforge/core'
+import type { Sprite, TransformKind } from '@starforge/core'
 import type { ReadoutStore } from '../readout'
 import type { EditorStore } from '../store'
 import { DocumentActions } from './DocumentActions'
@@ -11,6 +11,7 @@ import styles from './Toolbar.module.css'
 export function Toolbar({
     store,
     readout,
+    sprite,
     compact,
     layersOpen,
     hideFileActions = false,
@@ -29,6 +30,7 @@ export function Toolbar({
 }: {
     store: EditorStore
     readout: ReadoutStore
+    sprite: Sprite
     compact: boolean
     layersOpen: boolean
     hideFileActions?: boolean
@@ -57,7 +59,7 @@ export function Toolbar({
                     store.patch({ tool: id })
                 }}
             />
-            {!compact && <ToolOptions store={store} />}
+            {!compact && <ToolOptions store={store} sprite={sprite} />}
 
             {!compact && (
                 <span class={styles.fileGroup} aria-busy={busy}>

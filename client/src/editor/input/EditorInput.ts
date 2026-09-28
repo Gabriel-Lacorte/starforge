@@ -1,10 +1,4 @@
-import {
-    BRUSH_MAX_SIZE,
-    getPixel,
-    inBounds,
-    type Sprite,
-    type TransformKind,
-} from '@starforge/core'
+import { getPixel, inBounds, type Sprite, type TransformKind } from '@starforge/core'
 import type { Viewport } from '../../render/viewport'
 import type { PlaybackController } from '../frames/playbackController'
 import type { GestureController } from '../gesture'
@@ -15,6 +9,7 @@ import type { TransformController } from '../transform/transformController'
 import type { EditTarget } from '../../document/session'
 import type { EditorStore } from '../store'
 import type { Mods } from '../tools'
+import { brushSizeStops, maxBrushSize, sizeStopIndex } from '../tools/definition'
 import { panBy, stepZoom } from '../view'
 import { isGestureTool } from '../tools/registry'
 import { brushStepForKey, selectionModeForKey, toolForKey } from './keymap'
@@ -489,13 +484,14 @@ export class EditorInput {
 
         const step = brushStepForKey(e.key)
         if (step) {
-            if (store.state.tool === 'eraser') {
-                const size = Math.max(1, Math.min(BRUSH_MAX_SIZE, store.state.eraserSize + step))
-                store.patch({ eraserSize: size })
-            } else {
-                const size = Math.max(1, Math.min(BRUSH_MAX_SIZE, store.state.brushSize + step))
-                store.patch({ brushSize: size })
-            }
+            const eraser = store.state.tool === 'eraser'
+            const stops = brushSizeStops(maxBrushSize(this.#deps.sprite))
+            const current = eraser ? store.state.eraserSize : store.state.brushSize
+            const next =
+                stops[
+                    Math.max(0, Math.min(stops.length - 1, sizeStopIndex(stops, current) + step))
+                ]!
+            store.patch(eraser ? { eraserSize: next } : { brushSize: next })
             return
         }
 
@@ -531,6 +527,7 @@ const TRANSFORM_KEYS: Readonly<Record<string, TransformKind | undefined>> = {
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
+    if (target instanceof HTMLInputElement && target.type === 'range') return false
     return (
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||

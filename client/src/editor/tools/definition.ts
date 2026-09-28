@@ -1,4 +1,10 @@
-import { TRANSPARENT, type InkContext, type InkMode, type RGBA } from '@starforge/core'
+import {
+    BRUSH_MAX_SIZE,
+    TRANSPARENT,
+    type InkContext,
+    type InkMode,
+    type RGBA,
+} from '@starforge/core'
 import type { EditorState, ToolId } from '../store'
 
 export type ToolGeometry =
@@ -78,6 +84,28 @@ export function captureSettings(state: EditorState, tool: ToolId, seed: number):
         fillContiguous: state.fillContiguous,
         seed,
     }
+}
+
+export function maxBrushSize(sprite: { readonly width: number; readonly height: number }): number {
+    return Math.max(
+        1,
+        Math.min(BRUSH_MAX_SIZE, Math.floor(Math.min(sprite.width, sprite.height) / 4)),
+    )
+}
+
+export function brushSizeStops(max: number): readonly number[] {
+    const stops: number[] = []
+    for (let size = 1; size <= Math.min(8, max); size++) stops.push(size)
+    for (let size = 10; size <= max; size += 2) stops.push(size)
+    if (stops.length === 0) stops.push(1)
+    if (stops[stops.length - 1] !== max) stops.push(max)
+    return stops
+}
+
+export function sizeStopIndex(stops: readonly number[], size: number): number {
+    let index = 0
+    for (let at = 0; at < stops.length; at++) if (stops[at]! <= size) index = at
+    return index
 }
 
 function inkMode(definition: ToolDefinition, settings: ToolSettings): InkMode {

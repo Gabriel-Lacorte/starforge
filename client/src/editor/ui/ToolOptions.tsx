@@ -1,6 +1,12 @@
-import { BRUSH_MAX_SIZE, type MaskMode } from '@starforge/core'
+import { type MaskMode, type Sprite } from '@starforge/core'
 import { TOOL_CATALOG } from '../tools/catalog'
-import { toolCapabilities, type ToolCapability } from '../tools/definition'
+import {
+    brushSizeStops,
+    maxBrushSize,
+    sizeStopIndex,
+    toolCapabilities,
+    type ToolCapability,
+} from '../tools/definition'
 import type { EditorStore } from '../store'
 import { useStore } from './useStore'
 import styles from './Toolbar.module.css'
@@ -14,7 +20,7 @@ const SELECTION_MODES: readonly { value: MaskMode; label: string; aria: string }
     { value: 'intersect', label: 'intersect', aria: 'Intersect selection' },
 ]
 
-export function ToolOptions({ store }: { store: EditorStore }) {
+export function ToolOptions({ store, sprite }: { store: EditorStore; sprite: Sprite }) {
     const state = useStore(store)
 
     const active = TOOL_CATALOG.find((t) => t.id === state.tool)
@@ -22,62 +28,35 @@ export function ToolOptions({ store }: { store: EditorStore }) {
     const shows = (capability: ToolCapability) => capabilities.includes(capability)
 
     const eraser = state.tool === 'eraser'
-    const size = eraser ? state.eraserSize : state.brushSize
     const label = eraser ? 'eraser' : 'brush'
+    const stops = brushSizeStops(maxBrushSize(sprite))
+    const size = Math.min(eraser ? state.eraserSize : state.brushSize, stops[stops.length - 1]!)
     const sizeTo = (next: number) => {
-        const clamped = Math.max(1, Math.min(BRUSH_MAX_SIZE, next))
-        store.patch(eraser ? { eraserSize: clamped } : { brushSize: clamped })
+        store.patch(eraser ? { eraserSize: next } : { brushSize: next })
     }
 
     return (
         <div class={styles.optionStrip}>
             {shows('brush') && (
-                <>
-                    <span class={styles.opt} title={`${label} size`}>
-                        {label}
-                        <span class={styles.stepper}>
-                            <button
-                                type="button"
-                                aria-label={`${label} smaller`}
-                                onClick={(e) => {
-                                    sizeTo(size - 1)
-                                    blurOnPointer(e)
-                                }}
-                            >
-                                -
-                            </button>
-                            <span class="mono" data-testid="brush-size">
-                                {size}
-                            </span>
-                            <button
-                                type="button"
-                                aria-label={`${label} larger`}
-                                onClick={(e) => {
-                                    sizeTo(size + 1)
-                                    blurOnPointer(e)
-                                }}
-                            >
-                                +
-                            </button>
-                        </span>
+                <label class={styles.opt} title={`${label} size`}>
+                    {label}
+                    <input
+                        class={styles.range}
+                        type="range"
+                        min={0}
+                        max={stops.length - 1}
+                        step={1}
+                        value={sizeStopIndex(stops, size)}
+                        aria-label={`${label} size`}
+                        data-testid="brush-slider"
+                        onInput={(e) => {
+                            sizeTo(stops[Number(e.currentTarget.value)] ?? 1)
+                        }}
+                    />
+                    <span class="mono" data-testid="brush-size">
+                        {size}
                     </span>
-                    <label class={styles.opt} title={`${label} size`}>
-                        <span class="sr-only">{label} size</span>
-                        <input
-                            class={styles.range}
-                            type="range"
-                            min={1}
-                            max={BRUSH_MAX_SIZE}
-                            step={1}
-                            value={size}
-                            aria-label={`${label} size`}
-                            data-testid="brush-slider"
-                            onInput={(e) => {
-                                sizeTo(Number(e.currentTarget.value))
-                            }}
-                        />
-                    </label>
-                </>
+                </label>
             )}
 
             {shows('opacity') && (

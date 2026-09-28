@@ -1,7 +1,7 @@
 import { rgbaToHex, SPRITE_TITLE_MAX, type Sprite } from '@starforge/core'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { TOOL_CATALOG } from '../tools/catalog'
-import { toolCapabilities } from '../tools/definition'
+import { maxBrushSize, toolCapabilities } from '../tools/definition'
 import { ZOOM_LEVELS } from '../view'
 import type { LayersController } from '../layers/layersController'
 import type { ReadoutStore } from '../readout'
@@ -165,10 +165,16 @@ export function StatusBar({
                     <>
                         <span class={`mono dim ${styles.brushSize}`} data-testid="status-brush">
                             {state.tool === 'eraser' ? 'eraser' : 'brush'}{' '}
-                            {state.tool === 'eraser' ? state.eraserSize : state.brushSize}
+                            {Math.min(
+                                state.tool === 'eraser' ? state.eraserSize : state.brushSize,
+                                maxBrushSize(sprite),
+                            )}
                         </span>
                         <span class={`mono ${styles.brushSizeNum}`} data-testid="status-brush-num">
-                            {state.tool === 'eraser' ? state.eraserSize : state.brushSize}
+                            {Math.min(
+                                state.tool === 'eraser' ? state.eraserSize : state.brushSize,
+                                maxBrushSize(sprite),
+                            )}
                         </span>
                     </>
                 )}

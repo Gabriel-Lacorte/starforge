@@ -45,6 +45,24 @@ test('right-clicking a swatch edits that palette colour in place', async ({ page
     )
 })
 
+test('the popover lines up under the colour that opened it', async ({ page }) => {
+    await openEditor(page)
+
+    const swatches = page.getByTestId('swatch')
+    const last = swatches.nth((await swatches.count()) - 1)
+    await last.click({ button: 'right' })
+    const popover = page.getByTestId('color-popover')
+    await expect(popover).toBeVisible()
+
+    const pop = (await popover.boundingBox())!
+    const swatch = (await last.boundingBox())!
+    const strip = (await page.getByTestId('paint-colors').boundingBox())!
+
+    const popCenter = pop.x + pop.width / 2
+    expect(popCenter).toBeGreaterThan(strip.x + strip.width * 0.4)
+    expect(Math.abs(popCenter - (swatch.x + swatch.width / 2))).toBeLessThan(pop.width / 2)
+})
+
 test('the eyedropper adopts a foreign colour and files it into the palette', async ({ page }) => {
     const canvas = await openEditor(page)
 

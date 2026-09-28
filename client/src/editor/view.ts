@@ -1,4 +1,4 @@
-export const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8, 16, 32] as const
+export const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8, 16, 32, 64, 128] as const
 export type Zoom = (typeof ZOOM_LEVELS)[number]
 
 export interface View {

@@ -27,12 +27,18 @@ export function PaintControls({
     const state = useStore(store)
     const { selectionActive } = useStore(readout)
     const [popover, setPopover] = useState<ColorPopoverTarget | null>(null)
+    const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null)
     const fgAnchor = useRef<HTMLSpanElement>(null)
     const rail = useRef<HTMLDivElement>(null)
 
     useReorder(rail, `[data-testid="swatch"]`, (from, to) => {
         controller.move(from, to)
     })
+
+    const openPopover = (target: ColorPopoverTarget, anchor: HTMLElement | null): void => {
+        setPopover(target)
+        setPopoverAnchor(anchor)
+    }
 
     const swatchTargetValid =
         popover === null ||
@@ -49,7 +55,9 @@ export function PaintControls({
                     title="Pick the paint colour"
                     data-testid="fg-color"
                     onClick={(e) => {
-                        if (popover?.kind !== 'foreground') setPopover({ kind: 'foreground' })
+                        if (popover?.kind !== 'foreground') {
+                            openPopover({ kind: 'foreground' }, fgAnchor.current)
+                        }
                         blurOnPointer(e)
                     }}
                 >
@@ -97,7 +105,7 @@ export function PaintControls({
                             }}
                             onContextMenu={(e) => {
                                 e.preventDefault()
-                                setPopover({ kind: 'swatch', index: at })
+                                openPopover({ kind: 'swatch', index: at }, e.currentTarget)
                             }}
                         >
                             <span
@@ -156,9 +164,10 @@ export function PaintControls({
                     store={store}
                     palette={controller}
                     target={popover}
-                    anchor={fgAnchor}
+                    anchor={popoverAnchor}
                     onClose={() => {
                         setPopover(null)
+                        setPopoverAnchor(null)
                     }}
                 />
             )}

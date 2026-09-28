@@ -60,12 +60,12 @@ describe('stepZoom', () => {
         stepZoom(view, -1, 0, 0)
         expect(view.zoom).toBe(0.25)
 
-        for (const expected of [0.5, 1, 2, 4, 8, 16, 32]) {
+        for (const expected of [0.5, 1, 2, 4, 8, 16, 32, 64, 128]) {
             stepZoom(view, 1, 0, 0)
             expect(view.zoom).toBe(expected)
         }
         stepZoom(view, 1, 0, 0)
-        expect(view.zoom).toBe(32)
+        expect(view.zoom).toBe(128)
     })
 
     it('anchors each step at the cursor', () => {

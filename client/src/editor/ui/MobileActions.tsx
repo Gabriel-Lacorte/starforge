@@ -109,7 +109,7 @@ export function MobileActions({
             </button>
             <button
                 type="button"
-                class={styles.btn}
+                class={`${styles.btn} ${styles.zoomBtn}`}
                 aria-label="Zoom out"
                 data-testid="mobile-zoom-out"
                 disabled={zoom <= ZOOM_MIN}
@@ -122,7 +122,7 @@ export function MobileActions({
             </button>
             <button
                 type="button"
-                class={styles.btn}
+                class={`${styles.btn} ${styles.zoomBtn}`}
                 aria-label="Zoom in"
                 data-testid="mobile-zoom-in"
                 disabled={zoom >= ZOOM_MAX}

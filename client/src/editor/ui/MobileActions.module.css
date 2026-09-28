@@ -2,8 +2,8 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 6px;
-    padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+    padding: 3px 6px;
+    padding-bottom: calc(3px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--line);
 }
 
@@ -12,7 +12,7 @@
     place-items: center;
     flex: 1;
     min-width: 0;
-    height: var(--target);
+    height: 34px;
     padding: 0;
     color: var(--text);
     background: var(--face);
@@ -21,6 +21,10 @@
         inset 1px 1px 0 var(--face-hi),
         inset -1px -1px 0 var(--face-lo);
     cursor: pointer;
+}
+
+.zoomBtn {
+    flex: 0 0 44px;
 }
 
 .btn:active:not(:disabled) {

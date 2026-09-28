@@ -1,6 +1,5 @@
 import { hexToRgba, rgbaToHex, type RGBA } from '@starforge/core'
-import { useEffect, useRef, useState } from 'preact/hooks'
-import type { RefObject } from 'preact'
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { PaletteController } from '../palette/paletteController'
 import type { EditorStore } from '../store'
 import { useStore } from './useStore'
@@ -20,7 +19,7 @@ export function ColorPopover({
     store: EditorStore
     palette: PaletteController
     target: ColorPopoverTarget
-    anchor: RefObject<HTMLElement | null>
+    anchor: HTMLElement | null
     onClose: () => void
 }) {
     const state = useStore(store)
@@ -32,11 +31,28 @@ export function ColorPopover({
     const value =
         target.kind === 'swatch' ? (draft ?? (swatchHex ? hexToRgba(swatchHex) : 0)) : state.color
 
+    useLayoutEffect(() => {
+        const pop = rootRef.current
+        if (!pop) return
+        const host = pop.offsetParent as HTMLElement | null
+        if (!host) return
+
+        const width = pop.offsetWidth
+        const spot =
+            anchor === null
+                ? host.clientWidth / 2 - width / 2
+                : anchor.getBoundingClientRect().left +
+                  anchor.offsetWidth / 2 -
+                  host.getBoundingClientRect().left -
+                  width / 2
+        pop.style.left = `${Math.max(8, Math.min(spot, host.clientWidth - width - 8))}px`
+    }, [anchor])
+
     useEffect(() => {
         const onPointerDown = (e: PointerEvent): void => {
             const node = e.target instanceof Node ? e.target : null
             if (rootRef.current?.contains(node)) return
-            if (anchor.current?.contains(node)) return
+            if (anchor?.contains(node)) return
             onClose()
         }
         const onKeyDown = (e: KeyboardEvent): void => {

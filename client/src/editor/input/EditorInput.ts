@@ -8,6 +8,7 @@ import {
 import type { Viewport } from '../../render/viewport'
 import type { PlaybackController } from '../frames/playbackController'
 import type { GestureController } from '../gesture'
+import type { PaletteController } from '../palette/paletteController'
 import type { ReadoutStore } from '../readout'
 import type { SelectionController } from '../selection/selectionController'
 import type { TransformController } from '../transform/transformController'
@@ -35,6 +36,8 @@ export interface InputDeps {
     readout: ReadoutStore
     playback: PlaybackController
     isActive: () => boolean
+
+    readonly palette?: PaletteController
 
     requestRender: () => void
 }
@@ -130,7 +133,10 @@ export class EditorInput {
         const { sprite, store } = this.#deps
         const { layer, frame } = this.#deps.target()
         const color = getPixel(sprite, layer, frame, p.x, p.y)
-        if ((color & 0xff) !== 0) store.pickColor(color)
+        if ((color & 0xff) === 0) return
+
+        store.pickColor(color)
+        this.#deps.palette?.add(color)
     }
 
     #mods(e: MouseEvent): Mods {

@@ -13,6 +13,7 @@ import { CanvasController } from './transform/canvasController'
 import { TransformController } from './transform/transformController'
 import { EditorInput } from './input/EditorInput'
 import type { LayersController } from './layers/layersController'
+import type { PaletteController } from './palette/paletteController'
 import type { ReadoutStore } from './readout'
 import { SelectionController } from './selection/selectionController'
 import type { EditorStore } from './store'
@@ -42,6 +43,7 @@ export function startEditor(
     readout: ReadoutStore,
     layers: LayersController,
     playback: PlaybackController,
+    palette: PaletteController,
     isActive: () => boolean = () => true,
     peersProvider: () => readonly PeerCursor[] | null = () => null,
     stroke: StrokeBroadcast | null = null,
@@ -88,8 +90,6 @@ export function startEditor(
             if (readout.state.selectionActive !== selection.active) {
                 readout.patch({ selectionActive: selection.active })
             }
-            // the pointer may now sit inside (or outside) a selection it
-            // did not sit in before: the move cursor has to follow along
             input.sync()
             invalidate()
         },
@@ -144,6 +144,7 @@ export function startEditor(
         store,
         readout,
         playback,
+        palette,
         isActive,
         requestRender: invalidate,
     })

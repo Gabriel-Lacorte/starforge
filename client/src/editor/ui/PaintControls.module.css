@@ -1,4 +1,5 @@
 .strip {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -15,9 +16,14 @@
 
 .stack {
     position: relative;
+    display: block;
     width: 34px;
     height: 34px;
     flex: none;
+    padding: 0;
+    background: none;
+    border: 0;
+    cursor: pointer;
 }
 
 .fg,
@@ -100,7 +106,9 @@
 }
 
 .swatch:focus-visible,
-.btn:focus-visible {
+.btn:focus-visible,
+.stack:focus-visible,
+.plus:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
 }
@@ -109,6 +117,38 @@
     display: flex;
     flex: none;
     gap: 4px;
+}
+
+.plus {
+    font: inherit;
+    flex: none;
+    min-width: var(--target);
+    min-height: var(--target);
+    padding: 0;
+    color: var(--text);
+    background: var(--face);
+    border: 1px solid var(--line);
+    box-shadow:
+        inset 1px 1px 0 var(--face-hi),
+        inset -1px -1px 0 var(--face-lo);
+    cursor: pointer;
+}
+
+.plus:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--face-lo),
+        inset -1px -1px 0 var(--face-hi);
+}
+
+.plus:disabled {
+    color: var(--dim);
+    opacity: 0.5;
+    cursor: default;
+}
+
+.plus:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
 }
 
 .selection {
@@ -121,6 +161,10 @@
 
 @media (hover: hover) {
     .btn:hover {
+        color: var(--accent);
+    }
+
+    .plus:hover:not(:disabled) {
         color: var(--accent);
     }
 }

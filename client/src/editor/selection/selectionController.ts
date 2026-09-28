@@ -192,10 +192,6 @@ export class SelectionController {
         this.#setMask(emptyMask(this.#width, this.#height))
     }
 
-    /** Clears the pixels under the mask on the active layer, as one
-     * undoable edit. A pending float is stamped first, so a moved
-     * selection is erased where it was dropped. The mask itself survives:
-     * the region stays selected for a fill or a paste over the hole. */
     erase(): boolean {
         if (!this.active) return false
         this.commit()

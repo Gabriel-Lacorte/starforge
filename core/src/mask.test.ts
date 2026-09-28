@@ -86,7 +86,6 @@ describe('mask shapes', () => {
         expect(isSelected(triangle, 3, 3)).toBe(true)
         expect(isSelected(triangle, 10, 10)).toBe(false)
 
-        /* every selected centre sits inside the two legs and under the hypotenuse x + y = 14 */
         for (let y = 0; y < 16; y++) {
             for (let x = 0; x < 16; x++) {
                 if (!isSelected(triangle, x, y)) continue
@@ -98,7 +97,6 @@ describe('mask shapes', () => {
     })
 
     it('selects a concave polygon without bleeding across the notch', () => {
-        /* a c opening to the right, the gap between the arms must stay unselected */
         const shape = polygonMask(16, 16, [
             { x: 2, y: 2 },
             { x: 12, y: 2 },

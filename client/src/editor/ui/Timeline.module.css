@@ -49,9 +49,6 @@
     list-style: none;
 }
 
-/* The insert affordance rides the seam between tiles without taking layout
-   width, so frames sit nearly edge to edge. It fades in over the reel (and
-   on its own when focused) and stays half-visible on touch. */
 .gap {
     position: relative;
     flex: none;
@@ -129,7 +126,6 @@
     background: color-mix(in srgb, var(--face) 78%, transparent);
 }
 
-/* transparency reads through a fine checker, like the canvas itself */
 .thumb {
     display: block;
     background: repeating-conic-gradient(var(--face-lo) 0% 25%, var(--bg) 0% 50%) 0 0 / 8px 8px;

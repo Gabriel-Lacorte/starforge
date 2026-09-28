@@ -81,7 +81,6 @@ export class RelayLog {
         this.emit('error', event, fields, suppress)
     }
 
-    /** emit summaries for windows still holding suppressed repeats (shutdown) */
     flush(): void {
         for (const key of [...this.keys.keys()]) {
             this.summarize(key)

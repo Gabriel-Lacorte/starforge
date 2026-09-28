@@ -40,6 +40,9 @@ export function ToolOptions({ store, sprite }: { store: EditorStore; sprite: Spr
             {shows('brush') && (
                 <label class={styles.opt} title={`${label} size`}>
                     {label}
+                    <span class={`${styles.sizeValue} mono`} data-testid="brush-size">
+                        {size}
+                    </span>
                     <input
                         class={styles.range}
                         type="range"
@@ -53,9 +56,6 @@ export function ToolOptions({ store, sprite }: { store: EditorStore; sprite: Spr
                             sizeTo(stops[Number(e.currentTarget.value)] ?? 1)
                         }}
                     />
-                    <span class="mono" data-testid="brush-size">
-                        {size}
-                    </span>
                 </label>
             )}
 

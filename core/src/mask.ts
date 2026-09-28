@@ -13,9 +13,7 @@ export interface MaskPoint {
 export interface SelectionMask {
     readonly width: number
     readonly height: number
-    /** 0 or 1 per cell */
     readonly cells: Uint8Array
-    /** the box around the selection, or nothing is selected */
     readonly bounds: DirtyRect | null
 }
 

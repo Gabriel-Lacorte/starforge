@@ -1,4 +1,4 @@
-import { medianCut } from './quantize'
+import { medianCut, type Quantization } from './quantize'
 
 export interface GifFrame {
     pixels: Uint8Array /* RGBA */
@@ -21,7 +21,6 @@ export class GifError extends Error {
 
 export interface GifResult {
     bytes: Uint8Array<ArrayBuffer>
-    /* palette entries the animation actually needs, <= 256 */
     colorsUsed: number
 }
 
@@ -180,7 +179,7 @@ function buildPalette(frames: readonly GifFrame[]): PaletteResult {
                 hasTransparency = true
             } else {
                 const rgb = (px[i]! << 16) | (px[i + 1]! << 8) | px[i + 2]!
-                if (!uniqueRgb.has(rgb)) uniqueRgb.set(rgb, 0)
+                uniqueRgb.set(rgb, (uniqueRgb.get(rgb) ?? 0) + 1)
             }
         }
     }
@@ -189,10 +188,9 @@ function buildPalette(frames: readonly GifFrame[]): PaletteResult {
     const paletteCount = opaqueCount + (hasTransparency ? 1 : 0)
 
     if (paletteCount > 256) {
-        return quantizedPalette([...uniqueRgb.keys()], hasTransparency)
+        return quantizedPalette(uniqueRgb, hasTransparency)
     }
 
-    /* index 0 is reserved for the transparent slot when transparency is present */
     const transparentIndex = hasTransparency ? 0 : -1
     let nextIdx = hasTransparency ? 1 : 0
 
@@ -207,24 +205,45 @@ function buildPalette(frames: readonly GifFrame[]): PaletteResult {
     return { rgbFlat, paletteCount, transparentIndex, indexFor: uniqueRgb }
 }
 
-function quantizedPalette(colors: number[], hasTransparency: boolean): PaletteResult {
-    /* the transparent slot takes one of the 256 entries when it's needed */
+const PINNED_COLORS = 192
+
+function quantizedPalette(
+    population: Map<number, number>,
+    hasTransparency: boolean,
+): PaletteResult {
     const maxOpaque = 256 - (hasTransparency ? 1 : 0)
-    const { palette, map } = medianCut(colors, maxOpaque)
+
+    const byPopulation = [...population.entries()].sort((a, b) => b[1] - a[1])
+    const pinned = byPopulation.slice(0, Math.min(PINNED_COLORS, byPopulation.length))
+    const tail = byPopulation.slice(pinned.length).map(([rgb]) => rgb)
+    const slots = Math.max(1, maxOpaque - pinned.length)
+
+    const quantized: Quantization =
+        tail.length > 0 ? medianCut(tail, slots) : { palette: [], map: new Map() }
 
     const transparentIndex = hasTransparency ? 0 : -1
     const offset = hasTransparency ? 1 : 0
 
     const indexFor = new Map<number, number>()
-    for (const [rgb, slot] of map) indexFor.set(rgb, slot + offset)
-
     const rgbFlat: number[] = []
     if (hasTransparency) rgbFlat.push(0, 0, 0)
-    for (const rep of palette) {
+
+    let slot = offset
+    for (const [rgb] of pinned) {
+        indexFor.set(rgb, slot++)
+        rgbFlat.push((rgb >>> 16) & 0xff, (rgb >>> 8) & 0xff, rgb & 0xff)
+    }
+    for (const [rgb, box] of quantized.map) indexFor.set(rgb, slot + box)
+    for (const rep of quantized.palette) {
         rgbFlat.push((rep >>> 16) & 0xff, (rep >>> 8) & 0xff, rep & 0xff)
     }
 
-    return { rgbFlat, paletteCount: palette.length + offset, transparentIndex, indexFor }
+    return {
+        rgbFlat,
+        paletteCount: slot + quantized.palette.length,
+        transparentIndex,
+        indexFor,
+    }
 }
 
 function mapIndices(

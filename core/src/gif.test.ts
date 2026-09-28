@@ -405,6 +405,37 @@ describe('GIF encoder', () => {
         for (const idx of used) expect(idx).toBeLessThan(parsed.gctSize)
     })
 
+    it('keeps populous flat colours exact when quantizing (no warm drift)', () => {
+        const width = 64
+        const height = 64
+        const pixels = new Uint8Array(width * height * 4)
+        for (let i = 0; i < width * height; i++) {
+            const o = i * 4
+            if (i % 5 < 3) {
+                // the dominant flat neutral panel: three fifths of the frame
+                pixels[o] = 0x24
+                pixels[o + 1] = 0x24
+                pixels[o + 2] = 0x24
+            } else {
+                // a wide warm-heavy gradient competing for palette slots
+                pixels[o] = i & 0xff
+                pixels[o + 1] = (i * 7) & 0xff
+                pixels[o + 2] = (i * 13) & 0xff
+            }
+            pixels[o + 3] = 255
+        }
+
+        const parsed = parseGif(encodeGif([{ pixels, durationMs: 100 }], width, height))
+        let exact = -1
+        for (let i = 0; i < parsed.gctSize; i++) {
+            const o = i * 3
+            if (parsed.gct[o] === 0x24 && parsed.gct[o + 1] === 0x24 && parsed.gct[o + 2] === 0x24)
+                exact = i
+        }
+        expect(exact, 'the panel colour survives quantisation untouched').toBeGreaterThanOrEqual(0)
+        expect(parsed.frames[0]!.indices[0]).toBe(exact)
+    })
+
     it('never draws more than 256 distinct colors, whatever the input (seeded)', () => {
         for (const seed of [1, 2, 3, 7, 42]) {
             const frame = makeNoiseFrame(64, 64, 1000, seed)

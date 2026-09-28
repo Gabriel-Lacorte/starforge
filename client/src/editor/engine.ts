@@ -1,6 +1,6 @@
 import type { DocumentSession, EditTarget } from '../document/session'
 import type { ComposeBenchResult } from '../render/composeBench'
-import { brushCursorFor, easeCursor, type BrushCursor } from '../render/brushPreview'
+import { brushCursorFor, easeCursor, mirrorCursors } from '../render/brushPreview'
 import { CursorLayer } from '../render/cursorLayer'
 import { PreviewOverlay, type PeerCursor, type SymmetryGuides } from '../render/overlay'
 import { Renderer } from '../render/renderer'
@@ -216,9 +216,21 @@ export function startEditor(
 
         const t0 = DEV ? performance.now() : 0
         renderer.render(sprite, frame, viewport.view, ghosts)
-        const cursor: BrushCursor | null =
-            cursorPos === null ? null : brushCursorFor(store.state, cursorPos)
-        const boost = cursorLayer.render(viewport.view, cursor, (x, y) =>
+        const primary = cursorPos === null ? null : brushCursorFor(store.state, cursorPos)
+        const cursors =
+            primary === null
+                ? null
+                : [
+                      primary,
+                      ...mirrorCursors(
+                          primary,
+                          sprite.width,
+                          sprite.height,
+                          store.state.symmetryH,
+                          store.state.symmetryV,
+                      ),
+                  ]
+        const boosts = cursorLayer.render(viewport.view, cursors, (x, y) =>
             renderer.sample(sprite, frame, x, y),
         )
         overlay.render(
@@ -228,7 +240,7 @@ export function startEditor(
             peersProvider(),
             target(),
             store.state.showGrid,
-            boost,
+            boosts,
         )
         if (DEV) lastRenderMs = performance.now() - t0
     }

@@ -127,12 +127,14 @@
 .tools {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 8px;
+    padding: 0 2px;
 }
 
 .tools .tool {
     flex: none;
-    width: var(--target);
+    width: calc(var(--target) + 6px);
 }
 
 .presets {
@@ -264,6 +266,20 @@
         inset -1px -1px 0 var(--accent-lo);
 }
 
+.primaryTool {
+    color: var(--bg);
+    background: var(--accent);
+    box-shadow:
+        inset 1px 1px 0 var(--edge-gold),
+        inset -1px -1px 0 var(--accent-lo);
+}
+
+.primaryTool:active:not(:disabled) {
+    box-shadow:
+        inset 1px 1px 0 var(--accent-lo),
+        inset -1px -1px 0 var(--edge-gold);
+}
+
 .primary:active:not(:disabled) {
     box-shadow:
         inset 1px 1px 0 var(--accent-lo),
@@ -297,7 +313,8 @@
         color: var(--accent);
     }
 
-    .primary:hover:not(:disabled) {
+    .primary:hover:not(:disabled),
+    .primaryTool:hover:not(:disabled) {
         color: var(--bg);
         background: var(--accent-hi);
     }

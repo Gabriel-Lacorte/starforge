@@ -194,10 +194,9 @@ export class RoomStore {
     }
 
     loadStats(): Record<string, number> {
-        const rows = this.db.prepare('SELECT key, value FROM stat').all() as unknown as {
-            key: string
-            value: number
-        }[]
+        const rows = this.db
+            .prepare('SELECT key, min(max(value, 0), 9007199254740991) AS value FROM stat')
+            .all() as unknown as { key: string; value: number }[]
         const stats: Record<string, number> = {}
         for (const row of rows) stats[row.key] = row.value
         return stats
@@ -211,9 +210,15 @@ export class RoomStore {
         try {
             const upsert = this.db.prepare(
                 `INSERT INTO stat (key, value) VALUES (?, ?)
-                 ON CONFLICT(key) DO UPDATE SET value = value + excluded.value`,
+                 ON CONFLICT(key) DO UPDATE SET value = min(value + excluded.value, 9007199254740991)`,
             )
-            for (const key of keys) upsert.run(key, deltas[key]!)
+            for (const key of keys) {
+                const delta = deltas[key]!
+                const safe = Number.isFinite(delta)
+                    ? Math.min(Math.max(0, Math.floor(delta)), 9007199254740991)
+                    : 0
+                upsert.run(key, safe)
+            }
             this.db.exec('COMMIT')
         } catch (error) {
             this.db.exec('ROLLBACK')

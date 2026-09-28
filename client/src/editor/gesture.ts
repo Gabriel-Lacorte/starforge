@@ -26,6 +26,7 @@ import {
     type ToolHost,
 } from './tools'
 import type { ToolSettings } from './tools/definition'
+import { maxBrushSize } from './tools/definition'
 
 export interface InvalidateSink {
     invalidate(
@@ -43,6 +44,8 @@ export interface PreviewSink {
     setCells(cells: Iterable<number>, color: RGBA): void
     clear(): void
 }
+
+const SYMMETRY_GEOMETRIES: ReadonlySet<string> = new Set(['freehand', 'line', 'rect', 'ellipse'])
 
 interface GestureDeps {
     sprite: Sprite
@@ -122,8 +125,9 @@ export class GestureController {
             },
 
             preview: (cells, color) => {
-                deps.overlay.setCells(cells, color)
-                deps.broadcast?.replace(cells, color)
+                const shown = this.#expandPreview(cells)
+                deps.overlay.setCells(shown, color)
+                deps.broadcast?.replace(shown, color)
                 deps.requestRender()
             },
             clearPreview: () => {
@@ -147,8 +151,12 @@ export class GestureController {
         }
         this.#target = target
         this.#mask = this.#deps.selection?.() ?? null
-        this.#settings = captureSettings(this.#deps.store.state, tool, this.#seed++)
-        this.#mirror = toolDefinition(tool).geometry === 'freehand'
+        const captured = captureSettings(this.#deps.store.state, tool, this.#seed++)
+        this.#settings = {
+            ...captured,
+            brushSize: Math.min(captured.brushSize, maxBrushSize(this.#deps.sprite)),
+        }
+        this.#mirror = SYMMETRY_GEOMETRIES.has(toolDefinition(tool).geometry)
         this.#inkBase.clear()
         const command = new Command(tool)
         this.#command = command
@@ -209,9 +217,8 @@ export class GestureController {
     }
 
     #ink(x: number, y: number, context: InkContext): void {
-        const settings = this.#settings
-        const mirrorH = this.#mirror && settings?.symmetryH === true
-        const mirrorV = this.#mirror && settings?.symmetryV === true
+        const mirrorH = this.#mirror && this.#settings?.symmetryH === true
+        const mirrorV = this.#mirror && this.#settings?.symmetryV === true
 
         if (!mirrorH && !mirrorV) {
             this.#inkCell(x, y, context)
@@ -226,6 +233,26 @@ export class GestureController {
         for (const py of ys) {
             for (const px of xs) this.#inkCell(px, py, context)
         }
+    }
+
+    #expandPreview(cells: Iterable<number>): number[] {
+        const mirrorH = this.#mirror && this.#settings?.symmetryH === true
+        const mirrorV = this.#mirror && this.#settings?.symmetryV === true
+        if (!mirrorH && !mirrorV) return [...cells]
+
+        const w = this.#deps.sprite.width
+        const h = this.#deps.sprite.height
+        const out = new Set<number>()
+        for (const cell of cells) {
+            const x = cell % w
+            const y = Math.floor(cell / w)
+            for (const py of mirrorV && h - 1 - y !== y ? [y, h - 1 - y] : [y]) {
+                for (const px of mirrorH && w - 1 - x !== x ? [x, w - 1 - x] : [x]) {
+                    out.add(py * w + px)
+                }
+            }
+        }
+        return [...out]
     }
 
     #inkCell(x: number, y: number, context: InkContext): void {

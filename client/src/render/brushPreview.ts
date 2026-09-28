@@ -32,6 +32,29 @@ export function brushCursorFor(
     return { x: pos.x, y: pos.y, size, shape: 'brush' }
 }
 
+export function mirrorCursors(
+    cursor: BrushCursor,
+    width: number,
+    height: number,
+    mirrorH: boolean,
+    mirrorV: boolean,
+): BrushCursor[] {
+    const mirrors: BrushCursor[] = []
+    const xs =
+        mirrorH && width - 1 - cursor.x !== cursor.x ? [cursor.x, width - 1 - cursor.x] : [cursor.x]
+    const ys =
+        mirrorV && height - 1 - cursor.y !== cursor.y
+            ? [cursor.y, height - 1 - cursor.y]
+            : [cursor.y]
+    for (const y of ys) {
+        for (const x of xs) {
+            if (x === cursor.x && y === cursor.y) continue
+            mirrors.push({ ...cursor, x, y })
+        }
+    }
+    return mirrors
+}
+
 export const CURSOR_TRAIL_EASE = 0.35
 export const CURSOR_SETTLE = 0.01
 

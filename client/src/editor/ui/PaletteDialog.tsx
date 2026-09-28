@@ -173,6 +173,7 @@ export function PaletteDialog({
                                 const after = colors.filter((_, at) => at !== index)
                                 const following = after[clamp(next, after.length - 1)]
                                 if (following !== undefined) lastSelected.current = following
+                                grid.current?.focus()
                             }}
                         >
                             <TrashIcon />
@@ -225,47 +226,38 @@ export function PaletteDialog({
                     <div class={styles.commits}>
                         <button
                             type="button"
-                            class={styles.tool}
-                            title="Start a new colour from the selected one without changing the document yet"
-                            aria-label="New swatch"
-                            data-testid="palette-new"
-                            onClick={() => {
-                                const hex = colors[index]
-                                if (hex !== undefined) setDraft(hexToRgba(hex))
-                            }}
-                        >
-                            <PlusIcon /> New
-                        </button>
-                        <button
-                            type="button"
-                            class={styles.tool}
+                            class={`${styles.tool} ${styles.primaryTool}`}
                             title={
-                                duplicate ? 'Already in palette' : `Add ${draftHex} to the palette`
+                                duplicate
+                                    ? 'Already in the palette'
+                                    : `Add ${draftHex} as a new swatch`
                             }
-                            aria-label="Add new colour to palette"
+                            aria-label="Add the mixed colour to the palette"
                             data-testid="palette-add"
                             disabled={duplicate}
                             onClick={() => {
                                 palette.add(draft)
                                 setSelected(colors.length)
+                                grid.current?.focus()
                             }}
                         >
-                            Add new
+                            <PlusIcon /> Add colour
                         </button>
                         <button
                             type="button"
                             class={styles.tool}
                             title={
                                 unchanged
-                                    ? 'Already in palette'
-                                    : `Replace this colour with ${draftHex}`
+                                    ? 'The selected swatch already has this colour'
+                                    : `Overwrite "${selectedHex ?? ''}" with ${draftHex}`
                             }
-                            aria-label="Replace selected colour"
+                            aria-label="Replace the selected swatch"
                             data-testid="palette-replace"
                             disabled={unchanged}
                             onClick={() => {
                                 palette.setColor(index, draft)
                                 lastSelected.current = draftHex
+                                grid.current?.focus()
                             }}
                         >
                             Replace selected

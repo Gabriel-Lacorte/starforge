@@ -8,6 +8,7 @@ import {
     CURSOR_MID_LO,
     CURSOR_TRAIL_EASE,
     easeCursor,
+    mirrorCursors,
     stampEdges,
 } from './brushPreview'
 
@@ -126,5 +127,31 @@ describe('cursorContrast', () => {
         expect(compositeLuma({ r: 255, g: 255, b: 255, a: 255 })).toBeCloseTo(255, 6)
         const half = compositeLuma({ r: 0, g: 0, b: 0, a: 128 })
         expect(half).toBeCloseTo(BACKDROP_LUMA * (1 - 128 / 255), 6)
+    })
+})
+
+describe('mirrorCursors', () => {
+    const cursor = { x: 3, y: 5, size: 4, shape: 'brush' } as const
+
+    it('mirrors across the vertical axis when horizontal symmetry is on', () => {
+        expect(mirrorCursors(cursor, 16, 16, true, false)).toEqual([
+            { x: 12, y: 5, size: 4, shape: 'brush' },
+        ])
+    })
+
+    it('mirrors across both axes into three ghosts', () => {
+        expect(mirrorCursors(cursor, 16, 16, true, true)).toEqual([
+            { x: 12, y: 5, size: 4, shape: 'brush' },
+            { x: 3, y: 10, size: 4, shape: 'brush' },
+            { x: 12, y: 10, size: 4, shape: 'brush' },
+        ])
+    })
+
+    it('shows nothing extra on the centre of an odd canvas', () => {
+        expect(mirrorCursors({ ...cursor, x: 8 }, 17, 16, true, false)).toEqual([])
+    })
+
+    it('shows nothing extra when no symmetry is on', () => {
+        expect(mirrorCursors(cursor, 16, 16, false, false)).toEqual([])
     })
 })

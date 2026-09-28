@@ -25,12 +25,12 @@ export class CursorLayer {
 
     render(
         view: View,
-        cursor: BrushCursor | null,
+        cursors: readonly BrushCursor[] | null,
         sample: (x: number, y: number) => CursorSample | null,
-    ): CursorBoost | null {
+    ): CursorBoost[] | null {
         const ctx = this.#ctx
         ctx.setTransform(1, 0, 0, 1, 0, 0)
-        if (!cursor) {
+        if (!cursors || cursors.length === 0) {
             if (!this.#drawn) return null
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
             this.#drawn = false
@@ -39,22 +39,26 @@ export class CursorLayer {
         this.#drawn = true
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
 
-        ctx.save()
-        ctx.translate(
-            Math.round(view.panX) + cursor.x * view.zoom,
-            Math.round(view.panY) + cursor.y * view.zoom,
-        )
-        ctx.scale(view.zoom, view.zoom)
+        const boosts: CursorBoost[] = []
+        for (const cursor of cursors) {
+            ctx.save()
+            ctx.translate(
+                Math.round(view.panX) + cursor.x * view.zoom,
+                Math.round(view.panY) + cursor.y * view.zoom,
+            )
+            ctx.scale(view.zoom, view.zoom)
 
-        ctx.lineWidth = 1 / view.zoom
-        ctx.strokeStyle = '#ffffff'
-        ctx.stroke(cursorPath(cursor))
+            ctx.lineWidth = 1 / view.zoom
+            ctx.strokeStyle = '#ffffff'
+            ctx.stroke(cursorPath(cursor))
 
-        const px = sample(Math.round(cursor.x), Math.round(cursor.y))
-        const color = px === null ? null : cursorContrast(compositeLuma(px))
+            const px = sample(Math.round(cursor.x), Math.round(cursor.y))
+            const color = px === null ? null : cursorContrast(compositeLuma(px))
+            if (color) boosts.push({ cursor, color })
 
-        ctx.restore()
-        return color ? { cursor, color } : null
+            ctx.restore()
+        }
+        return boosts.length > 0 ? boosts : null
     }
 }
 

@@ -142,7 +142,7 @@ export class PreviewOverlay {
         peers?: readonly PeerCursor[] | null,
         target?: PeerTarget | null,
         grid?: boolean,
-        boost?: CursorBoost | null,
+        boosts?: readonly CursorBoost[] | null,
     ): void {
         const hasSelection = !!selection?.mask
         const hasGuides = !!guides && (guides.h || guides.v)
@@ -150,13 +150,14 @@ export class PreviewOverlay {
         const peerList = peers ?? null
         const peerTarget = target ?? null
         const hasPeers = peerList !== null && peerList.length > 0 && peerTarget !== null
+        const anyBoost = boosts !== null && boosts !== undefined && boosts.length > 0
         if (
             !this.#painted &&
             !hasSelection &&
             !hasGuides &&
             !hasGrid &&
             !hasPeers &&
-            !boost &&
+            !anyBoost &&
             !this.#onScreen
         )
             return
@@ -182,8 +183,14 @@ export class PreviewOverlay {
             this.#paintPeerPreviews(view, peerList, peerTarget)
             this.#paintPeers(view, peerList, peerTarget)
         }
-        if (boost) this.#paintCursorBoost(view, boost)
-        this.#onScreen = this.#painted !== null || hasSelection || hasGrid || hasPeers || !!boost
+        if (boosts !== null && boosts !== undefined && boosts.length > 0) {
+            this.#paintCursorBoosts(view, boosts)
+        }
+        this.#onScreen = this.#painted !== null || hasSelection || hasGrid || hasPeers || anyBoost
+    }
+
+    #paintCursorBoosts(view: View, boosts: readonly CursorBoost[]): void {
+        for (const boost of boosts) this.#paintCursorBoost(view, boost)
     }
 
     #paintCursorBoost(view: View, boost: CursorBoost): void {

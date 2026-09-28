@@ -258,4 +258,45 @@ describe('GestureController symmetry', () => {
         expect(getPixel(sprite, top, frame, 13, 2)).toBe(color)
         expect(getPixel(sprite, top, frame, 10, 5)).toBe(color)
     })
+
+    it('an eraser stroke removes exactly the mirrored cells, no more on one side', () => {
+        const { sprite, frame, top, store, gestures } = setup(16, 16)
+
+        const ink = store.state.color
+        for (let y = 4; y <= 8; y++) {
+            for (let x = 2; x <= 6; x++) {
+                gestures.begin('pencil', x, y, NO_MODS)
+                gestures.finish(x, y, NO_MODS)
+            }
+            for (let x = 9; x <= 13; x++) {
+                gestures.begin('pencil', x, y, NO_MODS)
+                gestures.finish(x, y, NO_MODS)
+            }
+        }
+        for (let y = 4; y <= 8; y++) {
+            for (let x = 2; x <= 6; x++) expect(getPixel(sprite, top, frame, x, y)).toBe(ink)
+            for (let x = 9; x <= 13; x++) expect(getPixel(sprite, top, frame, x, y)).toBe(ink)
+        }
+
+        store.patch({ symmetryH: true })
+        store.patch({ tool: 'eraser' })
+        const countInk = (): number => {
+            let n = 0
+            for (let y = 4; y <= 8; y++) {
+                for (let x = 0; x < 16; x++) if (getPixel(sprite, top, frame, x, y) !== 0) n++
+            }
+            return n
+        }
+        const full = countInk()
+
+        gestures.begin('eraser', 2, 6, NO_MODS)
+        gestures.move(3, 6, NO_MODS)
+        gestures.finish(3, 6, NO_MODS)
+
+        expect(getPixel(sprite, top, frame, 2, 6)).toBe(0)
+        expect(getPixel(sprite, top, frame, 3, 6)).toBe(0)
+        expect(getPixel(sprite, top, frame, 13, 6)).toBe(0)
+        expect(getPixel(sprite, top, frame, 12, 6)).toBe(0)
+        expect(full - countInk()).toBe(4)
+    })
 })

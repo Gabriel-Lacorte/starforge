@@ -1,3 +1,7 @@
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { describe, expect, it } from 'vitest'
 import { MAX_ROOMS, ROOM_TTL_DAYS, RoomStore } from './store'
 
@@ -71,6 +75,27 @@ describe('room store', () => {
             expect(store.pruneStale(10 * day + ROOM_TTL_DAYS * day + 1)).toBe(1)
             expect(store.loadAll().map((entry) => entry.room.id)).toEqual(['fresh'])
             expect(MAX_ROOMS).toBe(100)
+        } finally {
+            store.close()
+        }
+    })
+
+    it('boots over a junk oversized stat row by clamping it', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'relay-store-'))
+        const path = join(dir, 'relay.sqlite')
+        const raw = new DatabaseSync(path)
+        raw.exec('CREATE TABLE stat (key TEXT PRIMARY KEY, value INTEGER NOT NULL)')
+        raw.prepare('INSERT INTO stat (key, value) VALUES (?, ?)').run(
+            'rooms_created',
+            62_056_283_881_901_529n,
+        )
+        raw.close()
+
+        const store = new RoomStore(path)
+        try {
+            expect(store.loadStats()).toEqual({ rooms_created: 9_007_199_254_740_991 })
+            store.bumpStats({ rooms_created: 1 })
+            expect(store.loadStats()).toEqual({ rooms_created: 9_007_199_254_740_991 })
         } finally {
             store.close()
         }

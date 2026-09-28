@@ -24,6 +24,7 @@ import {
     UpIcon,
 } from './icons'
 import { useStore } from './useStore'
+import { useReorder } from './useReorder'
 import styles from './LayersPanel.module.css'
 import { blurOnPointer } from './blurOnPointer'
 
@@ -41,8 +42,17 @@ export function LayersPanel({
     useStore(layers)
     const activeLayer = useStore(target).layer
     const [editing, setEditing] = useState<string | null>(null)
+    const list = useRef<HTMLUListElement>(null)
 
     const drag = useRef<{ layer: string; from: number } | null>(null)
+
+    useReorder(list, '[data-reorder]', (from, to) => {
+        const order = [...sprite.layers].reverse().map((l) => l.id)
+        const [moved] = order.splice(from, 1)
+        order.splice(to, 0, moved!)
+        const above = order.indexOf(moved!) - 1
+        layers.moveTo(moved!, above >= 0 ? order[above]! : null)
+    })
 
     useEffect(
         () => () => {
@@ -81,12 +91,13 @@ export function LayersPanel({
                 </button>
             </header>
 
-            <ul class={styles.list}>
+            <ul class={styles.list} ref={list}>
                 {rows.map((layer) => {
                     const isActive = layer.id === activeLayer
                     return (
                         <li
                             key={layer.id}
+                            data-reorder
                             class={`${styles.row}${isActive ? ` ${styles.active}` : ''}${layer.visible ? '' : ` ${styles.hidden}`}`}
                             data-testid="layer-row"
                             data-layer-id={layer.id}

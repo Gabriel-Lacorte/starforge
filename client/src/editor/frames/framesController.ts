@@ -69,6 +69,17 @@ export class FramesController {
         this.#session.apply('move frame', { kind: 'frame.move', frame: id, after: next.id })
     }
 
+    moveTo(id: string, after: string | null): void {
+        const index = this.#indexOf(id)
+        if (index === -1) return
+        if (after !== null && !this.#has(after)) return
+
+        const previous = index === 0 ? null : this.#sprite.frames[index - 1]!.id
+        if (after === previous) return
+
+        this.#session.apply('move frame', { kind: 'frame.move', frame: id, after })
+    }
+
     setDuration(id: string, duration: number): void {
         const frame = this.#sprite.frames.find((candidate) => candidate.id === id)
         if (!frame || frame.duration === duration) return

@@ -271,3 +271,7 @@
 .reel::-webkit-scrollbar {
     display: none;
 }
+
+[data-reorder] {
+    position: relative;
+}

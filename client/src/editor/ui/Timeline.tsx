@@ -1,5 +1,5 @@
 import { Fragment } from 'preact'
-import { useEffect } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import { FRAME_DURATION_MAX, FRAME_DURATION_MIN } from '@starforge/core'
 import type { FramesController } from '../frames/framesController'
 import type { FrameThumbnails } from '../frames/frameThumbnails'
@@ -16,6 +16,7 @@ import {
     TrashIcon,
 } from './icons'
 import { useStore, type Subscribable } from './useStore'
+import { useReorder } from './useReorder'
 import styles from './Timeline.module.css'
 import { blurOnPointer } from './blurOnPointer'
 import type { EditorStore } from '../store'
@@ -42,8 +43,16 @@ export function Timeline({
     const list = frames.frames
     const index = list.findIndex((frame) => frame.id === active)
     const current = list[index]
+    const reelRef = useRef<HTMLOListElement>(null)
 
-    // thumbnails repaint only the frames whose content stamp moved
+    useReorder(reelRef, '[data-reorder]', (from, to) => {
+        const order = list.map((frame) => frame.id)
+        const [moved] = order.splice(from, 1)
+        order.splice(to, 0, moved!)
+        const before = order.indexOf(moved!) - 1
+        frames.moveTo(moved!, before >= 0 ? order[before]! : null)
+    })
+
     useEffect(() => {
         thumbs.sync(list)
     })
@@ -135,11 +144,11 @@ export function Timeline({
                 </button>
             </span>
 
-            <ol class={styles.reel} data-testid="timeline">
+            <ol class={styles.reel} data-testid="timeline" ref={reelRef}>
                 {list.map((frame, at) => (
                     <Fragment key={frame.id}>
                         {insertGap(`${frame.id}-gap`, at === 0 ? null : list[at - 1]!.id, at)}
-                        <li>
+                        <li data-reorder>
                             <button
                                 type="button"
                                 class={`${styles.cell}${frame.id === active ? ` ${styles.on}` : ''}`}

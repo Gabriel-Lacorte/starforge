@@ -342,3 +342,7 @@
         max-width: 68vw;
     }
 }
+
+[data-reorder] {
+    position: relative;
+}

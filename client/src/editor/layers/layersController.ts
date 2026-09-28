@@ -142,4 +142,15 @@ export class LayersController extends Store<{ doc: number }> {
     #indexOf(id: string): number {
         return this.#sprite.layers.findIndex((l) => l.id === id)
     }
+
+    moveTo(id: string, after: string | null): void {
+        const index = this.#indexOf(id)
+        if (index === -1) return
+        if (after !== null && this.#indexOf(after) === -1) return
+
+        const previous = index === 0 ? null : this.#sprite.layers[index - 1]!.id
+        if (after === previous) return
+
+        this.#session.apply('move layer', { kind: 'layer.move', layer: id, after })
+    }
 }

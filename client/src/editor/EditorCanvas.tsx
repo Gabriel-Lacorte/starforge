@@ -180,6 +180,7 @@ export function EditorCanvas({
             readout,
             layers,
             playback,
+            palette,
             () => activeRef.current,
             () => peersRef.current,
             stroke,
@@ -223,6 +224,7 @@ export function EditorCanvas({
         () =>
             session.subscribe(() => {
                 setGeometry(`${sprite.width}x${sprite.height}`)
+                thumbsRef.current?.sync(sprite.frames)
             }),
         [session, sprite],
     )
@@ -335,6 +337,7 @@ export function EditorCanvas({
                 store={store}
                 readout={readout}
                 palette={sprite.palette}
+                controller={palette}
                 onOpenPalette={() => {
                     show('palette')
                 }}
@@ -410,6 +413,9 @@ export function EditorCanvas({
                 onFit={() => editorRef.current?.fit()}
                 onRename={(title) => {
                     session.rename(title)
+                }}
+                onResizeCanvas={() => {
+                    show('size')
                 }}
                 onNoticeExport={
                     storageNotice

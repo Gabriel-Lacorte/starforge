@@ -561,7 +561,6 @@ describe('room structural ops over the wire', () => {
         if (!('site' in ja) || !('site' in jb)) throw new Error('join failed')
         const { layer, frame } = roomIds(room)
 
-        // local mirror of everything the relay should end up holding
         const mirror = decodeSprite(
             JSON.parse(new TextDecoder().decode(room.snapshotBytes())) as unknown,
         )
@@ -586,7 +585,6 @@ describe('room structural ops over the wire', () => {
                 }),
             )
 
-            // the sender sees its echo, the other member sees the same frame
             for (const peer of [a, b]) {
                 expect(peer.sent.length, `${op.kind} reached everyone`).toBe(1)
                 const echoed = decodeFrame(peer.sent[0]!)
@@ -631,7 +629,6 @@ describe('room structural ops over the wire', () => {
         })
         send({ kind: 'layer.remove', layer: third.id })
 
-        // a painter joining afterwards converges on the exact same document
         const late = new FakePeer()
         const joined = room.join(late, { ...hello(), since: 0 })
         if (!('site' in joined)) throw new Error('late join failed')

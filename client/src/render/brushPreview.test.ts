@@ -99,13 +99,10 @@ describe('stampEdges', () => {
         const has = (x1: number, y1: number, x2: number, y2: number) =>
             edges.some((e) => e.x1 === x1 && e.y1 === y1 && e.x2 === x2 && e.y2 === y2)
 
-        // a 4x4 brush is a rounded square: the corner cells are empty, so
-        // the outline steps around them rather than boxing the bounding square
         expect(has(0, -1, 1, -1)).toBe(true)
         expect(has(-1, -1, 0, -1)).toBe(false)
         expect(has(0, -1, 0, 0)).toBe(true)
 
-        // no edge between two solid cells (the middle of the stamp)
         expect(has(0, 0, 1, 0)).toBe(false)
     })
 })

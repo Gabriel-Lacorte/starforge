@@ -16,6 +16,21 @@ async function thumbInk(page: Page): Promise<number[]> {
     })
 }
 
+async function thumbHash(page: Page): Promise<string[]> {
+    return page.evaluate(() => {
+        const cells = document.querySelectorAll('[data-testid="frame-cell"] canvas')
+        return [...cells].map((cell) => {
+            const canvas = cell as HTMLCanvasElement
+            const data = canvas
+                .getContext('2d')!
+                .getImageData(0, 0, canvas.width, canvas.height).data
+            let hash = 0
+            for (const byte of data) hash = (hash * 31 + byte) | 0
+            return (hash >>> 0).toString(16)
+        })
+    })
+}
+
 test('frame tiles show real thumbnails that follow the art', async ({ page }) => {
     const canvas = await openEditor(page)
     const cells = page.getByTestId('frame-cell')
@@ -37,6 +52,27 @@ test('frame tiles show real thumbnails that follow the art', async ({ page }) =>
     for (let i = 0; i < ink.length; i++) {
         if (i !== 1) expect(ink[i]).toBeGreaterThan(0)
     }
+})
+
+test('a stroke lands on its thumbnail without a reload', async ({ page }) => {
+    const canvas = await openEditor(page)
+
+    const before = (await thumbHash(page))[0] ?? ''
+    await page.keyboard.press(']')
+    await page.keyboard.press(']')
+    await page.keyboard.press(']')
+    await page.keyboard.press(']')
+    await page.keyboard.press(']')
+    const box = (await canvas.boundingBox())!
+    await page.getByTestId('swatch').nth(5).click()
+    await page.mouse.move(box.x + box.width / 2 - 20, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width / 2 + 20, box.y + box.height / 2, { steps: 6 })
+    await page.mouse.up()
+
+    await expect
+        .poll(async () => (await thumbHash(page))[0] ?? '', { timeout: 3000 })
+        .not.toBe(before)
 })
 
 test('the gaps between tiles insert frames where they land', async ({ page }) => {

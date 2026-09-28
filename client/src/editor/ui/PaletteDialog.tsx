@@ -1,10 +1,12 @@
 import { hexToRgba, PALETTE_NAME_MAX, rgbaToHex, type RGBA } from '@starforge/core'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import type { PaletteController } from '../palette/paletteController'
+import { PALETTE_PRESETS } from '../palette/presets'
 import type { EditorStore } from '../store'
 import { ColorField } from './ColorField'
-import { LeftIcon, PlusIcon, RightIcon, TrashIcon } from './icons'
+import { PlusIcon, TrashIcon } from './icons'
 import { useStore, type Subscribable } from './useStore'
+import { useReorder } from './useReorder'
 import styles from './PaletteDialog.module.css'
 
 export function PaletteDialog({
@@ -21,11 +23,17 @@ export function PaletteDialog({
     onClose: () => void
 }) {
     const ref = useRef<HTMLDialogElement>(null)
+    const grid = useRef<HTMLDivElement>(null)
     const fileInput = useRef<HTMLInputElement>(null)
     const importButton = useRef<HTMLButtonElement>(null)
     useStore(revision)
     const state = useStore(store)
     const [selected, setSelected] = useState(0)
+
+    useReorder(grid, `[data-testid="palette-swatch"]`, (from, to) => {
+        palette.move(from, to)
+        setSelected(to)
+    })
 
     useEffect(() => {
         ref.current?.showModal()
@@ -123,10 +131,11 @@ export function PaletteDialog({
                     </label>
 
                     <div
+                        ref={grid}
                         class={styles.grid}
                         role="listbox"
                         tabIndex={0}
-                        aria-label="Palette colours. Alt with the arrow keys reorders"
+                        aria-label="Palette colours. Drag or Alt with the arrow keys reorders"
                         aria-activedescendant={`swatch-${index}`}
                         data-testid="palette-grid"
                         onKeyDown={onGridKey}
@@ -153,28 +162,6 @@ export function PaletteDialog({
                         <button
                             type="button"
                             class={styles.tool}
-                            title="Move this colour left (Alt + Left)"
-                            aria-label="Move colour left"
-                            data-testid="palette-left"
-                            disabled={index <= 0}
-                            onClick={() => shift(-1)}
-                        >
-                            <LeftIcon />
-                        </button>
-                        <button
-                            type="button"
-                            class={styles.tool}
-                            title="Move this colour right (Alt + Right)"
-                            aria-label="Move colour right"
-                            data-testid="palette-right"
-                            disabled={index >= colors.length - 1}
-                            onClick={() => shift(1)}
-                        >
-                            <RightIcon />
-                        </button>
-                        <button
-                            type="button"
-                            class={styles.tool}
                             title="Remove this colour (Delete)"
                             aria-label="Remove this colour"
                             data-testid="palette-remove"
@@ -192,10 +179,41 @@ export function PaletteDialog({
                         </button>
                     </div>
 
-                    <p class={styles.note}>
-                        Removing a swatch leaves the colour you are painting with alone. Importing
-                        replaces the whole palette in one step, which undo puts back.
-                    </p>
+                    <div class={styles.presets} aria-label="Starter palettes">
+                        <span class={styles.presetsLabel}>load</span>
+                        <div class={styles.presetRow} data-testid="palette-presets">
+                            {PALETTE_PRESETS.map((preset) => (
+                                <button
+                                    key={preset.id}
+                                    type="button"
+                                    class={styles.preset}
+                                    title={`Load the ${preset.name} palette (${preset.colors.length} colours)`}
+                                    aria-label={`Load the ${preset.name} palette`}
+                                    data-testid="palette-preset"
+                                    data-preset={preset.id}
+                                    onClick={(e) => {
+                                        palette.replace({
+                                            name: preset.name,
+                                            colors: [...preset.colors],
+                                        })
+                                        setSelected(0)
+                                        blur(e)
+                                    }}
+                                >
+                                    <span class={styles.presetStrip} aria-hidden="true">
+                                        {preset.colors.slice(0, 8).map((hex) => (
+                                            <span
+                                                key={hex}
+                                                class={styles.presetDot}
+                                                style={{ background: hex }}
+                                            />
+                                        ))}
+                                    </span>
+                                    <span class={styles.presetName}>{preset.name}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 </div>
 
                 <div class={styles.mixer}>
@@ -296,4 +314,8 @@ export function PaletteDialog({
 
 function clamp(index: number, length: number): number {
     return Math.max(0, Math.min(index, length - 1))
+}
+
+function blur(e: { currentTarget: HTMLElement }): void {
+    e.currentTarget.blur()
 }

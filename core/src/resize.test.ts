@@ -76,7 +76,7 @@ describe('resizeCanvas', () => {
         writePixel(sprite, layer, frame, 1, 1, RED)
 
         for (const size of [
-            { width: 8, height: 32 },
+            { width: 4, height: 32 },
             { width: 32, height: 4096 },
         ]) {
             expect(() => resizeCanvas(sprite, size, 0, 0)).toThrow(RangeError)

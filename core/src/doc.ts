@@ -50,18 +50,15 @@ export interface Layer {
 }
 
 export interface Cel {
-    /* cel offset in sprite space. always (0,0) until move */
     x: number
     y: number
 
-    /* RGBA, width*height*4 (~ 256kb at 256^2) */
     pixels: Uint8Array<ArrayBuffer>
     version: number
 }
 
 export interface Frame {
     id: string
-    /* display time in ms */
     duration: number
 }
 
@@ -70,7 +67,7 @@ export interface Palette {
     colors: string[]
 }
 
-export const SPRITE_MIN_SIZE = 16
+export const SPRITE_MIN_SIZE = 8
 export const SPRITE_MAX_SIZE = 1024
 
 export const DEFAULT_FRAME_DURATION = 100

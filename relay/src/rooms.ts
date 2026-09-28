@@ -23,7 +23,7 @@ import { WsSocket } from './ws/socket.js'
 
 export const ROOM_ID_RE = /^[A-Za-z0-9_-]{12}$/
 
-const ROOM_MIN_SIZE = 16
+const ROOM_MIN_SIZE = 8
 const ROOM_MAX_SIZE = 256
 const ROOMS_PER_HOUR_PER_IP = 20
 

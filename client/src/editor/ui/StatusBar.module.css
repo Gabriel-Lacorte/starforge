@@ -51,6 +51,21 @@
     gap: 6px;
 }
 
+.docSize {
+    font: inherit;
+    flex: none;
+    padding: 2px 4px;
+    color: var(--dim);
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+}
+
+.docSize:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
 .pos {
     min-width: 9ch;
     color: var(--text);
@@ -292,6 +307,11 @@
 
 @media (hover: hover) {
     .docTitle:hover {
+        border-color: var(--line);
+    }
+
+    .docSize:hover {
+        color: var(--accent);
         border-color: var(--line);
     }
 

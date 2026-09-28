@@ -32,34 +32,52 @@ export function ToolOptions({ store }: { store: EditorStore }) {
     return (
         <div class={styles.optionStrip}>
             {shows('brush') && (
-                <span class={styles.opt} title={`${label} size`}>
-                    {label}
-                    <span class={styles.stepper}>
-                        <button
-                            type="button"
-                            aria-label={`${label} smaller`}
-                            onClick={(e) => {
-                                sizeTo(size - 1)
-                                blurOnPointer(e)
-                            }}
-                        >
-                            -
-                        </button>
-                        <span class="mono" data-testid="brush-size">
-                            {size}
+                <>
+                    <span class={styles.opt} title={`${label} size`}>
+                        {label}
+                        <span class={styles.stepper}>
+                            <button
+                                type="button"
+                                aria-label={`${label} smaller`}
+                                onClick={(e) => {
+                                    sizeTo(size - 1)
+                                    blurOnPointer(e)
+                                }}
+                            >
+                                -
+                            </button>
+                            <span class="mono" data-testid="brush-size">
+                                {size}
+                            </span>
+                            <button
+                                type="button"
+                                aria-label={`${label} larger`}
+                                onClick={(e) => {
+                                    sizeTo(size + 1)
+                                    blurOnPointer(e)
+                                }}
+                            >
+                                +
+                            </button>
                         </span>
-                        <button
-                            type="button"
-                            aria-label={`${label} larger`}
-                            onClick={(e) => {
-                                sizeTo(size + 1)
-                                blurOnPointer(e)
-                            }}
-                        >
-                            +
-                        </button>
                     </span>
-                </span>
+                    <label class={styles.opt} title={`${label} size`}>
+                        <span class="sr-only">{label} size</span>
+                        <input
+                            class={styles.range}
+                            type="range"
+                            min={1}
+                            max={BRUSH_MAX_SIZE}
+                            step={1}
+                            value={size}
+                            aria-label={`${label} size`}
+                            data-testid="brush-slider"
+                            onInput={(e) => {
+                                sizeTo(Number(e.currentTarget.value))
+                            }}
+                        />
+                    </label>
+                </>
             )}
 
             {shows('opacity') && (

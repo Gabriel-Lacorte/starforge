@@ -55,6 +55,7 @@ export function StatusBar({
     onZoom,
     onFit,
     onRename,
+    onResizeCanvas,
     onNoticeExport,
 }: {
     sprite: Sprite
@@ -66,6 +67,7 @@ export function StatusBar({
     onZoom: (direction: 1 | -1) => void
     onFit: () => void
     onRename: (title: string) => void
+    onResizeCanvas: () => void
     onNoticeExport?: () => void
 }) {
     const [renaming, setRenaming] = useState(false)
@@ -113,9 +115,16 @@ export function StatusBar({
                     {sprite.meta.title}
                 </button>
             )}
-            <span class={`mono ${styles.docSize}`}>
+            <button
+                type="button"
+                class={`mono ${styles.docSize}`}
+                title="Resize or scale the canvas"
+                aria-label={`Canvas ${sprite.width} by ${sprite.height}`}
+                data-testid="doc-size"
+                onClick={onResizeCanvas}
+            >
                 {sprite.width}x{sprite.height}
-            </span>
+            </button>
 
             <span
                 class="mono dim"

@@ -2,7 +2,7 @@ import { SPRITE_MAX_SIZE, SPRITE_MIN_SIZE } from '@starforge/core'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import styles from './NewSpriteDialog.module.css'
 
-const PRESETS = [16, 32, 64, 128, 256] as const
+const PRESETS = [8, 16, 32, 64, 128, 256] as const
 
 const TITLE_MAX = 48
 const FALLBACK_TITLE = 'untitled'

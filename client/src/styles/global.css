@@ -69,6 +69,12 @@ body,
     height: 100%;
 }
 
+@supports (height: 100dvh) {
+    html {
+        height: 100dvh;
+    }
+}
+
 body {
     background: var(--bg);
     color: var(--text);
@@ -244,4 +250,15 @@ input[type='radio']:focus-visible {
     box-shadow:
         inset 1px 1px 0 var(--face-hi),
         inset -1px -1px 0 var(--face-lo);
+}
+
+[data-reorder] {
+    cursor: grab;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.reorder-source {
+    cursor: grabbing;
 }

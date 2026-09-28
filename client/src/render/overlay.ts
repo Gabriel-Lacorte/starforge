@@ -33,6 +33,8 @@ export interface SymmetryGuides {
 
 const GUIDE_STROKE = 'rgba(154, 154, 154, 0.5)'
 
+const GRID_MAJOR_EVERY = 8
+
 export class PreviewOverlay {
     readonly #ctx: CanvasRenderingContext2D
     readonly #buffer: HTMLCanvasElement
@@ -220,6 +222,22 @@ export class PreviewOverlay {
                 ctx.lineTo(x, panY + h)
             }
             for (let j = 1; j < this.#height; j++) {
+                const y = Math.round(panY + j * view.zoom) + 0.5
+                ctx.moveTo(panX, y)
+                ctx.lineTo(panX + w, y)
+            }
+            ctx.stroke()
+        }
+
+        if (view.zoom >= 2) {
+            ctx.strokeStyle = 'rgba(154, 154, 154, 0.35)'
+            ctx.beginPath()
+            for (let i = GRID_MAJOR_EVERY; i < this.#width; i += GRID_MAJOR_EVERY) {
+                const x = Math.round(panX + i * view.zoom) + 0.5
+                ctx.moveTo(x, panY)
+                ctx.lineTo(x, panY + h)
+            }
+            for (let j = GRID_MAJOR_EVERY; j < this.#height; j += GRID_MAJOR_EVERY) {
                 const y = Math.round(panY + j * view.zoom) + 0.5
                 ctx.moveTo(panX, y)
                 ctx.lineTo(panX + w, y)

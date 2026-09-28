@@ -26,7 +26,8 @@ const GRID_MIN_ZOOM = 8
 
 export class Renderer {
     readonly #ctx: CanvasRenderingContext2D
-    readonly #checker: CanvasPattern
+    #checker: CanvasPattern | null = null
+    #checkerCell = 0
     readonly #compositor = new Compositor(canvasBackend())
     readonly #ghostTints = new Map<string, GhostTint>()
 
@@ -34,7 +35,6 @@ export class Renderer {
         const ctx = canvas.getContext('2d')
         if (!ctx) throw new Error('2d context unavailable')
         this.#ctx = ctx
-        this.#checker = makeCheckerPattern(ctx)
     }
 
     get stats(): { readonly recompositions: number } {
@@ -55,10 +55,8 @@ export class Renderer {
         ctx.fillStyle = BACKDROP
         ctx.fillRect(0, 0, cw, ch)
 
-        ctx.translate(panX, panY)
-        ctx.fillStyle = this.#checker
-        ctx.fillRect(0, 0, w, h)
-        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        ctx.fillStyle = this.#checkerPattern(this.#dpr())
+        ctx.fillRect(panX, panY, w, h)
 
         for (const ghost of ghosts) {
             this.#drawGhost(sprite, ghost, panX, panY, w, h)
@@ -71,9 +69,11 @@ export class Renderer {
             this.#drawGrid(sprite, view.zoom, panX, panY, cw, ch)
         }
 
+        const edge = Math.max(1, Math.round(this.#dpr()))
+        const half = edge / 2
         ctx.strokeStyle = DOC_EDGE
-        ctx.lineWidth = 1
-        ctx.strokeRect(panX - 0.5, panY - 0.5, w + 1, h + 1)
+        ctx.lineWidth = edge
+        ctx.strokeRect(panX - half, panY - half, w + edge, h + edge)
     }
 
     invalidate(
@@ -86,6 +86,21 @@ export class Renderer {
         h: number,
     ): void {
         this.#compositor.invalidateCel(sprite, layerId, frameId, x, y, w, h)
+    }
+
+    #dpr(): number {
+        const { width, clientWidth } = this.#ctx.canvas
+        if (!clientWidth || !Number.isFinite(clientWidth) || clientWidth <= 0) return 1
+        return width / clientWidth
+    }
+
+    #checkerPattern(dpr: number): CanvasPattern {
+        const cell = Math.max(4, Math.round((CHECKER_SIZE * dpr) / 2) * 2)
+        if (this.#checker === null || cell !== this.#checkerCell) {
+            this.#checker = makeCheckerPattern(this.#ctx, cell)
+            this.#checkerCell = cell
+        }
+        return this.#checker
     }
 
     sample(sprite: Sprite, frameId: string, x: number, y: number): CursorSample | null {
@@ -173,17 +188,17 @@ export class Renderer {
     }
 }
 
-function makeCheckerPattern(ctx: CanvasRenderingContext2D): CanvasPattern {
+function makeCheckerPattern(ctx: CanvasRenderingContext2D, cell: number): CanvasPattern {
     const tile = document.createElement('canvas')
-    tile.width = tile.height = CHECKER_SIZE * 2
+    tile.width = tile.height = cell * 2
 
     const tileCtx = tile.getContext('2d')
     if (!tileCtx) throw new Error('2d context unavailable')
     tileCtx.fillStyle = CHECKER_DARK
     tileCtx.fillRect(0, 0, tile.width, tile.height)
     tileCtx.fillStyle = CHECKER_LIGHT
-    tileCtx.fillRect(CHECKER_SIZE, 0, CHECKER_SIZE, CHECKER_SIZE)
-    tileCtx.fillRect(0, CHECKER_SIZE, CHECKER_SIZE, CHECKER_SIZE)
+    tileCtx.fillRect(cell, 0, cell, cell)
+    tileCtx.fillRect(0, cell, cell, cell)
 
     const pattern = ctx.createPattern(tile, 'repeat')
     if (!pattern) throw new Error('checker pattern creation failed')

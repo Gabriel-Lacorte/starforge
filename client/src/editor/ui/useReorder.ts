@@ -70,6 +70,7 @@ export function useReorder(
             strip(state)
             document.removeEventListener('touchmove', preventTouchScroll)
             if (state.to !== state.from) commit.current(state.from, state.to)
+            setTimeout(() => delete state.item.dataset.reorderDragged)
         }
 
         const preventTouchScroll = (event: TouchEvent): void => {

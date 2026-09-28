@@ -50,8 +50,8 @@ export function LayersPanel({
         const order = [...sprite.layers].reverse().map((l) => l.id)
         const [moved] = order.splice(from, 1)
         order.splice(to, 0, moved!)
-        const above = order.indexOf(moved!) - 1
-        layers.moveTo(moved!, above >= 0 ? order[above]! : null)
+        const below = order.indexOf(moved!) + 1
+        layers.moveTo(moved!, below < order.length ? order[below]! : null)
     })
 
     useEffect(

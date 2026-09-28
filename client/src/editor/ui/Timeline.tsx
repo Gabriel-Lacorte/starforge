@@ -148,7 +148,7 @@ export function Timeline({
                 {list.map((frame, at) => (
                     <Fragment key={frame.id}>
                         {insertGap(`${frame.id}-gap`, at === 0 ? null : list[at - 1]!.id, at)}
-                        <li data-reorder>
+                        <li data-reorder data-frame-id={frame.id}>
                             <button
                                 type="button"
                                 class={`${styles.cell}${frame.id === active ? ` ${styles.on}` : ''}`}
